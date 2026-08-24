@@ -1,7 +1,7 @@
 # IQS-Flow DSL 规范（企业体系文件流程图）
 
 > **状态**: 设计落盘 v1（语法完备，尚未实现）
-> **版本**: 0.4.0
+> **版本**: 0.5.0
 > **适用范围**: 新增 IQS-DSL v1 第 14 个 core kind —— `flow`
 > **作者**: 洪光华 / 鹿溪联合创新实验室
 > **落盘日期**: 2026-08-25
@@ -40,19 +40,20 @@
 ## 1. 语法概览（BNF 骨架）
 
 ```
-flow          := shell* (lane | pool | subprocess)*
+flow          := shell* axisDecl* (lane | pool | subprocess)*
 shell         := "Title:" text | "Layout:" layoutWord | 注释
-lane          := "Lane:[" name "," display? "," hv "," ord "]" axisDecl? (属性)* newline nodeOrBlock*
+axisDecl      := "axis:" ("D" "[" title "]" | "P" "[" title "]" | "R" "[" roles "]")
+lane          := "Lane:[" name "," display? "," hv "," ord "]" (属性)* newline nodeOrBlock*
 pool          := "Pool:" name newline (lane)*
-axisDecl      := "axis:" ("D"|"P"|"R")
 nodeOrBlock   := nodeLine | branchBlock | subprocess
-nodeLine      := id "[" mark "," label "]" coord? (属性)*
+nodeLine      := id "[" mark "," label "]" coord? forDecl? (属性)*
 coord         := "@[" name ("," name)? "]"
+forDecl       := "for" "R" "[" index "]"
 branchBlock   := gatewayLine branchLine* "End"
 subprocess    := nodeLine "[" "SUB" ... "]" coord? newline nodeOrBlock* "End"
 ```
 
-核心语法模型：**显式 id + 显式块 + 坐标标记**。每个节点 `id [标记, 标签] @[泳道name,…]` 一行；分支块与子流程块用 **`End`** 显式闭合；不依赖缩进判定块边界。泳道用 `Lane:[name, 显示名, H/V, 序号]` 坐标标记声明，`H`/`V` 决定行列轴。
+核心语法模型：**显式 id + 显式块 + 坐标标记 + 文档级轴**。`axis:D[标题]`/`axis:P[标题]` 声明横/纵坐标轴语义标题，`axis:R[岗位清单]` 声明岗位图例；每个节点 `id [标记, 标签] @[泳道name,…] [for R[i]]` 一行；分支块与子流程块用 **`End`** 显式闭合；泳道用 `Lane:[name, 显示名, H/V, 序号]` 坐标标记，`H`/`V` 决定行列轴。
 
 ---
 
@@ -85,7 +86,7 @@ subprocess    := nodeLine "[" "SUB" ... "]" coord? newline nodeOrBlock* "End"
 
 ---
 
-## 3. 泳道模型（坐标标记 × 三维轴）
+## 3. 泳道模型（坐标标记 × 矩阵布局 + 文档级轴语义）
 
 ### 3.1 泳道坐标标记（`Lane:[name, displayText, H/V, order]`）
 
@@ -111,66 +112,72 @@ Lane:[office, 综合办, H, 2]
 
 > **`name` 即坐标**：`[sales, …, H, 1]` 表明"营销部"占 H 方向第 1 行；`[step1, …, V, 1]` 占 V 方向第 1 列。交叉格即行列交集。
 
-### 3.2 轴语义（axis 三态 D/P/R）
+### 3.2 文档级轴语义（axis:D / axis:P / axis:R）
 
-`Lane:` 四元组中 `H/V` 决定**排列维**（行/列）；**axis** 是可选后缀，表达泳道**语义**（决定归属与属性含义）。axis 缺省按 H/V 推断：H→D（部门），V→P（阶段）。如需 R 岗位语义或让 H/V 与 D/P 解耦，用 `axis:` 显式声明。
-
-| axis | 主标记 | 兼容别名 | 含义 | 管理词汇 | 通常 H/V |
-|:---|:---|:---|:---|:---|:---|
-| **部门** | `D` | `dept` `部门` | 职能部门归属 | GF/CX 管业务 | H（行，默认） |
-| **阶段** | `P` | `phase` `阶段` | 过程/生命周期阶段 | BPA-BPM-BPI、PDCA | V（列，默认） |
-| **岗位** | `R` | `role` `岗位` | 具体岗位/角色 | GW 管人 | 不占行列坐标 |
+axis **不再挂 Lane**，改为**文档级声明**，放在 `Title/Layout` 之后、`Lane:` 之前。它不决定行列（行列全由 H/V + 序号管），而是给矩阵坐标轴加**语义标题/图例**——类似图纸的坐标轴名与右下角图例栏：
 
 ```dsl
-Lane:[sales, 营销部, H, 1]               // 缺省 axis → D（部门），作行轴
-Lane:[step1, 预售, V, 1] axis:P          // 显式 axis:P（阶段），作列轴
-Lane:[mgr, 经理岗, H, 2] axis:R          // 岗位泳道——不占行列坐标，仅作 Role 容器
+Title: 采购申请审批流程
+Layout: H
+axis:D[职能部门]                 // 横轴标题：作为 H 泳道集合的语义名
+axis:P[推进阶段]                 // 纵轴标题：作为 V 泳道集合的语义名
+axis:R[申请员, 部门经理, 财务岗, 仓管员]   // 岗位图例清单（索引 0 起）
 ```
 
-> 旧写法 `Lane: D:营销; R:市场经理` 保留兼容（`;` 分隔多 axis）；推荐用 `Lane:[…] axis:` 统一表达。
+| axis | 含义 | 作用 |
+|:---|:---|:---|
+| `axis:D[标题]` | 职能部门轴标注 | 给横轴（H 泳道集合）一个语义标题，渲染为坐标轴标签 |
+| `axis:P[标题]` | 阶段轴标注 | 给纵轴（V 泳道集合）一个语义标题，渲染为坐标轴标签 |
+| `axis:R[岗位,...]` | 岗位图例清单 | **索引表**（0 起）；节点用 `for R[i]` 引用，渲染为节点右下角岗位标注 + 图纸式图例栏 |
 
-### 3.3 二维交叉矩阵
+> **D/P/R 管理词汇映射**（语义注解，非渲染约束）：D=职能部门 / GF-CX 管业务；P=推进阶段 / BPA-BPM-BPI、PDCA；R=岗位 / GW 管人。这些语义由 axis 标题与岗位清单表达，不再与 H/V 行列绑定。
 
-- **行轴** = H 泳道（默认 axis=D 部门），**列轴** = V 泳道（默认 axis=P 阶段）。
+### 3.3 二维交叉矩阵布局
+
+- **行轴** = 所有 `H` 泳道（`Lane:[…, H, 序]`），**列轴** = 所有 `V` 泳道（`Lane:[…, V, 序]`）。
 - 只有 H 泳道 → 单维横泳道；只有 V → 单维竖泳道。
-- 节点落在 `(H泳道, V泳道)` 交叉单元格。
+- 节点落在 `(H泳道, V泳道)` 交叉单元格。axis:D/P 的 `[标题]` 作为横/纵坐标轴标签。
 
-### 3.4 坐标锚定（`@[name1, name2]`）
+### 3.4 坐标锚定与岗位标注（`@[...]` + `for R[i]`）
 
-节点用 `@[<H泳道name>, <V泳道name>]` 锚定到交叉单元格：
+节点用 `@[<H泳道name>, <V泳道name>]` 锚定到交叉单元格；用 `for R[i]` 在**节点右下角**附加岗位说明（索引指向 `axis:R` 清单，0 起）：
 
 ```dsl
-s1 [S, 处理预售] @[sales, step1]     // 落"营销部行 × 预售列"格
-t2 审核 @[office, step1]             // 跨行：综合办×预售
+s1 [S, 处理预售] @[sales, step1] for R[0]    // 落"营销行×预售列"，右下角标注"申请员"
+b1 [ , 审批]     @[mgr,  step2] for R[1] [Time 24h]   // 右下角标注"部门经理"
+t2 [ , 返工]     @[qc,   check]             // 无 for，不标注岗位
 ```
 
-省略规则（宽松优先）：
-| 写法定 | 锚定 |
+表格：写法定（省略规则）
+
+| 写法 | 锚定 |
 |:---|:---|
 | 节点写在某 H 泳道段内，省略 `@` | 行 = 该泳道，列 = 当前 V 泳道上下文 |
-| 省略行缺列 | 继承当前泳道上下文 |
+| 省略 `for R[i]` | 无岗位右下角标注 |
 | 显式 `@[name1,name2]` | 完全按坐标，可跨行列放置 |
+| `for R[i]` | 索引引用 `axis:R` 清单，寄出越界则报校验错 |
 
-> `@[name]` 单参数 = 只锚一维；两参 = 交叉格。`@[sales,step1]` 等效旧 `@P:step1`（旧写法保留兼容，`@[..]` 为推荐）。
+> `@[name]` 单参数 = 只锚一维；两参 = 交叉格。旧 `@P:step1` 写法保留兼容。`for R[i]` 是 `Role` 属性的语法糖（见 §5）。
 
 ---
 
 ## 4. 节点行语法
 
 ```
-<id> [<标记>, <标签>] @[泳道name, …] [<属性>]*
+<id> [<标记>, <标签>] @[泳道name, …] [for R[i]] [<属性>]*
 ```
 
 - **id 全局强制唯一**（字母/数字/下划线，如 `s1`、`b1`、`L1-check`）。
 - **标记 + 标签**：按 §2.1，用 `[标记, 标签]` 一元组内置（任务可省略标记）。也可用旧式 `id [标记] 标签`。
 - **坐标定位 `@[name1, name2]`**：锚到行列泳道交叉格（见 §3.4）；省略则继承当前泳道上下文。
-- 属性：`[键 值]`，见 §5。多个属性依次排列。
+- **岗位标注 `for R[i]`**：索引引用 `axis:R` 岗位清单（0 起），渲染为节点**右下角**岗位说明（见 §3.2 / §3.4）；等价于 `[Role …]` 属性，详见 §5。
+- 属性：`[键 值]`，见 §5。多个属性依次排列。`for R[i]` 在属性之前优先解析。
 
 **示例**
 ```dsl
-s1 [S, 提交采购申请] @[sales, step1] [Time 2h]
-s2 [ , 填写申请单] @[sales, step1]           // 无标记 → 任务
-q1 [?, 金额超过5000?] @[sales, step2]
+s1 [S, 提交采购申请] @[sales, step1] for R[0] [Time 2h]
+s2 [ , 填写申请单] @[sales, step1] for R[0]    // 无标记 → 任务
+q1 [?, 金额超过5000?] @[sales, step2]         // 无 for，不标注
 ```
 
 ---
@@ -200,6 +207,15 @@ f1 [D, 付款记录] @[finance, settle] [KPI 退款率≤1‰] [M 已数字化] 
 
 **继承**：泳道属性扩展至其下所有节点，节点可覆盖。粒度：泳道 > 泳池 > 文档 > 默认。
 
+**`for R[i]` 与 `Role` 的统一**：`for R[i]` 是 `[Role 岗位名]` 的**语法糖**——解析时从 `axis:R[岗位清单]` 取第 `i` 位，写入节点 `attrs.role`；同时把该岗位渲染到节点**右下角**标注。等价写法：
+
+```dsl
+s1 [S, 提交申请] @[sales,step1] for R[0]      // 语法糖 → role=申请员
+s2 [S, 提交申请] @[sales,step1] [Role 申请员]  // 等价底层属性
+```
+
+> 未声明 `axis:R` 时 `for R[i]` 视为错误；`[Role 岗位名]` 则不依赖清单，直接赋岗位名。二者共存时以节点级为准。
+
 ### 5.2 canonical 属性键约定
 
 canonical JSON 属性键统一改**小写驼峰**（避免 `SOP` 大写 vs `role` 小写错位）：
@@ -207,7 +223,7 @@ canonical JSON 属性键统一改**小写驼峰**（避免 `SOP` 大写 vs `role
 | DSL 键 | canonical 键 | 值 |
 |:---|:---|:---|
 | `SOP` | `sop` | 标准编号 |
-| `Role` | `role` | 岗位名 |
+| `Role` / `for R[i]` | `role` | 岗位名（`for R[i]` 由 `axis:R` 清单解析） |
 | `Lv` | `level` | `major`/`important`/`common` |
 | `Time` | `time` | SLA 时限 |
 | `KPI` | `kpi` | 指标 |
@@ -297,6 +313,9 @@ End
 ```dsl
 Title: 采购申请审批流程
 Layout: H
+axis:D[职能部门]                       // 横轴标题
+axis:P[推进阶段]                       // 纵轴标题
+axis:R[申请员, 部门经理, 财务岗]        // 岗位图例清单（索引 0 起）
 Pool: 采购协同
 
 Lane:[step1, 申请阶段, V, 1]
@@ -304,27 +323,27 @@ Lane:[step2, 审批阶段, V, 2]
 Lane:[step3, 结算阶段, V, 3]
 
 Lane:[sales, 申请人, H, 1] [SOP XX-GF-03]
-  s1 [S, 提交采购申请] @[sales, step1] [Time 2h]
-  s2 [ , 填写申请单] @[sales, step1] [Lv 一般]
+  s1 [S, 提交采购申请] @[sales, step1] for R[0] [Time 2h]
+  s2 [ , 填写申请单] @[sales, step1] for R[0] [Lv 一般]
   s3 [?, 金额超过5000?] @[sales, step1]
     是 → #b1
     否 → #s4
   End
-  s4 [ , 直接执行] @[sales, step1]
-  s5 [E, 归档] @[sales, step3]
+  s4 [ , 直接执行] @[sales, step1] for R[0]
+  s5 [E, 归档] @[sales, step3] for R[0]
 
 Lane:[mgr, 部门经理, H, 2]
-  b1 [ , 审批] @[mgr, step2] [Lv 重要] [Time 24h]
+  b1 [ , 审批] @[mgr, step2] for R[1] [Lv 重要] [Time 24h]
   b2 [?, 是否通过?] @[mgr, step2]
     是 → #f1
     否 → #b3
   End
-  b3 [ , 退回修改] @[mgr, step2]
+  b3 [ , 退回修改] @[mgr, step2] for R[1]
   b3 → #s2
 
 Lane:[finance, 财务, H, 3]
-  f1 [ , 付款] @[finance, step3] [KPI 退款率≤1‰] [M 已数字化]
-  f2 [E, 完成] @[finance, step3]
+  f1 [ , 付款] @[finance, step3] for R[2] [KPI 退款率≤1‰] [M 已数字化]
+  f2 [E, 完成] @[finance, step3] for R[2]
 ```
 
 ### 8.2 纵泳道 + 多出口 + 子流程
@@ -332,38 +351,41 @@ Lane:[finance, 财务, H, 3]
 ```dsl
 Title: 合同评审
 Layout: V
+axis:D[经办部门]
+axis:P[评审节点]
+axis:R[采购员, 法务专员, 质检员, 仓管员]
 Lane:[review, 评审阶段, V, 1]
 Lane:[sign, 会签阶段, V, 2]
 
 Lane:[purchase, 采购, H, 1]
-  a1 [S, 提交合同] @[purchase, review]
+  a1 [S, 提交合同] @[purchase, review] for R[0]
   a2 [SUB, 按《合同评审程序》执行] @[purchase, review]
-    c1 [S, 初审]
+    c1 [S, 初审] for R[0]
     c2 [?, 合规?]
       是 → #c3
       否 → #a4
     End
-    c3 [E, 盖章]
+    c3 [E, 盖章] for R[0]
   End
-  a3 [ , 归档] @[purchase, sign]
+  a3 [ , 归档] @[purchase, sign] for R[0]
   a4 [E, 驳回] @[purchase, review]
 
 Lane:[legal, 法务, H, 2]
-  l1 [ , 法律审查] @[legal, review]
+  l1 [ , 法律审查] @[legal, review] for R[1]
 
 Lane:[qc, 质检, H, 3]
-  q1 [S, 来料检验] @[qc, review]
+  q1 [S, 来料检验] @[qc, review] for R[2]
   q2 [?, 检验结果?] @[qc, review]
     合格 (pass) → #w1
     返工 (rework) [缺陷≤3] → #q3
     否则 → #w3
     报废 → #w2, #w4
   End
-  q3 [ , 返工处理] @[qc, review]
+  q3 [ , 返工处理] @[qc, review] for R[2]
   q3 → #q1
 
 Lane:[warehouse, 仓库, H, 4]
-  w1 [ , 入库] @[warehouse, sign]
+  w1 [ , 入库] @[warehouse, sign] for R[3]
   w4 [ , 报废登记] @[warehouse, sign]
 
 Lane:[purchase2, 采购供应商, H, 5]
@@ -378,19 +400,23 @@ Lane:[purchase2, 采购供应商, H, 5]
 ```json
 {
   "kind": "flow",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "title": "采购申请审批流程",
   "layout": "horizontal",
+  "axes": [
+    {"type": "D", "title": "职能部门", "axis": "H"},
+    {"type": "P", "title": "推进阶段", "axis": "V"},
+    {"type": "R", "roles": ["申请员", "部门经理", "财务岗"]}
+  ],
   "pools": [{"id": "P1", "name": "采购协同"}],
   "lanes": [
-    {"name": "step1", "displayName": "申请阶段", "axis": "P", "hv": "V", "order": 1,
-     "pool": "P1"},
-    {"name": "sales", "displayName": "申请人", "axis": "D", "hv": "H", "order": 1,
+    {"name": "step1", "displayName": "申请阶段", "hv": "V", "order": 1, "pool": "P1"},
+    {"name": "sales", "displayName": "申请人", "hv": "H", "order": 1,
      "pool": "P1", "defaults": {"sop": "XX-GF-03"}}
   ],
   "nodes": [
     {"id": "s1", "type": "start", "label": "提交采购申请",
-     "cell": ["sales", "step1"], "attrs": {"time": "2h"}},
+     "cell": ["sales", "step1"], "attrs": {"time": "2h", "role": "申请员"}},
     {"id": "s3", "type": "exclusiveGateway", "label": "金额超过5000?",
      "cell": ["sales", "step1"], "attrs": null}
   ],
@@ -413,9 +439,9 @@ Lane:[purchase2, 采购供应商, H, 5]
 }
 ```
 
-**坐标落格**：节点用 `cell: [<H泳道name>, <V泳道name>]` 表达交叉格；泳道 `hv`+`order` 决定它在矩阵的行/列序。
+**坐标落格**：`axes` 是文档级轴声明——`D[职能标题]`/`P[阶段标题]` 作横/纵坐标轴标签，`R[岗位清单]` 供 `for R[i]` 索引用。节点用 `cell: [<H泳道name>, <V泳道name>]` 表达交叉格；泳道 `hv`+`order` 决定行列序。
 
-> **多泳道出现时图例的自然落格**：渲染器先按 `hv`+`order` 建二维网格，再把每个节点按其 `cell`（或继承的泳道级坐标）放入对应交叉格——部门泳道（H 行）× 阶段泳道（V 列）的格子里，岗位（R）不占格，仅作 `Role` 属性标注在节点标签下方。跨泳道/跨阶段动作用 `→ #id` 引到目标格对应节点，不复制节点。
+> **图例落格与岗位标注**：渲染器先按全部泳道 `hv`+`order` 建二维网格，再把每个节点按 `cell` 放入交叉格；`for R[i]`（或 `role` 属性）渲染为节点**右下角岗位标注**，`axes` 的 `R[清单]` 作为**图纸式图例栏**列在右下角。跨泳道/跨阶段动作用 `→ #id` 引到目标格，不复制节点。
 
 **边 id 规则**：显式 `(out)` 用该名；缺省自动编号 `<源id>-<出口序>`（`q2-N`）或 `<源id>-<档位><序>`（多目标 `q2-4a`）。
 
@@ -428,7 +454,8 @@ Lane:[purchase2, 采购供应商, H, 5]
 | 开始点 | 全局仅一个 `start`；结束至少一个 `end` |
 | 节点 id | 全局唯一；`#id` 引用必须存在 |
 | **泳道 name** | 全局唯一；`@[...]` 引用的泳道 name 必须已定义 |
-| axis 合法性 | axis ∈ {D,P,R} |
+| **axis 声明** | axis ∈ {D,P,R}；`D`/`P` 各至多一个带标题，`R` 为岗位清单 |
+| **for R[i] 索引** | `for R[i]` 的 `i` 必须在 `axis:R[清单]` 长度内；未声明 `axis:R` 时禁用 |
 | **坐标锚定** | `@[name]`/`@[name1,name2]` 两参数必须分别命中 H/V 泳道；仅单维时允许单参 |
 | 块闭合 | 每个分支块/子流程块必须有配对的 `End`，不交叉嵌套 |
 | 网关出入度 | 排他/并行：1 入 ≥1 出；默认出口仅一个 |
