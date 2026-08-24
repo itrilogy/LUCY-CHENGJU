@@ -507,9 +507,12 @@ const App: React.FC = () => {
 
   const [basicData, setBasicData] = useState<BasicChartData>(() => {
     const dsl = (isHeadless && headlessType === QCToolType.BASIC && headlessDsl) ? headlessDsl : INITIAL_BASIC_DSL;
-    try { return parseInitialBasic().data; } catch { return INITIAL_BASIC_DATA; }
+    try { return parseBasicDSL(dsl).data; } catch { return INITIAL_BASIC_DATA; }
   });
-  const [basicStyles, setBasicStyles] = useState<BasicChartStyles>(() => parseInitialBasic().styles);
+  const [basicStyles, setBasicStyles] = useState<BasicChartStyles>(() => {
+    const dsl = (isHeadless && headlessType === QCToolType.BASIC && headlessDsl) ? headlessDsl : INITIAL_BASIC_DSL;
+    try { return parseBasicDSL(dsl).styles; } catch { return parseInitialBasic().styles; }
+  });
 
   const [radarData, setRadarData] = useState<RadarData>(() => {
     const dsl = (isHeadless && headlessType === QCToolType.RADAR && headlessDsl) ? headlessDsl : INITIAL_RADAR_DSL;
@@ -667,14 +670,16 @@ const App: React.FC = () => {
             <div className="p-8 h-20 flex items-center justify-between border-b border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] shrink-0">
               <button
                 onClick={() => setSelectedTool(QCToolType.DASHBOARD)}
-                className="flex items-center gap-5 active:scale-95 transition-all group"
+                className="flex items-center gap-4 active:scale-95 transition-all group"
               >
-                <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:bg-blue-500 transition-all">
-                  <Cpu className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="font-black text-[var(--sidebar-text)] text-lg tracking-tighter leading-none uppercase">Intelligent QC Studio</h1>
-                  <p className="text-[8px] text-blue-400 uppercase font-black tracking-[0.2em] mt-1 opacity-60">IQS Logic Core</p>
+                <img
+                  src="/brand/iqs-mark.svg"
+                  alt="澄矩 · ChengJu"
+                  className="w-10 h-10 rounded-2xl shadow-lg ring-1 ring-black/5 group-hover:shadow-xl group-hover:scale-105 transition-all"
+                />
+                <div className="text-left">
+                  <h1 className="font-black text-[var(--sidebar-text)] text-lg tracking-tighter leading-none">澄矩 · ChengJu</h1>
+                  <p className="text-[8px] text-[#0D5E42] dark:text-[#00D2FF] font-black tracking-[0.12em] mt-1 opacity-80">源清流澈，行止应矩</p>
                 </div>
               </button>
             </div>

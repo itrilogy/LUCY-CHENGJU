@@ -28,13 +28,24 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
       <div className="max-w-[1600px] mx-auto w-full p-16 space-y-16 relative z-10">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-12">
           <div className="flex items-center gap-8">
-            <div className={`w-20 h-20 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-900'} rounded-[1.8rem] border flex items-center justify-center text-white shadow-2xl relative overflow-hidden group`}>
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-              <Cpu size={40} className="relative z-10" />
-            </div>
+            <img
+              src="/brand/iqs-mark.svg"
+              alt="澄矩 · ChengJu"
+              className="w-20 h-20 rounded-[1.8rem] shadow-2xl ring-1 ring-black/10 dark:ring-white/10"
+            />
             <div>
-              <h1 className={`text-5xl font-[900] ${isDark ? 'text-white' : 'text-slate-900'} tracking-tighter uppercase leading-none transition-colors`}>Intelligent QC <span className="text-blue-600 font-[400] italic">Studio</span></h1>
-              <p className={`${isDark ? 'text-slate-400' : 'text-slate-500'} font-bold uppercase tracking-[0.4em] text-[10px] mt-3 pl-1 transition-colors uppercase`}>IQS Logic Core v3.2 | LUXI LAB</p>
+              <h1 className={`text-5xl font-[900] ${isDark ? 'text-white' : 'text-slate-900'} tracking-tighter leading-none transition-colors`}>澄矩 · <span className="text-[#0D5E42] dark:text-[#00D2FF] font-[400] italic">ChengJu</span></h1>
+              <p className={`${isDark ? 'text-slate-400' : 'text-slate-500'} font-bold tracking-[0.2em] text-[10px] mt-3 pl-1 transition-colors`}>源清流澈，行止应矩</p>
+              <div className="mt-3 flex items-center gap-3">
+                <img
+                  src="/brand/luxi-lab.svg"
+                  alt="鹿溪联合创新实验室"
+                  className="w-8 h-8 rounded-md shadow-sm bg-white object-contain"
+                />
+                <span className={`text-[11px] font-semibold tracking-wide ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                  鹿溪联合创新实验室 · LUXI Joint Innovation Lab
+                </span>
+              </div>
             </div>
           </div>
 
@@ -134,10 +145,14 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
           ))}
         </section>
 
-        <footer className={`py-10 border-t ${isDark ? 'border-slate-800/60 text-slate-600' : 'border-slate-200/60 text-slate-400'} flex items-center justify-center transition-colors`}>
-          <p className="text-[9px] font-bold uppercase tracking-[0.6em] text-center">
-            Intelligent QC Studio Core | Data to Decisions. Intelligence to Quality.<br/>
-            <span className="mt-2 block opacity-60">Engineering Excellence by LUXI LAB</span>
+        <footer className={`py-10 border-t ${isDark ? 'border-slate-800/60 text-slate-600' : 'border-slate-200/60 text-slate-400'} flex flex-col items-center justify-center gap-4 transition-colors`}>
+          <img
+            src="/brand/luxi-lab.svg"
+            alt="鹿溪联合创新实验室 LUXI LAB"
+            className="h-14 w-14 rounded-xl bg-white shadow-md object-contain p-1"
+          />
+          <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-center">
+            鹿溪联合创新实验室 · 澄矩 · ChengJu
           </p>
         </footer>
       </div>
@@ -147,9 +162,16 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
           <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-[2.5rem] shadow-2xl overflow-hidden border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'} animate-in zoom-in-95 duration-300`}>
             {/* Modal Header */}
             <div className={`p-8 border-b ${isDark ? 'border-slate-800' : 'border-slate-100'} flex items-center justify-between shrink-0 bg-transparent`}>
-              <div>
-                <h2 className={`text-2xl font-black uppercase tracking-tighter ${isDark ? 'text-white' : 'text-slate-900'}`}>Intelligent QC Studio</h2>
-                <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>IQS | 工业级智能质量控制工作站 🏆📊</p>
+              <div className="flex items-center gap-4">
+                <img src="/brand/iqs-mark.svg" alt="澄矩 · ChengJu" className="w-12 h-12 rounded-2xl shadow-md" />
+                <div>
+                  <h2 className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-slate-900'}`}>澄矩 · ChengJu</h2>
+                  <p className={`text-[10px] font-black tracking-widest mt-1 ${isDark ? 'text-[#00D2FF]' : 'text-[#0D5E42]'}`}>源清流澈，行止应矩</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <img src="/brand/luxi-lab.svg" alt="LUXI LAB" className="w-6 h-6 rounded bg-white object-contain" />
+                    <span className={`text-[10px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>鹿溪联合创新实验室出品</span>
+                  </div>
+                </div>
               </div>
               <button 
                 onClick={() => setShowInfo(false)}
@@ -163,7 +185,7 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
             <div className={`p-8 overflow-y-auto custom-scrollbar flex-1 space-y-8 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
               <section className="space-y-4">
                 <p className="text-sm leading-relaxed font-medium">
-                  <strong className={isDark ? "text-white" : "text-slate-900"}>Intelligent QC Studio (IQS)</strong> 是一款面向工业工程、质量管理（QC）及系统分析领域的绘图工作站。它通过自研的 <strong className={isDark ? "text-blue-400" : "text-blue-600"}>DSL (Domain Specific Language)</strong> 引擎与 <strong className={isDark ? "text-blue-400" : "text-blue-600"}>LLM (大语言模型)</strong> 推理技术，将传统的繁琐绘图流程简化为“语言即图表”的极简体验。本版本采用了全新的 <strong className={isDark ? "text-blue-400" : "text-blue-600"}>Industrial OS</strong> 视觉规范，提供更为沉浸、专业的分析环境。
+                  <strong className={isDark ? "text-white" : "text-slate-900"}>澄矩 · ChengJu（Intelligent QC Studio / IQS）</strong> 是一款面向工业工程、质量管理（QC）及系统分析领域的绘图工作站。它通过自研的 <strong className={isDark ? "text-blue-400" : "text-blue-600"}>DSL (Domain Specific Language)</strong> 引擎与 <strong className={isDark ? "text-blue-400" : "text-blue-600"}>LLM (大语言模型)</strong> 推理技术，将传统的繁琐绘图流程简化为“语言即图表”的极简体验。本版本采用了全新的 <strong className={isDark ? "text-blue-400" : "text-blue-600"}>Industrial OS</strong> 视觉规范，提供更为沉浸、专业的分析环境。
                 </p>
               </section>
 
@@ -253,7 +275,10 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
             {/* Modal Footer */}
             <div className={`p-6 border-t ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-slate-50'} flex justify-between items-center shrink-0`}>
               <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                © 2026 Intelligent QC Studio | Designed by LUXI LAB 🏁
+                <span className="inline-flex items-center gap-2">
+                  <img src="/brand/luxi-lab.svg" alt="" className="w-5 h-5 rounded-sm bg-white object-contain" />
+                  © 2026 澄矩 · ChengJu · 鹿溪联合创新实验室 LUXI LAB
+                </span>
               </p>
               <button 
                 onClick={() => setShowInfo(false)}

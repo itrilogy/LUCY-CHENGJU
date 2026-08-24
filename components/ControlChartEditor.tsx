@@ -674,7 +674,7 @@ const ControlChartEditor: React.FC<ControlEditorProps> = ({ dsl, onDslChange }) 
                                         <div className="p-8 bg-slate-900/50 rounded-lg border border-slate-800 space-y-6 text-sm leading-relaxed text-slate-100">
                                             <p>
                                                 控制图（Control Chart）是用于区分过程中的<b>偶然波动</b>与<b>异常波动</b>的重要工具。
-                                                Smart QC Studio 遵循 ISO 7870 与 GB/T 4091 标准进行计算。
+                                                澄矩 · ChengJu 遵循 ISO 7870 与 GB/T 4091 标准进行计算。
                                             </p>
 
                                             <div className="grid grid-cols-2 gap-6">

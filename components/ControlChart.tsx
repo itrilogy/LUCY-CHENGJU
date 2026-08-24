@@ -358,7 +358,7 @@ export const ControlChart = forwardRef<ControlChartRef, ControlChartProps>(
                 if (win) {
                     win.document.write(`
                         <html>
-                            <head><title>导出 PDF - Smart QC Tools</title></head>
+                            <head><title>导出 PDF - 澄矩 · ChengJu</title></head>
                             <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#f8fafc;">
                                 <img src="${dataURL}" style="max-width:98%; max-height:98%; object-fit:contain; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-radius: 8px;" />
                             </body>

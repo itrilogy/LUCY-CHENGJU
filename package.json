@@ -1,15 +1,16 @@
 {
-  "name": "smart-qc-studio",
+  "name": "chengju-iqs",
   "private": true,
   "version": "3.5.3-ildr",
-  "description": "Smart QC Studio - 工业级智能质量控制工作站 (Industrial Grade AI-Powered QC Charts)",
-  "author": "Smart QC Team",
-  "license": "MIT",
+  "description": "澄矩 · ChengJu (IQS) - 工业智能质量控制工作站 · 鹿溪联合创新实验室",
+  "author": "江西省上饶市烟草专卖局（公司）信息中心",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "sync-tools": "cp mcp-server/mcp_tools.json public/mcp_tools.json",
+    "validate:dsl": "node scripts/validate_dsl.mjs",
     "dev": "npm run sync-tools && vite",
-    "build": "npm run sync-tools && vite build",
+    "build": "npm run validate:dsl && npm run sync-tools && vite build",
     "preview": "vite preview",
     "mcp:stdio": "node mcp-server/index.js",
     "mcp:sse": "node mcp-server/index.js --transport=sse"

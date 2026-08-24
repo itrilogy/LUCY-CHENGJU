@@ -77,12 +77,12 @@ const VChartDiagram = forwardRef<VChartDiagramRef, Props>(({ data, styles = DEFA
             if (win) {
                 win.document.write(`
           <html>
-            <head><title>导出 PDF - Smart QC Studio</title></head>
+            <head><title>导出 PDF - 澄矩 · ChengJu</title></head>
             <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#f8fafc; font-family: -apple-system, sans-serif;">
               <div style="padding: 40px; background: #fff; box-shadow: 0 40px 100px rgba(0,0,0,0.05); border-radius: 20px; text-align: center;">
                 <img src="${dataUrl}" style="max-width:100%; height:auto;" />
                 <div style="margin-top: 20px; color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: uppercase; tracking-widest: 0.1em;">
-                  Industrial Logic Report | Smart QC Studio
+                  Industrial Logic Report | 澄矩 · ChengJu
                 </div>
               </div>
               <script>

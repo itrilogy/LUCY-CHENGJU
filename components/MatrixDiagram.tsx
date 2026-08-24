@@ -1128,12 +1128,12 @@ export const MatrixDiagram = forwardRef<MatrixDiagramRef, MatrixDiagramProps>(({
                     if (win) {
                         win.document.write(`
                             <html>
-                            <head><title>Export PDF - Smart QC Studio</title></head>
+                            <head><title>Export PDF - 澄矩 · ChengJu</title></head>
                             <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#f8fafc; font-family: -apple-system, sans-serif;">
                                 <div style="padding: 40px; background: #fff; box-shadow: 0 40px 100px rgba(0,0,0,0.05); border-radius: 20px; text-align: center;">
                                 <img src="${imgData}" style="max-width:100%; height:auto;" />
                                 <div style="margin-top: 20px; color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: uppercase;">
-                                    Matrix Chart Report | Smart QC Studio
+                                    Matrix Chart Report | 澄矩 · ChengJu
                                 </div>
                                 </div>
                                 <script>
