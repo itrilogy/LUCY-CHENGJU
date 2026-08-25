@@ -250,11 +250,24 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     const mb = nodeMetricMap.get(e.to);
     if (!a || !b || !ma || !mb) continue;
     const label = e.label ? `<text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 - 12}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(e.label)}</text>` : '';
-    // 回退边：目标在下方行 或 左方列（非简单右向顺序）→ 走就近泳道带间隙通道
+    // 同列（x 接近）跨行：直接垂直走（沿列），避免横穿泳道带
+    if (b.y !== a.y && Math.abs(a.x - b.x) < (ma.halfW + mb.halfW + 24)) {
+      const vx = a.x;
+      const startY = a.y < b.y ? a.y + ma.halfH + 4 : a.y - ma.halfH - 4;
+      const endY = b.y < a.y ? b.y + mb.halfH + 4 : b.y - mb.halfH - 4;
+      const d = `M${vx},${startY} L${vx},${endY}`;
+      parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
+      continue;
+    }
+    // 回退/跨带边：目标在下方行 或 左方列（非简单右向顺序）→ 走源与目标之间的最近泳道带间隙通道
     const isBack = b.y > a.y + 10 || b.x < a.x - 10;
     if (isBack) {
-      const channelY = nearestChannel(Math.min(a.y, b.y)); // 取两节点间最近间隙
-      const aSideY = a.y < channelY ? a.y + ma.halfH + 4 : a.y - ma.halfH - 4; // 源朝通道侧边界
+      // 选位于 min(a.y,b.y) 与 max(a.y,b.y) 之间、且接近目标带的通道，避免线跑过头再回头
+      const lo = Math.min(a.y, b.y), hi = Math.max(a.y, b.y);
+      let channelY: number | undefined;
+      for (const c of bandGapCenters) { if (c > lo && c < hi) { channelY = c; } }
+      if (channelY === undefined) channelY = nearestChannel(Math.min(a.y, b.y)); // 退化为最近
+      const aSideY = a.y < channelY ? a.y + ma.halfH + 4 : a.y - ma.halfH - 4;
       const bSideY = b.y < channelY ? b.y + mb.halfH + 4 : b.y - mb.halfH - 4;
       const d = `M${a.x},${aSideY} L${a.x},${channelY} L${b.x},${channelY} L${b.x},${bSideY}`;
       parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
