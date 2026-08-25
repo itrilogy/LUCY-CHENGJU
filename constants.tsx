@@ -1,6 +1,6 @@
 import React from 'react';
 import { Zap, BarChart3, LineChart, PieChart, ScatterChart, Activity, Workflow, Network, Boxes, Grid3X3, GitBranch, BarChart2, Table, GitFork, Radar } from 'lucide-react';
-import { QCToolType, FishboneNode, RadarData } from './types';
+import { QCToolType, FishboneNode, RadarData, FlowData, FlowChartStyles } from './types';
 
 export const TOOL_CONFIGS = [
   {
@@ -952,3 +952,88 @@ Axis: 最大回撤(%), 40, 0
 Series: 平衡型组合, [12, 15, 80, 1.8, 12], #3b82f6, 0.4
 Series: 激进型组合, [20, 25, 60, 2.2, 28], #ef4444, 0.3
 Series: 保守型组合, [6, 8, 95, 1.2, 5], #10b981, 0.2`;
+
+// ===== Flow (流程图 / BPMN 子集) =====
+
+export const INITIAL_FLOW_DSL = `Title: 采购申请审批流程
+Layout: H
+
+// ===== 数据层：字典 =====
+Dict: D[信息中心,综合计划科,办公室]
+Dict: P[申请阶段,审批阶段,执行阶段,归档阶段]
+Dict: R[申请员,部门经理,财务岗]
+Dict: worker[提交采购申请,填写申请单,金额超过5000?,部门经理审批,直接执行,财务付款,归档,退回修改]
+
+// ===== 结构层：泳道 =====
+Lane from D[0,1,2] Layout H
+Lane from P[0,1,2,3] Layout V
+
+// ===== 轴标题 =====
+AxisX: 职能部门 Align C
+AxisY: 推进阶段 Align C
+Axis: 采购申请审批流程 AxisX
+
+// ===== 属性边栏提取 =====
+Attr active [Role,SOP,Lv,Time]
+
+// ===== 节点 =====
+W: w1: worker[0] Type[S] Location(D[0],P[0])
+W: w2: worker[1] Location(D[0],P[0]) SOP(XX-CX-04) Role(R[0]) Lv(重要)
+W: q1: worker[2] Type[?] Location(D[0],P[1])
+   是 → #w4
+   否 → #w5
+   End
+W: w4: worker[3] Location(D[1],P[1]) Role(R[1]) Time(24h)
+W: q2: 审批是否通过? Type[?] Location(D[1],P[1])
+   通过 → #w6
+   驳回 → #w2
+   End
+W: w5: worker[4] Location(D[0],P[2])
+W: w6: worker[5] Location(D[2],P[2]) Role(R[2]) KPI(≤1‰)
+W: w7: worker[6] Type[E] Location(D[1],P[3])
+
+// 显式边：补齐分支汇聚，理顺流转
+w5 → #w6
+w6 → #w7`;
+
+export const INITIAL_FLOW_DATA: FlowData = {
+  title: '采购申请审批流程',
+  layout: 'H',
+  dicts: {
+    D: ['信息中心', '综合计划科', '办公室'],
+    P: ['申请阶段', '审批阶段', '执行阶段', '归档阶段'],
+    R: ['申请员', '部门经理', '财务岗'],
+    worker: ['提交采购申请', '填写申请单', '金额超过5000?', '部门经理审批', '直接执行', '财务付款', '归档', '退回修改']
+  },
+  lanes: [
+    { dict: 'D', indices: [0, 1, 2], layout: 'H' },
+    { dict: 'P', indices: [0, 1, 2, 3], layout: 'V' }
+  ],
+  axes: {
+    x: { title: '职能部门', align: 'C' },
+    y: { title: '推进阶段', align: 'C' },
+    page: { title: '采购申请审批流程', place: 'AxisX', align: 'C' }
+  },
+  nodes: [
+    { id: 'w1', type: 'start', label: '提交采购申请', labelRef: 'worker[0]', cell: { D: 0, P: 0 }, attrs: {} },
+    { id: 'w2', type: 'task', label: '填写申请单', labelRef: 'worker[1]', cell: { D: 0, P: 0 }, attrs: { sop: 'XX-CX-04', role: 'R[0]', lv: '重要' } },
+    { id: 'q1', type: 'exclusiveGateway', label: '金额超过5000?', labelRef: 'worker[2]', cell: { D: 0, P: 1 }, attrs: {} },
+    { id: 'w4', type: 'task', label: '部门经理审批', labelRef: 'worker[3]', cell: { D: 1, P: 1 }, attrs: { role: 'R[1]', time: '24h' } },
+    { id: 'q2', type: 'exclusiveGateway', label: '审批是否通过?', labelRef: null, cell: { D: 1, P: 1 }, attrs: {} },
+    { id: 'w5', type: 'task', label: '直接执行', labelRef: 'worker[4]', cell: { D: 0, P: 2 }, attrs: {} },
+    { id: 'w6', type: 'task', label: '财务付款', labelRef: 'worker[5]', cell: { D: 2, P: 2 }, attrs: { role: 'R[2]', kpi: '≤1‰' } },
+    { id: 'w7', type: 'end', label: '归档', labelRef: 'worker[6]', cell: { D: 1, P: 3 }, attrs: {} }
+  ],
+  edges: [
+    { id: 'e1', from: 'w1', to: 'w2', type: 'sequence', label: null, condition: null, default: false },
+    { id: 'e2', from: 'q1', to: 'w4', type: 'sequence', label: '是', condition: null, default: false },
+    { id: 'e3', from: 'q1', to: 'w5', type: 'sequence', label: '否', condition: null, default: false },
+    { id: 'e4', from: 'w5', to: 'w6', type: 'sequence', label: null, condition: null, default: false },
+    { id: 'e5', from: 'q2', to: 'w6', type: 'sequence', label: '通过', condition: null, default: false },
+    { id: 'e6', from: 'w6', to: 'w7', type: 'sequence', label: null, condition: null, default: false },
+    { id: 'e7', from: 'q2', to: 'w2', type: 'sequence', label: '驳回', condition: null, default: false }
+  ],
+  subProcesses: [],
+  artifacts: [],
+  attrPanel: { active: ['role', 'sop', 'lv', 'time'] }
+};

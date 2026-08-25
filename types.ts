@@ -15,7 +15,8 @@ export enum QCToolType {
   BASIC = 'BASIC',
   RADAR = 'RADAR',
   MERMAID = 'MERMAID',
-  VCHART = 'VCHART'
+  VCHART = 'VCHART',
+  FLOW = 'FLOW'
 }
 
 /**
@@ -827,4 +828,130 @@ export const DEFAULT_VCHART_STYLES: Required<VChartChartStyles> = {
   showLabel: true,
   animation: false,
   animationMode: 'scale',
+};
+
+// --- Flow (企业体系文件流程图 / BPMN 子集) Types ---
+
+export type FlowNodeType =
+  | 'start'      // Type[S]
+  | 'end'        // Type[E]
+  | 'task'       // Type 缺省 / Type[T]
+  | 'exclusiveGateway' // Type[?]
+  | 'parallelGateway'  // Type[+]
+  | 'subprocess' // Type[SUB]
+  | 'annotation' // Type[N]
+  | 'dataObject' // Type[DATA]
+
+export interface FlowDict {
+  name: string;
+  values: string[];
+}
+
+export interface FlowLane {
+  dict: string;
+  indices: number[];
+  layout: 'H' | 'V';
+}
+
+export interface FlowAxis {
+  title: string;
+  align: 'L' | 'R' | 'C';
+}
+export interface FlowPageAxis {
+  title: string;
+  place: 'AxisX' | 'AxisY';
+  align: 'L' | 'R' | 'C';
+}
+
+export type FlowAxisSet = {
+  x: FlowAxis;
+  y: FlowAxis;
+  page: FlowPageAxis;
+};
+
+/** 单节点格子坐标（已清洗维度后） */
+export interface FlowCell {
+  [axisKey: string]: number;
+}
+
+export interface FlowNode {
+  id: string;
+  type: FlowNodeType;
+  label: string;
+  labelRef?: string | null;   // 原始 "worker[0]" 引用；字面量为 null
+  cell: FlowCell | null;      // 显式坐标（已清洗）；null = 自动顺序落格
+  attrs: Record<string, string>;  // 已小驼峰键（sop/role/lv/time/kpi/m）
+  parent?: string;            // 子流程内部节点归属
+}
+
+export interface FlowEdge {
+  id: string;
+  from: string;
+  to: string;
+  type: 'sequence';
+  label: string | null;
+  condition: string | null;
+  default: boolean;
+  parent?: string;
+}
+
+export interface FlowAttrPanel {
+  active: string[];
+  sections?: Record<string, unknown>;
+}
+
+export interface FlowData {
+  title: string;
+  layout: 'H' | 'V';
+  dicts: Record<string, string[]>;
+  lanes: FlowLane[];
+  axes: FlowAxisSet;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  subProcesses: { id: string; nodes: string[] }[];
+  artifacts: { id: string; type: string; label: string; attach: string }[];
+  attrPanel: FlowAttrPanel | null;
+}
+
+export interface FlowChartStyles {
+  title: string;
+  titleFontSize: number;
+  layout: 'H' | 'V';
+  // 节点颜色槽（对齐 spec §11 色卡）
+  startColor: string;
+  endColor: string;
+  taskColor: string;
+  gatewayColor: string;
+  parallelColor: string;
+  subprocessColor: string;
+  annotationColor: string;
+  dataColor: string;
+  laneColor: string;
+  axisColor: string;
+  lineColor: string;
+  textColor: string;
+  labelFontSize: number;
+  nodeFontSize: number;
+  lineWidth: number;
+}
+
+export const DEFAULT_FLOW_STYLES: FlowChartStyles = {
+  title: '流程图',
+  titleFontSize: 20,
+  layout: 'H',
+  startColor: '#2563eb',
+  endColor: '#ef4444',
+  taskColor: '#3b82f6',
+  gatewayColor: '#10b981',
+  parallelColor: '#8b5cf6',
+  subprocessColor: '#0ea5e9',
+  annotationColor: '#f59e0b',
+  dataColor: '#64748b',
+  laneColor: '#e2e8f0',
+  axisColor: '#334155',
+  lineColor: '#64748b',
+  textColor: '#1e293b',
+  labelFontSize: 14,
+  nodeFontSize: 13,
+  lineWidth: 2
 };
