@@ -141,7 +141,7 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
       return cls || '';
     }
 
-    // 创建格子 combo
+    // 创建格子 combo（G6 v5: combo 坐标放 style.x/y，显式 rect 形状）
     for (let ri = 0; ri < rows.length; ri++) {
       for (let ci = 0; ci < cols.length; ci++) {
         const cellKey = `${rows[ri]}${rowIdx[ri] || 0}${cols[ci]}`;
@@ -149,20 +149,31 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
         combosByCell.set(cellKey, cid);
         combos.push({
           id: cid,
-          data: {
-            x: AXIS_HEAD + ci * (CELL_W + X_GAP),
-            y: AXIS_HEAD + ri * (CELL_H + Y_GAP),
+          type: 'rect',
+          style: {
+            x: AXIS_HEAD + ci * (CELL_W + X_GAP) + CELL_W / 2,
+            y: AXIS_HEAD + ri * (CELL_H + Y_GAP) + CELL_H / 2,
             size: [CELL_W, CELL_H],
+            fill: finalStyles.laneColor,
+            fillOpacity: 0.35,
+            stroke: '#cbd5e1',
+            lineWidth: 1,
+            radius: 8,
+            labelText: colNameAt(ci) || '',
+            labelFontSize: 11,
+            labelFill: '#64748b',
+            labelPlacement: 'top',
+            labelBackground: true,
+            labelBackgroundFill: '#f8fafc',
           }
         });
       }
     }
 
-    // ===== 节点 → 坐标 =====
+    // ===== 节点 → 坐标（G6 v5: 坐标放 style.x/style.y） =====
     const g6Nodes = data.nodes.map((n) => {
       const cellKey = cellKeyOf(n);
       let x: number, y: number;
-      // 尝试定位到格子
       let comboId: string | undefined;
       if (cellKey) {
         comboId = combosByCell.get(cellKey);
@@ -171,11 +182,9 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
         const [ri, ci] = comboId.replace('cell_', '').split('_').map(Number);
         const gx = AXIS_HEAD + ci * (CELL_W + X_GAP);
         const gy = AXIS_HEAD + ri * (CELL_H + Y_GAP);
-        // 格子内节点偏移 —— 由 preset 布局处理，这里给粗略位置
-        x = gx + 30;
-        y = gy + 20;
+        x = gx + CELL_W / 2;
+        y = gy + CELL_H / 2;
       } else {
-        // 无泳道坐标：按顺序排布
         const ord = orderOf(n, data);
         x = 80 + ord * (CELL_W + X_GAP - 180);
         y = height / 2;
@@ -185,17 +194,23 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
       return {
         id: n.id,
         combo: comboId,
-        data: {
+        type: flowNodeType(n.type),
+        style: {
           x,
           y,
-          ...shape,
+          fill: shape.fill,
+          stroke: shape.stroke,
+          lineWidth: shape.lineWidth,
+          radius: shape.radius,
+          size: [shape.w, shape.h],
           labelText: label,
           labelFontSize: finalStyles.nodeFontSize,
           labelFill: finalStyles.textColor,
+          labelPlacement: 'center',
           labelBackground: true,
           labelBackgroundFill: '#ffffff',
-        },
-        style: shape.style
+          labelBackgroundRadius: 4,
+        }
       };
     });
 
@@ -206,25 +221,24 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
         id: e.id,
         source: e.from,
         target: e.to,
-        data: {
-          labelText: label,
-          labelFontSize: 11,
-          labelFill: '#64748b',
-          endArrow: true,
-        },
         style: {
           lineWidth: finalStyles.lineWidth,
           stroke: finalStyles.lineColor,
-          radius: 16,
-          lineAppendWidth: 12,
-          ...(label ? {} : { endArrow: true })
+          radius: 14,
+          endArrow: true,
+          labelText: label,
+          labelFontSize: 11,
+          labelFill: '#64748b',
+          labelBackground: true,
+          labelBackgroundFill: '#ffffff',
+          labelBackgroundRadius: 4,
         }
       };
     });
 
     const buildGraph = (g: Graph) => {
       g.setData({ nodes: g6Nodes, edges: g6Edges, combos });
-      g.setLayout({ type: 'preset' } as any);
+      // G6 v5: 节点/边自带 style.x/y，不跑自动布局以免覆盖坐标
       g.render();
     };
 
@@ -234,18 +248,17 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
         width,
         height,
         data: { nodes: g6Nodes, edges: g6Edges, combos },
-        layout: { type: 'preset' } as any,
         behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
         autoFit: { type: 'view', options: { padding: 40 } } as any,
         node: {
           style: {
-            labelText: (d: any) => d.data?.labelText || '',
+            labelText: (d: any) => d.style?.labelText || d.data?.labelText || '',
             labelFontSize: finalStyles.nodeFontSize,
             labelFill: finalStyles.textColor,
+            labelPlacement: 'center',
             labelBackground: true,
             labelBackgroundFill: '#ffffff',
             labelBackgroundRadius: 4,
-            size: 44,
           }
         },
         edge: {
@@ -258,12 +271,10 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
         },
         combo: {
           style: {
-            fill: finalStyles.laneColor,
-            fillOpacity: 0.35,
-            stroke: '#cbd5e1',
-            lineWidth: 1,
-            radius: 8,
-            // 加大小以容纳节点
+            labelText: (d: any) => d.style?.labelText || '',
+            labelFontSize: 11,
+            labelFill: '#64748b',
+            labelPlacement: 'top',
           }
         }
       });
@@ -311,24 +322,41 @@ function dictExpandLabel(n: FlowData['nodes'][0], data: FlowData): string {
 }
 
 function flowShape(type: string, st: any) {
+  // 统一返回 {g6type, fill, stroke, lineWidth, radius, w, h}
+  // radius 仅对 rect 有效（圆角）；circle/diamond 大小由 w/h 决定
+  const base = { g6type: 'rect' };
   switch (type) {
     case 'start':
-      return { style: { shape: 'circle', r: 16, fill: st.startColor, stroke: 'none', origin: 'center' } };
+      return { ...base, g6type: 'circle', fill: st.startColor, stroke: 'none', lineWidth: 1, radius: 0, w: 48, h: 48 };
     case 'end':
-      return { style: { shape: 'circle', r: 16, fill: st.endColor, stroke: '#ffffff', lineWidth: 4, origin: 'center' } };
+      return { ...base, g6type: 'circle', fill: st.endColor, stroke: '#ffffff', lineWidth: 4, radius: 0, w: 48, h: 48 };
     case 'exclusiveGateway':
-      return { style: { shape: 'diamond', r: 20, fill: st.gatewayColor, stroke: 'none', origin: 'center' } };
+      return { ...base, g6type: 'diamond', fill: st.gatewayColor, stroke: 'none', lineWidth: 1, radius: 0, w: 64, h: 64 };
     case 'parallelGateway':
-      return { style: { shape: 'diamond', r: 20, fill: st.parallelColor, stroke: 'none', origin: 'center' } };
+      return { ...base, g6type: 'diamond', fill: st.parallelColor, stroke: 'none', lineWidth: 1, radius: 0, w: 64, h: 64 };
     case 'subprocess':
-      return { style: { shape: 'rect', r: 6, fill: st.subprocessColor, stroke: '#f8fafc', lineWidth: 2, size: [100, 48] } };
+      return { ...base, g6type: 'rect', fill: st.subprocessColor, stroke: '#f8fafc', lineWidth: 2, radius: 6, w: 120, h: 48 };
     case 'annotation':
-      return { style: { shape: 'rect', r: 2, fill: st.annotationColor, stroke: 'none', size: [120, 40] } };
+      return { ...base, g6type: 'rect', fill: st.annotationColor, stroke: 'none', lineWidth: 1, radius: 2, w: 140, h: 40 };
     case 'dataObject':
-      return { style: { shape: 'rect', r: 4, fill: st.dataColor, stroke: 'none', size: [90, 40] } };
+      return { ...base, g6type: 'rect', fill: st.dataColor, stroke: 'none', lineWidth: 1, radius: 4, w: 110, h: 40 };
     case 'task':
     default:
-      return { style: { shape: 'rect', r: 6, fill: st.taskColor, stroke: '#f8fafc', lineWidth: 1, size: [100, 44] } };
+      return { ...base, g6type: 'rect', fill: st.taskColor, stroke: '#f8fafc', lineWidth: 1, radius: 6, w: 120, h: 44 };
+  }
+}
+
+/** G6 节点 type → 顶层 type 字段 */
+function flowNodeType(type: string): string {
+  switch (type) {
+    case 'start':
+    case 'end':
+      return 'circle';
+    case 'exclusiveGateway':
+    case 'parallelGateway':
+      return 'diamond';
+    default:
+      return 'rect';
   }
 }
 
