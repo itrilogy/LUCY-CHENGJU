@@ -317,7 +317,7 @@ Decimals: 2
 
 ---
 
-## 8. 核心 kind 细目（13）
+## 8. 核心 kind 细目（14）
 
 以下每一节结构统一为：
 
@@ -1318,6 +1318,51 @@ Dataset: 设备稼动率(%), [88.5, 92.1, 91.4], #ef4444, Y2
 
 - 中途再次写 `Type: line` 属于**流式状态**写法，兼容但不利于 AI；v1 推荐**单一 Type + 多 Dataset**。  
 - 不要用 basic 替代 control/pareto/histogram 的专业结论图。
+
+---
+
+### 8.14 `flow` — 企业流程图（泳道 / BPMN 子集）
+
+**身份卡**：`tier: core` · `body: FlowGraph` · `mcpName: render_flow` · `qcTool: FLOW`  
+**面向**：企业体系文件的程序文件（CX），定义"谁（泳道）× 做什么（动作）× 什么条件走哪条路（网关）"。
+
+#### 核心范式：字典-索引
+- **数据层（Dict）**：`Dict: D[部门,...]` / `Dict: P[阶段,...]` / `Dict: R[岗位,...]`（**D/P/R 为保留字**），及自定义 `Dict: worker[...]`。可变内容全部进数组。
+- **结构层**：只写索引引用（`D[0]`、`worker[2]`），渲染展开为字典值。
+- 一处定义、多处引用、修改全局生效；网格**只按 Lane from 产生**。
+
+#### 泳道
+```
+Lane from D[0,1,2] Layout H      // 横向泳道（行）
+Lane from P[0,1,2,3] Layout V    // 纵向泳道（列）
+```
+
+#### 轴标题 / 属性边栏
+```
+AxisX: 职能部门 Align C
+AxisY: 推进阶段 Align C
+Axis: 采购审批流程 AxisX
+Attr active [Role,SOP,Lv,Time]
+```
+
+#### 节点
+```
+W: w1: worker[0] Type[S] Location(D[0],P[0])   // 开始
+W: w2: worker[1] Location(D[0],P[1]) SOP(XX-CX-04) Role(R[0])
+W: q1: worker[2] Type[?]                        // 判断
+   是 → #w4
+   否 → #w5
+   End
+```
+- 类型：`S`开始 `E`结束 `T`任务(缺省) `?`排他 `+`并行 `SUB`子流程 `N`标注 `DATA`数据对象。
+- 属性：`SOP` `Role` `Lv` `Time` `KPI` `M`（值可为字面量或字典引用；`Role` 可为 `R[i]` 或岗位字面量；`Lv`/`M` 支持数值）。
+- 默认顺序流按声明顺序；分支目标抑制默认入边；多出口 `→ #a,#b` 自动拆并行。
+
+#### 反例（Avoid）
+- 节点直接写名字而不走字典（允许但削弱一致性与全局改动的受益）。
+- `Lane from worker[...]` 未先定义字典 → 报错。
+- 坐标写多余维度（如单维却写双维）——解析器自动清洗（warn），合法但建议省略。
+- 判断节点无分支出口 → 校验 error。
 
 ---
 

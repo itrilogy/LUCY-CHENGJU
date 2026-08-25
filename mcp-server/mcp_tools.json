@@ -1,5 +1,17 @@
 [
   {
+    "name": "render_iqs_native_master",
+    "parent_type": "iqs_native",
+    "sub_type": "master",
+    "display_name": "IQS 原生组件总纲",
+    "description": "IQS 逻辑图表组件协议总纲。定义了所有非 VChart/Mermaid 原生图表的共有专家逻辑与 DSL 包裹红线。",
+    "expertise": "质量工具标准化, 逻辑模型统一化",
+    "expert_logic": "### 🟢 IQS-DSL v1 核心红线 (The Soul)\n- **分层**: `iqs_native` 为 QC 核心语言；Mermaid/VChart 仅为类型外救济，不得冒充 SPC/排列图等终稿。\n- **外壳**: 首行 `Title:`；样式用 `Color[Slot]:` / `Font[Slot]:`；行注释仅 `//`。\n- **`#` 规则**: `#/##/###` 仅用于鱼骨图 TreeBody；亲和图必须用 `Item: id, label, parentId`。\n- **Type 消歧**: `Type:` 按工具解释——控制图=SPC 图种；矩阵=L/T/Y/X/C；亲和=Card/Label；基础图=bar/line/pie。禁止跨工具混用取值。\n- **代码块禁令**: 严禁 Markdown 围栏与解释性前后缀；只输出纯文本 DSL。\n- **完整规范**: 阅读资源 protocol://dsl/v1 与 protocol://segments/{parent}/{sub}。\n\n### 权威手册\n- 细粒度语法：仓库 `docs/IQS_DSL_V1_MANUAL.md`（IQS-DSL v1.1）\n- 架构规范：`docs/IQS_DSL_V1_SPEC.md`\n- MCP 资源：`protocol://dsl/v1` + `protocol://segments/iqs_native/{sub_type}`",
+    "syntax_rules": "### 🏗️ IQS-DSL v1 外壳 (Global Shell)\n- `Title: [标题]`（推荐首行）\n- `Color[Slot]: #RRGGBB` / `Font[Slot]: N` / `Show*: true|false` / `Decimals: N`\n- `//` 行注释（推荐）；非鱼骨图中 `#` 行仅作兼容注释\n- Body 必须严格匹配当前工具的 official_example 范式（Tree / Pairs / Series / Graph / …）\n- 详见 docs/IQS_DSL_V1_SPEC.md",
+    "official_example": "N/A",
+    "tier": "core"
+  },
+  {
     "name": "render_affinity",
     "parent_type": "iqs_native",
     "sub_type": "affinity",
@@ -21,7 +33,8 @@
         "type": "string",
         "description": "需要归纳整理的想法、事实或反馈文本"
       }
-    }
+    },
+    "tier": "core"
   },
   {
     "name": "render_arrow",
@@ -46,7 +59,8 @@
         "type": "string",
         "description": "项目任务列表及其工期与依赖关系"
       }
-    }
+    },
+    "tier": "core"
   },
   {
     "name": "render_basic",
@@ -77,7 +91,8 @@
         "type": "string",
         "description": "基础统计数据（类别与数值）"
       }
-    }
+    },
+    "tier": "core"
   },
   {
     "name": "render_control",
@@ -102,7 +117,8 @@
         "type": "string",
         "description": "连续生产的样本数据集，需包含子组信息"
       }
-    }
+    },
+    "tier": "core"
   },
   {
     "name": "render_fishbone",
@@ -131,7 +147,8 @@
         "type": "string",
         "description": "质量问题或根本原因分析的背景描述"
       }
-    }
+    },
+    "tier": "core"
   },
   {
     "name": "render_histogram",
@@ -157,18 +174,8 @@
         "type": "string",
         "description": "原始测量数据列表（建议 30 个以上）"
       }
-    }
-  },
-  {
-    "name": "render_iqs_native_master",
-    "parent_type": "iqs_native",
-    "sub_type": "master",
-    "display_name": "IQS 原生组件总纲",
-    "description": "IQS 逻辑图表组件协议总纲。定义了所有非 VChart/Mermaid 原生图表的共有专家逻辑与 DSL 包裹红线。",
-    "expertise": "质量工具标准化, 逻辑模型统一化",
-    "expert_logic": "### 🟢 IQS 逻辑组件红线 (The Soul)\n- **DSL 范式匹配**: IQS Native 包含多种原子语法。AI 必须根据具体工具的 `Official Example` 决定采用【层级范式】（如鱼骨图、亲和图）还是【平铺/矩阵范式】（如排列图、散点图）。\n- **代码块禁令 (Critical)**: 严禁在输出中包含 ` ``` ` 代码块标识符，直接输出纯文本 DSL。\n- **格式纯净**: 严禁输出任何解释性文字或确认信息。",
-    "syntax_rules": "### 🏗️ 样式外壳规范 (Global Wrapper)\n- **标题定位**: 第一行必须为 `Title: [图表主标题]`。\n- **属性声明**: 样式或颜色声明紧随其后（如 `Color[Key]: Value`）。\n- **范式遵循**: 内容主体必须严格对照具体工具的 `syntax_rules` 片段生成，严禁混用不同图表的语法。",
-    "official_example": "N/A"
+    },
+    "tier": "core"
   },
   {
     "name": "render_matrix",
@@ -193,7 +200,8 @@
         "type": "string",
         "description": "多维层级的关联性评分目标"
       }
-    }
+    },
+    "tier": "core"
   },
   {
     "name": "render_matrix_plot",
@@ -218,486 +226,8 @@
         "type": "string",
         "description": "多变量数据集及其分组信息，用于分析两两交互关系"
       }
-    }
-  },
-  {
-    "name": "render_mermaid_architecture",
-    "parent_type": "mermaid",
-    "sub_type": "architecture",
-    "display_name": "IQS 架构拓扑/Architecture",
-    "description": "基于 Mermaid 的系统架构可视化工具。支持逻辑分层（Group）、服务定义及带方向的拓扑连线。",
-    "expertise": "系统架构设计, 服务拓扑分析, 云原生架构建模",
-    "intent_trigger": [
-      "架构图",
-      "拓扑图",
-      "系统架构",
-      "architecture"
-    ],
-    "inference_key": "architecture",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 结构建模类图表。用于刻画现代云原生或微服务架构的逻辑层级与物理拓扑。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **拓扑语法 (Critical)**: 连线方向必须遵循 `源节点:方向 --> 方向:目标节点`（例如 `gateway:R --> L:auth`）。\n- **命名建议**: Label 建议优先使用英文以确保持续兼容性。",
-    "syntax_rules": "### 全量图表关键字定义\n- `architecture-beta`: 定义架构图起始。\n- `group [ID](图标)[Label]`: 定义逻辑层级组。\n- `service [ID](图标)[Label]`: 定义具体服务节点。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"base\"}}%%` 样式渲染。",
-    "official_example": "architecture-beta\n    group api(cloud)[API Layer]\n    group services(server)[Service Layer]\n    group db(database)[Database Layer]\n\n    service gateway(internet)[API Gateway] in api\n    service auth(server)[Auth Service] in services\n    service user(server)[User Service] in services\n    service mysql(database)[MySQL] in db\n\n    gateway:R --> L:auth\n    gateway:B --> T:user\n    auth:R --> L:mysql\n    user:R --> L:mysql",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "服务层级定义及节点间的带有方向的拓扑关系"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_block",
-    "parent_type": "mermaid",
-    "sub_type": "block-beta",
-    "display_name": "IQS 分层块图/Block",
-    "description": "基于 Mermaid 的分块结构图。用于展示层级化的服务、组件或逻辑块，支持网格化布局。",
-    "expertise": "层级架构展示, 组件化建模, 网格化布局分析",
-    "intent_trigger": [
-      "块图",
-      "分层组件图",
-      "block diagram"
-    ],
-    "inference_key": "block-beta",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 结构建模类图表。用于将复杂的系统拆解为可视化的逻辑矩形块（Block）与容器。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **引号强制**: 在 `block-beta` 中，**所有中文标签必须用双引号 \"\" 包裹**。",
-    "syntax_rules": "### 全量图表关键字定义\n- `block-beta`: 定义块图起始。\n- `columns [N]`: 设置每行显示的网格列数。\n- `block:[ID]`: 定义容器块。\n- `\"Label\"`: 定义具体内容块。",
-    "official_example": "block-beta\n    columns 3\n    \"服务1\" \"服务2\" \"服务3\"\n    block:group1\n        columns 1\n        \"子项A\" \"子项B\"\n    end",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "层级结构描述，包含层级嵌套与网格排列逻辑"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_class",
-    "parent_type": "mermaid",
-    "sub_type": "classDiagram",
-    "display_name": "IQS 系统结构/类图",
-    "description": "基于 Mermaid 的类图建模工具。刻画系统组件间的继承、组合、关联关系。支持成员变量与方法标注。",
-    "expertise": "面向对象设计, 系统架构结构, 类关系建模",
-    "intent_trigger": [
-      "类图",
-      "UML类图",
-      "系统结构图",
-      "class diagram"
-    ],
-    "inference_key": "classDiagram",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 结构建模类图表。专注于软件工程中的静态结构，表现类、接口及其依赖路径。",
-    "syntax_rules": "### 全量图表关键字定义\n- `classDiagram`: 定义类图起始。\n- `<|--` (继承) / `*--` (组合) / `o--` (聚合)。\n- `+` (public) / `-` (private) / `#` (protected): 访问性标识。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\"}}%%` 进行标准化结构渲染。",
-    "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\nclassDiagram\n    class Vehicle {\n        +move()\n    }\n    class Car {\n        -engine: String\n        +drive()\n    }\n    Vehicle <|-- Car",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "类、属性及关系描述"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_er",
-    "parent_type": "mermaid",
-    "sub_type": "erDiagram",
-    "display_name": "IQS 数据建模/ER图",
-    "description": "基于 Mermaid 的实体关系建模工具。用于描述系统架构、数据模型及组织关系。强调一对多、多对一的关系严谨性。",
-    "expertise": "数据库设计, 数据模型建模, 实体关系分析",
-    "intent_trigger": [
-      "ER图",
-      "实体关系图",
-      "数据库模型",
-      "er diagram"
-    ],
-    "inference_key": "erDiagram",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 结构建模类图表。用于定义数据实体（Entities）及其相互关联（Relationships）。\n- **逻辑准则**: 刻画父子、依赖及引用关系。强调基数（Cardinality）的准确性，如 `||--o{` 代表一对多。",
-    "syntax_rules": "### 全量图表关键字定义\n- `erDiagram`: 定义 ER 图起始。\n- `||--o{` / `||--|{` / `}|--|{`: 定义基数关系。\n- `ENTITY { int id }`: 定义属性列表。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"forest\"}}%%` 适配森林工业风渲染。",
-    "official_example": "%%{init: {\"theme\": \"forest\"}}%%\nerDiagram\n    USER ||--o{ ORDER : \"下单\"\n    ORDER ||--|{ PRODUCT : \"包含\"\n    USER {\n        int id\n        string name\n    }",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "实体及关系描述（建议包含属性定义）"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_flowchart",
-    "parent_type": "mermaid",
-    "sub_type": "flowchart",
-    "display_name": "IQS 业务流程/流程图",
-    "description": "基于 Mermaid 的结构化建模工具。用于刻画业务流转、决策树及闭环逻辑。支持多种布局方向与样式自定义。",
-    "expertise": "业务流程建模, 逻辑决策树, 拓扑闭环分析",
-    "intent_trigger": [
-      "流程图",
-      "flowchart",
-      "业务流",
-      "决策图"
-    ],
-    "inference_key": "flowchart",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 逻辑流转类图表。专注于描述业务流转、决策分支及逻辑闭环。\n\n### 公共事项及说明 (Common Instructions)\n1. **纯净 DSL 范式**: AI 必须生成纯文本 DSL 指令。严禁将代码块包裹在 JSON 结构中或附加冗余解释。\n2. **符号冲突防御**: 在中文描述文字中，必须优先使用中文全角标点（如 ，、；、：）。严禁使用半角逗号或分号，防止解析误认。\n3. **复杂内容包裹**: 包含特殊符号或多行的节点，必须使用 [\"内容\"]（矩形）、(\"内容\")（圆角）等显式包裹。",
-    "syntax_rules": "### 全量图表关键字定义\n- `graph` / `flowchart`: 定义流程图起始。\n- `TD` (Top Down) / `LR` (Left Right): 定义布局方向。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\", \"look\": \"handDrawn\"}}%%` 进行手绘效果渲染。\n\n### 典型语法结构\n`A[节点] --> B{判断}`",
-    "official_example": "%%{init: {\"theme\": \"neutral\", \"look\": \"handDrawn\"}}%%\ngraph TD\n    A[提交申请] --> B{经理审批}\n    B -- \"通过\" --> C[财务放款]\n    B -- \"驳回\" --> D[退回修改]\n    D --> A\n    C --> E[流程结束]",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "流程逻辑描述（建议包含节点定义与连接关系）"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_gantt",
-    "parent_type": "mermaid",
-    "sub_type": "gantt",
-    "display_name": "IQS 进度计划/甘特图",
-    "description": "基于 Mermaid 的项目进度管理工具。专注于时间维度、阶段划分及任务分配。",
-    "expertise": "项目计划管理, 时间进度追踪, 任务计划排期",
-    "intent_trigger": [
-      "甘特图",
-      "进度计划",
-      "项目排期",
-      "gantt"
-    ],
-    "inference_key": "gantt",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 计划与追踪类图表。关注任务在时间轴上的分布、依赖及完成状态。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **缩放防御 (Critical)**: 若当前日期不在项目周期内，必须强制设置 `todayMarker off`，否则时间轴会被无限拉伸导致图例不可见。\n- **日期格式**: 必须通过 `dateFormat YYYY-MM-DD` 显式声明日期解析方式，以确保跨平台渲染一致性。",
-    "syntax_rules": "### 全量图表关键字定义\n- `gantt`: 定义甘特图起始。\n- `section`: 定义阶段。\n- `任务 :a1, 2024-03-01, 5d`: 任务定义语法。\n- `after a1`: 任务依赖语法。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"base\", \"gantt\": {\"barHeight\": 35, \"fontSize\": 16}}}%%` 进行基础风格渲染。",
-    "official_example": "%%{init: {\"theme\": \"base\", \"gantt\": {\"barHeight\": 35, \"fontSize\": 16}}}%%\ngantt\n    title 项目开发进度\n    dateFormat YYYY-MM-DD\n    todayMarker off\n    section 核心开发\n    架构设计 :a1, 2024-03-01, 5d\n    功能开发 :after a1, 10d\n    section 质量验证\n    集成测试 :2024-03-15, 7d",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "项目阶段与任务描述（建议包含开始日期与周期）"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_gitgraph",
-    "parent_type": "mermaid",
-    "sub_type": "gitGraph",
-    "display_name": "IQS Git 分支/GitGraph",
-    "description": "基于 Mermaid 的 Git 工作流模拟工具。展示提交记录、分支创建、切换及合并过程。",
-    "expertise": "版本控制可视化, Git 工作流分析, 代码提交记录建模",
-    "intent_trigger": [
-      "git图",
-      "分支图",
-      "代码提交记录",
-      "gitgraph"
-    ],
-    "inference_key": "gitGraph",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 逻辑流转类图表。专注于展示代码版本控制中的分支演进及合并逻辑。",
-    "syntax_rules": "### 全量图表关键字定义\n- `gitGraph`: 定义 Git 图起始。\n- `commit id: \"ID\"`: 提交记录。\n- `branch [Name]`: 创建分支。\n- `checkout [Name]`: 切换分支。\n- `merge [Name]`: 合并分支。",
-    "official_example": "gitGraph\n    commit id: \"Initial\"\n    branch develop\n    checkout develop\n    commit id: \"Feature-A\"\n    checkout main\n    merge develop\n    commit id: \"Release-1.0\"",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "Git 提交、分支及合并过程的逻辑描述"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_journey",
-    "parent_type": "mermaid",
-    "sub_type": "journey",
-    "display_name": "IQS 体验路径/旅程图",
-    "description": "基于 Mermaid 的用户旅程映射工具。标注不同阶段用户的情绪、动作与角色参与。适用于体验感知分析。",
-    "expertise": "用户体验映射, 客户旅程分析, 服务感知可视化",
-    "intent_trigger": [
-      "旅程图",
-      "用户旅程",
-      "体验路径",
-      "journey board"
-    ],
-    "inference_key": "journey",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 多维认知类图表。通过时间序列展示用户在交互过程中的情感曲线与参与点。",
-    "syntax_rules": "### 全量图表关键字定义\n- `journey`: 定义旅程图起始。\n- `title`: 设置旅程名称。\n- `section`: 设置阶段（如 搜索、决策）。\n- `动作: 5: 角色`: 分别代表 动作名, 评分 (0-5), 角色名。",
-    "official_example": "%%{init: {\"theme\": \"base\"}}%%\njourney\n    title 线上购物旅程\n    section 搜索\n      点击商品: 5: 用户\n      查看详情: 4: 用户\n    section 决策\n      加购物车: 5: 用户\n      下单支付: 3: 用户",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "旅程阶段、具体动作、评分及角色描述"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_kanban",
-    "parent_type": "mermaid",
-    "sub_type": "kanban",
-    "display_name": "IQS 任务看板/Kanban",
-    "description": "基于 Mermaid 的敏捷开发看板工具。支持列划分、任务卡片定义及责任人分配状态。",
-    "expertise": "敏捷开发管理, 任务看板展现, 工作流追踪",
-    "intent_trigger": [
-      "看板",
-      "kanban",
-      "任务流"
-    ],
-    "inference_key": "kanban",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 计划与追踪类图表。用于模拟敏捷看板，展示任务在不同状态列（Todo, InProgress, Done）间的分布。",
-    "syntax_rules": "### 全量图表关键字定义\n- `kanban`: 定义看板起始。\n- `[列名]`: 顶格书写定义列。\n- `[事项]`: 缩进定义任务项。\n- `@{ assigned: \"人\" }`: 分配责任人语法。",
-    "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\nkanban\n  Todo\n    需求评审\n    架构设计\n  InProgress\n    API开发\n  Done\n    环境搭建",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "看板列定义及各列中的任务清单"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_master",
-    "parent_type": "mermaid",
-    "sub_type": "master",
-    "display_name": "Mermaid 渲染总纲 (Master Protocol)",
-    "description": "Mermaid 渲染引擎的全局治理逻辑。定义了甘特图、流程图等图表的渲染纠偏规则。",
-    "expertise": "Mermaid 高级架构绘图专家",
-    "expert_logic": "### 专家灵魂 (The Soul)\n\n#### 基于文本的万能建模工具 (Mermaid Engine)\nMermaid 是一种基于文本的绘图工具，旨在通过简单的标记语言，快速构建、迭代和分享复杂的逻辑结构图。它是从“感性思维”向“结构化逻辑”转化的桥梁。\n\n#### 核心分类视角：\n- **逻辑流转类**: 获取业务流转、决策树及闭环逻辑 (flowchart, stateDiagram-v2)。\n- **时序交互类**: 刻画系统组件间的协作、调用链与消息传递 (sequenceDiagram)。\n- **结构建模类**: 描述系统架构、数据模型、组织关系 (erDiagram, classDiagram, architecture)。\n- **计划与追踪类**: 专注于时间维度、进度管理及任务分配 (gantt, kanban, timeline)。\n- **多维认知类**: 用于发散性思维梳理、体验感知分析及比例展示 (mindmap, journey, pie)。\n\n### 公共事项及说明 (Common Instructions)\n1. **纯净 DSL 范式**: AI 必须生成纯文本 DSL 指令。严禁将代码块包裹在 JSON 结构中或附加冗余解释。\n2. **符号冲突防御**: 在中文描述文字中，必须优先使用中文全角标点（如 ，、；、：）。严禁在未经过 \"\" 或 [] 包裹的文本中出现半角逗号 , 或分号 ;，以防止被解析器误认为语法分隔符。\n3. **复杂内容包裹**: 凡是包含空格、特殊符号或多行文本的节点，必须使用 [\"内容\"]（矩形）、(\"内容\")（圆角）或 {{ \"内容\" }}（六角）进行显式包裹。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n| 图表类型 | 核心约束与避坑指南 |\n| :--- | :--- |\n| **甘特图 (Gantt)** | **缩放防御**: 若当前日期不在项目周期内，必须强制设置 todayMarker off，否则时间轴会被无限拉伸导致图例不可见。 |\n| **状态图 (State)** | **语义固化**: 必须采用 state \"描述文本\" as 别名 语法。严禁直接在转移连线上书写过于复杂的逻辑描述。 |\n| **架构图 (Architecture)** | **拓扑语法**: 连线方向必须遵循 源节点:方向 --> 方向:目标节点（如 gateway:R --> L:auth）。Label 建议优先使用英文。 |\n| **需求图 (Requirement)** | **关系严谨**: 关系连接必须带箭头（如 - satisfies ->）。验证方法必须使用关键字 verifyMethod。 |\n| **实验性图表 (Beta)** | **引号强制**: 在 sankey-beta, quadrantChart, block-beta, xychart-beta 中，所有中文标签必须用双引号 \"\" 包裹。 |\n| **桑基图 (Sankey)** | **语言退避**: 当前版本 sankey-beta 解析器对非 ASCII 字符极其敏感，建议强制使用英文标注以确保渲染成功。 |",
-    "syntax_rules": "### 全量图表关键字定义\n| 分类 | 关键字 | 典型语法结构 |\n| :--- | :--- | :--- |\n| **流程图** | `graph` / `flowchart` | `A[节点] --> B{判断}` |\n| **时序图** | `sequenceDiagram` | `Alice ->> Bob: 消息` |\n| **甘特图** | `gantt` | `section [阶段]\\n 任务 :a1, 2024-01-01, 5d` |\n| **状态图** | `stateDiagram-v2` | `[*] --> State1\\n State1 --> [*]` |\n| **类图** | `classDiagram` | `class A { +attr }` |\n| **饼图** | `pie` | `title [标题]\\n \"项\" : 50` |\n| **ER图** | `erDiagram` | `ENTITY ||--o{ OTHER : rel` |\n| **旅程图** | `journey` | `section [阶段]\\n 步骤: 5: [角色]` |\n| **思维导图** | `mindmap` | `root((\"中心\"))\\n  分支` |\n| **时间线** | `timeline` | `2024 : [事件]` |\n| **看板图** | `kanban` | `[列名]\\n  [事项] @{ assigned: \"人\" }` |\n| **架构图** | `architecture` | `group 组名\\n service 服务名` |\n\n### 视觉初始化指令 (Directives)\n使用 `%%{init: {...}}%%` 定义全局风格：\n- `theme`: `default`, `forest`, `dark`, `neutral`, `base`。\n- `look`: `handDrawn` (手绘效果)。\n- `layout`: `elk` (针对复杂大图的算法优化)。"
-  },
-  {
-    "name": "render_mermaid_mindmap",
-    "parent_type": "mermaid",
-    "sub_type": "mindmap",
-    "display_name": "IQS 知识脑图/思维导图",
-    "description": "基于 Mermaid 的发散性思维梳理工具。通过中心节点放射出的层级结构，快速理清逻辑架构。",
-    "expertise": "思维导图, 逻辑结构梳理, 知识分类建模",
-    "intent_trigger": [
-      "脑图",
-      "思维导图",
-      "mindmap"
-    ],
-    "inference_key": "mindmap",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 多维认知类图表。用于非线性的思维发散与归纳。",
-    "syntax_rules": "### 全量图表关键字定义\n- `mindmap`: 定义脑图起始。\n- `root((\"中心\"))`: 双括号代表圆角容器。\n- `(分支)` / `{{ 六角 }}` / `[矩形]`: 节点边界语法。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\"}}%%` 样式渲染。",
-    "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\nmindmap\n  root((\"质量管理\"))\n    控制方法\n      (SPC 统计)\n      (异常拦截)\n    标准体系\n      (ISO 9001)\n      (行业标准)",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "脑图中心及分支层级描述"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_packet",
-    "parent_type": "mermaid",
-    "sub_type": "packet-beta",
-    "display_name": "IQS 报文解析/Packet",
-    "description": "基于 Mermaid 的报文协议可视化工具。用于精确刻画比特位偏移、字段宽度及报文协议头结构。",
-    "expertise": "报文协议分析, 比特位映射, 协议栈建模",
-    "intent_trigger": [
-      "报文图",
-      "协议解析",
-      "packet structure"
-    ],
-    "inference_key": "packet-beta",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 报文协议解析类。专注于底层通信数据结构的精确位图展示。",
-    "syntax_rules": "### 全量图表关键字定义\n- `packet-beta`: 定义报文图起始。\n- `[Start]-[End]: \"Label\"`: 定义位偏移量及字段名称（例：`0-7: \"Type\"`）。",
-    "official_example": "packet-beta\n    0-7: \"版本号\"\n    8-15: \"类型\"\n    16-31: \"校验和\"\n    32-63: \"偏移量\"",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "报文偏移量、位宽度及对应的协议字段定义"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_pie",
-    "parent_type": "mermaid",
-    "sub_type": "pie",
-    "display_name": "IQS 极简饼图 (Mermaid)",
-    "description": "基于 Mermaid 的极简数据比例展示工具。适用于文档内快速插入，对非工业级高精场景的补充。",
-    "expertise": "极简占比分析, 快速逻辑展示",
-    "intent_trigger": [
-      "极简饼图",
-      "Mermaid 饼图",
-      "mermaid pie"
-    ],
-    "inference_key": "pie",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 辅助类图表。仅当用户明确要求使用 Mermaid 或“极简”风格时使用。**常规占比分析首选 render_vchart_pie**。\n\n### 公共事项及说明 (Common Instructions)\n1. **标题策略**: 必须在 `pie` 关键字后显式跟随 `title [标题]`。\n2. **数值约束**: 建议项数不超过 8 个。",
-    "syntax_rules": "### 全量图表关键字定义\n- `pie`: 定义饼图起始。\n- `title [标题内容]`: 设置标题。\n- `\"项名\" : 数值`: 数据项定义语法 (项名必须用双引号包裹)。",
-    "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\npie title 缺陷原因分布\n    \"物流损坏\" : 45\n    \"品质瑕疵\" : 30\n    \"包装问题\" : 15\n    \"其他\" : 10",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "各项分类及其占位数值描述 (明确要求极简风格时使用)"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_quadrant",
-    "parent_type": "mermaid",
-    "sub_type": "quadrantChart",
-    "display_name": "IQS 四象限分析/象限图",
-    "description": "基于 Mermaid 的多维评估工具。通过 X/Y 轴构建四个维度象限，快速定位任务或对象的优先级。",
-    "expertise": "优先级评估, 战略分析, 四象限法则",
-    "intent_trigger": [
-      "象限图",
-      "四象限",
-      "优先级分析",
-      "quadrant chart"
-    ],
-    "inference_key": "quadrantChart",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 多维认知类图表。用于将事物按照两种维度的强弱划分为四个象限，辅助决策。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **引号强制**: 在 `quadrantChart` 中，**所有中文标签必须用双引号 \"\" 包裹**，否则会导致解析引擎挂起。",
-    "syntax_rules": "### 全量图表关键字定义\n- `quadrantChart`: 定义象限图起始。\n- `x-axis \"Min\" --> \"Max\"`: X 轴标签定义。\n- `quadrant-1 \"Label\"`: 象限区域标注。\n- `\"Item\": [x, y]`: 数据点定位语法。",
-    "official_example": "quadrantChart\n    title \"研发任务优先级\"\n    x-axis \"低价值\" --> \"高价值\"\n    y-axis \"难实现\" --> \"易实现\"\n    quadrant-1 \"重点投入\"\n    quadrant-2 \"长期规划\"\n    \"任务A\": [0.8, 0.9]\n    \"任务B\": [0.2, 0.3]",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "两个维度的定义、象限名称及带坐标的数据点列表"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_requirement",
-    "parent_type": "mermaid",
-    "sub_type": "requirementDiagram",
-    "display_name": "IQS 需求建模/需求图",
-    "description": "基于 Mermaid 的系统需求工程工具。定义需求条目、风险等级及验证方法，建立需求与实现的关联。",
-    "expertise": "需求工程, 系统规格定义, 追溯分析",
-    "intent_trigger": [
-      "需求图",
-      "requirement diagram",
-      "规格限制"
-    ],
-    "inference_key": "requirementDiagram",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 系统需求建模类图表。专注于需求条目的结构化定义及其在物理系统中的闭环验证。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **关系严谨**: 关系连接必须带箭头（如 `- satisfies ->`）。\n- **验证闭环**: 验证方法建议必须使用官方关键字 `verifyMethod`。",
-    "syntax_rules": "### 全量图表关键字定义\n- `requirementDiagram`: 定义需求图起始。\n- `requirement [Name] { id: text, risk: level }`: 需求定义块。\n- `element [Name] { type: \"Type\" }`: 系统元素定义块。\n- `element - satisfies -> requirement`: 关联关系定义。",
-    "official_example": "requirementDiagram\n    requirement req_lock {\n        id: 1.1\n        text: \"当速度超过20km/h时自动锁定车门\"\n        risk: medium\n        verifyMethod: test\n    }\n    element actuator {\n        type: \"Actuator\"\n    }\n    actuator - satisfies -> req_lock",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "需求条目描述、风险等级及对应的物理验证手段"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_sankey",
-    "parent_type": "mermaid",
-    "sub_type": "sankey-beta",
-    "display_name": "IQS 能量流向/桑基图",
-    "description": "基于 Mermaid 的能量或价值流向可视化工具。展现系统内部的分配与转移逻辑。",
-    "expertise": "能量平衡分析, 价值流映射 (VSM), 资源分配可视化",
-    "intent_trigger": [
-      "桑基图",
-      "sankey",
-      "流向图",
-      "分配图"
-    ],
-    "inference_key": "sankey-beta",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 能量/价值流向类图表。用于展示流动量在不同节点间的分配关系。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **语言退避 (Critical)**: 当前版本 `sankey-beta` 解析器对非 ASCII 字符极其敏感。**强烈建议强制使用英文标注**以确保渲染成功，否则可能导致节点崩解。",
-    "syntax_rules": "### 全量图表关键字定义\n- `sankey-beta`: 定义桑基图起始。\n- `Source,Sink,Value`: 数据行定义语法。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\"}}%%` 渲染样式。",
-    "official_example": "sankey-beta\n    Agricultural,Fertilizer,150\n    Agricultural,Irrigation,100\n    Fertilizer,Crop,120\n    Irrigation,Crop,80",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "源节点、目标节点及流向数值（建议使用英文标签）"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_sequence",
-    "parent_type": "mermaid",
-    "sub_type": "sequenceDiagram",
-    "display_name": "IQS 系统协作/时序图",
-    "description": "基于 Mermaid 的时序交互建模工具。用于刻画系统组件间的协作、调用链与消息传递。",
-    "expertise": "系统架构协作, 接口调用时序, 消息传递分析",
-    "intent_trigger": [
-      "时序图",
-      "顺序图",
-      "调用链",
-      "sequence diagram"
-    ],
-    "inference_key": "sequenceDiagram",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 时序交互类图表。专注于刻画参与者（Participants）之间的消息传递顺序与调用逻辑。\n\n### 公共事项及说明 (Common Instructions)\n1. **纯净 DSL 范式**: AI 必须生成纯文本 DSL 指令。严禁将代码块包裹在 JSON 结构中或附加冗余解释。\n2. **符号冲突防御**: 中文描述必须优先使用全角标点，或用引号包裹。例：`Alice ->> Bob: \"处理中，请稍候\"`。\n3. **角色定义**: 使用 `actor` 定义人工角色，`participant` 定义系统组件。",
-    "syntax_rules": "### 全量图表关键字定义\n- `sequenceDiagram`: 定义时序图起始。\n- `->>` (实线箭头) / `-->>` (虚线返回箭头)。\n- `activate` / `deactivate`: 开启/关闭生命线。\n- `loop` / `alt` / `opt`: 控制流结构。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"forest\"}}%%` 进行森林风格渲染。",
-    "official_example": "%%{init: {\"theme\": \"forest\"}}%%\nsequenceDiagram\n    actor 用户\n    participant Web as Web端\n    participant Srv as 服务端\n    \n    用户 ->> Web: 点击登录\n    Web ->> Srv: 发送鉴权请求\n    Srv -->> Web: 返回 Token\n    Web -->> 用户: 显示主界面",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "参与者交互描述（建议包含发送者、接收者及消息内容）"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_state",
-    "parent_type": "mermaid",
-    "sub_type": "stateDiagram-v2",
-    "display_name": "IQS 状态迁移/状态图",
-    "description": "基于 Mermaid 的系统状态建模工具。用于刻画对象的生命周期、状态演变及触发条件。",
-    "expertise": "系统状态建模, 生命周期分析, 业务状态流转",
-    "intent_trigger": [
-      "状态图",
-      "状态迁移图",
-      "生命周期图",
-      "state diagram"
-    ],
-    "inference_key": "stateDiagram-v2",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 逻辑流转类图表。专注于描述对象在不同触发条件下如何从一个状态转移到另一个状态。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **语义固化**: 必须采用 `state \"描述文本\" as 别名` 语法。严禁直接在转移连线上书写过于复杂的逻辑描述，以防渲染混乱。\n- **闭环思维**: 必须包含起始状态 `[*]`。建议显式标注每一个终结状态 `[*]`。",
-    "syntax_rules": "### 全量图表关键字定义\n- `stateDiagram-v2`: 定义状态图起始。\n- `-->`: 定义状态转移。\n- `[*]`: 定义起始/结束点。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\"}}%%` 进行中性风格渲染。",
-    "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\nstateDiagram-v2\n    state \"待支付\" as s1\n    state \"已支付\" as s2\n    state \"待发货\" as s3\n    [*] --> s1\n    s1 --> s2: 支付成功\n    s2 --> s3\n    s3 --> [*]",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "状态定义与迁移逻辑描述（建议包含触发动作）"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_timeline",
-    "parent_type": "mermaid",
-    "sub_type": "timeline",
-    "display_name": "IQS 历史年表/时间线",
-    "description": "基于 Mermaid 的时间轴呈现工具。用于展示产品迭代、历史事件及关键里程碑的线性演进。",
-    "expertise": "历史路径分析, 迭代周期展现, 时间线建模",
-    "intent_trigger": [
-      "时间线",
-      "年表",
-      "迭代记录",
-      "timeline"
-    ],
-    "inference_key": "timeline",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 计划与追踪类图表。专注于以非刻度化的方式展示重要事件的先后顺序环境。",
-    "syntax_rules": "### 全量图表关键字定义\n- `timeline`: 定义时间线起始。\n- `title`: 设置标题。\n- `2024 : [事件1] : [事件2]`: 时间段与事件定义语法。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"forest\"}}%%` 进行森林工业风格渲染。",
-    "official_example": "%%{init: {\"theme\": \"forest\"}}%%\ntimeline\n    title IQS 产品历史\n    2023 : 1.0 版本\n    2024 : 2.0 版本\n    2025 : 3.0 版本",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "时间节点及对应的关键事件列表"
-      }
-    }
-  },
-  {
-    "name": "render_mermaid_xychart",
-    "parent_type": "mermaid",
-    "sub_type": "xychart-beta",
-    "display_name": "IQS 通用双轴图/XYChart",
-    "description": "基于 Mermaid 的通用组合图表。支持柱状与线状混合展示，适用于简单的趋势与对比分析。",
-    "expertise": "混合趋势分析, 双变量呈现, 通用统计绘图",
-    "intent_trigger": [
-      "xy图",
-      "组合图",
-      "双轴图",
-      "xychart"
-    ],
-    "inference_key": "xychart-beta",
-    "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 通过 XY 坐标系展示混合趋势。相比 VChart 混合图，XYChart 更强调在文档流中的快速直观输出。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **引号强制**: 在 `xychart-beta` 中，**所有中文标签必须用双引号 \"\" 包裹**。",
-    "syntax_rules": "### 全量图表关键字定义\n- `xychart-beta`: 定义图表起始。\n- `x-axis [\"L1\", \"L2\"]`: X 轴离散标签。\n- `bar [v1, v2]` / `line [v1, v2]`: 系列定义语法。",
-    "official_example": "xychart-beta\n    title \"季度产量趋势\"\n    x-axis [\"Q1\", \"Q2\", \"Q3\", \"Q4\"]\n    y-axis \"产量(Ton)\" 0 --> 500\n    bar [320, 410, 390, 450]\n    line [300, 380, 420, 440]",
-    "input_schema": {
-      "prompt": {
-        "type": "string",
-        "description": "X 轴分类、Y 轴量程及柱/线数据清单"
-      }
-    }
+    },
+    "tier": "core"
   },
   {
     "name": "render_pareto",
@@ -723,7 +253,8 @@
         "type": "string",
         "description": "质量问题列表及其对应的发生频数或成本数据"
       }
-    }
+    },
+    "tier": "core"
   },
   {
     "name": "render_pdpc",
@@ -746,6 +277,34 @@
       "prompt": {
         "type": "string",
         "description": "流程计划及潜在的风险与对策"
+      }
+    },
+    "tier": "core"
+  },
+  {
+    "name": "render_radar",
+    "parent_type": "iqs_native",
+    "sub_type": "radar",
+    "tier": "core",
+    "display_name": "IQS 多维评价/雷达图",
+    "description": "多维指标综合对比。支持标准化、面积得分与系列相似度。QC 核心工具（非 VChart 救济）。",
+    "expertise": "多维对比, 综合评分, 效果检查",
+    "intent_trigger": [
+      "雷达图",
+      "多维对比",
+      "radar",
+      "综合评分",
+      "蜘蛛图"
+    ],
+    "inference_key": "radar",
+    "render_engine": "echarts",
+    "expert_logic": "### 雷达图综合评价\n- Standardize: 消除量纲后比较形态。\n- ShowAreaScore: 多边形面积反映均衡综合实力。\n- ShowSimilarity: 与首系列的形态相似度。\n尖角表示短板，面积大且圆润表示均衡。",
+    "syntax_rules": "### IQS-DSL v1 — radar (AxisSeries)\n| 语法 | 说明 |\n| :--- | :--- |\n| `Title:` | 标题 |\n| `Standardize:` / `ShowAreaScore:` / `ShowSimilarity:` / `ShowValues:` | 分析开关 |\n| `StartAngle:` / `Clockwise:` / `Closed:` | 极坐标 |\n| `Axis: name, max [, min]` | 维度轴 |\n| `Series: name, [v1,v2,...] [, color [, opacity]]` | 系列 |\n\n注释使用 `//`。",
+    "official_example": "Title: 方案多维效果对比\nStandardize: true\nShowAreaScore: true\nShowSimilarity: true\nShowValues: false\nStartAngle: -90\nClockwise: true\nClosed: true\n\n// 轴定义\nAxis: 质量, 100, 0\nAxis: 成本, 100, 0\nAxis: 交期, 100, 0\nAxis: 安全, 100, 0\nAxis: 可维护性, 100, 0\n\n// 系列\nSeries: 方案A, [85, 70, 90, 80, 75], #3b82f6, 0.4\nSeries: 方案B, [70, 85, 75, 88, 80], #ef4444, 0.3",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "多维评价指标与各方案得分"
       }
     }
   },
@@ -771,7 +330,546 @@
         "type": "string",
         "description": "复杂交织的因果关系描述，包含多个互相关联的问题点"
       }
+    },
+    "tier": "core"
+  },
+  {
+    "name": "render_scatter",
+    "parent_type": "iqs_native",
+    "sub_type": "scatter",
+    "tier": "core",
+    "display_name": "IQS 相关分析/散点图",
+    "description": "双变量/三变量相关分析。支持趋势回归、气泡尺寸与 3D 视图开关。QC 核心工具（非 VChart 救济）。",
+    "expertise": "相关分析, 回归分析, 原因确认",
+    "intent_trigger": [
+      "散点图",
+      "相关分析",
+      "回归",
+      "scatter",
+      "相关性"
+    ],
+    "inference_key": "scatter",
+    "render_engine": "echarts",
+    "expert_logic": "### 相关与回归\n散点图用于验证 X 与 Y 是否存在线性/非线性相关。\n- 相关≠因果，需排除第三变量。\n- 离群点往往对应特殊原因，应优先追查。\n- ShowTrend 开启最小二乘趋势线；Show3D/3D 启用三维展示。",
+    "syntax_rules": "### IQS-DSL v1 — scatter (TupleList)\n| 语法 | 说明 |\n| :--- | :--- |\n| `Title:` | 标题 |\n| `XAxis:` / `YAxis:` / `ZAxis:` | 轴标签 |\n| `ShowTrend:` / `ShowValues:` / `Show3D:`（兼容 `3D:`） | 开关 |\n| `Color[Point|Trend]:` | 颜色 |\n| `Size[Base]:` / `Opacity:` | 点大小与透明度 |\n| `- x, y [, z]` | 数据点 |\n\n注释使用 `//`。",
+    "official_example": "Title: 注塑工艺参数相关分析\nXAxis: 模具温度(℃)\nYAxis: 注射压力(MPa)\nZAxis: 收缩率%\nColor[Point]: #3b82f6\nColor[Trend]: #f97316\nShowTrend: true\nShow3D: false\nShowValues: false\n\n// 数据点 X, Y, Z\n- 195.5, 85.2, 2.4\n- 192.0, 82.5, 2.5\n- 198.5, 88.0, 2.2\n- 215.0, 105.0, 0.6\n- 218.5, 108.2, 0.55\n- 212.0, 102.5, 0.7",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "成对测量数据或相关分析需求描述"
+      }
     }
+  },
+  {
+    "name": "render_mermaid_master",
+    "parent_type": "mermaid",
+    "sub_type": "master",
+    "display_name": "Mermaid 渲染总纲 (Master Protocol)",
+    "description": "Mermaid 渲染引擎的全局治理逻辑。定义了甘特图、流程图等图表的渲染纠偏规则。",
+    "expertise": "Mermaid 高级架构绘图专家",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n#### 基于文本的万能建模工具 (Mermaid Engine)\nMermaid 是一种基于文本的绘图工具，旨在通过简单的标记语言，快速构建、迭代和分享复杂的逻辑结构图。它是从“感性思维”向“结构化逻辑”转化的桥梁。\n\n#### 核心分类视角：\n- **逻辑流转类**: 获取业务流转、决策树及闭环逻辑 (flowchart, stateDiagram-v2)。\n- **时序交互类**: 刻画系统组件间的协作、调用链与消息传递 (sequenceDiagram)。\n- **结构建模类**: 描述系统架构、数据模型、组织关系 (erDiagram, classDiagram, architecture)。\n- **计划与追踪类**: 专注于时间维度、进度管理及任务分配 (gantt, kanban, timeline)。\n- **多维认知类**: 用于发散性思维梳理、体验感知分析及比例展示 (mindmap, journey, pie)。\n\n### 公共事项及说明 (Common Instructions)\n1. **纯净 DSL 范式**: AI 必须生成纯文本 DSL 指令。严禁将代码块包裹在 JSON 结构中或附加冗余解释。\n2. **符号冲突防御**: 在中文描述文字中，必须优先使用中文全角标点（如 ，、；、：）。严禁在未经过 \"\" 或 [] 包裹的文本中出现半角逗号 , 或分号 ;，以防止被解析器误认为语法分隔符。\n3. **复杂内容包裹**: 凡是包含空格、特殊符号或多行文本的节点，必须使用 [\"内容\"]（矩形）、(\"内容\")（圆角）或 {{ \"内容\" }}（六角）进行显式包裹。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n| 图表类型 | 核心约束与避坑指南 |\n| :--- | :--- |\n| **甘特图 (Gantt)** | **缩放防御**: 若当前日期不在项目周期内，必须强制设置 todayMarker off，否则时间轴会被无限拉伸导致图例不可见。 |\n| **状态图 (State)** | **语义固化**: 必须采用 state \"描述文本\" as 别名 语法。严禁直接在转移连线上书写过于复杂的逻辑描述。 |\n| **架构图 (Architecture)** | **拓扑语法**: 连线方向必须遵循 源节点:方向 --> 方向:目标节点（如 gateway:R --> L:auth）。Label 建议优先使用英文。 |\n| **需求图 (Requirement)** | **关系严谨**: 关系连接必须带箭头（如 - satisfies ->）。验证方法必须使用关键字 verifyMethod。 |\n| **实验性图表 (Beta)** | **引号强制**: 在 sankey-beta, quadrantChart, block-beta, xychart-beta 中，所有中文标签必须用双引号 \"\" 包裹。 |\n| **桑基图 (Sankey)** | **语言退避**: 当前版本 sankey-beta 解析器对非 ASCII 字符极其敏感，建议强制使用英文标注以确保渲染成功。 |",
+    "syntax_rules": "### 全量图表关键字定义\n| 分类 | 关键字 | 典型语法结构 |\n| :--- | :--- | :--- |\n| **流程图** | `graph` / `flowchart` | `A[节点] --> B{判断}` |\n| **时序图** | `sequenceDiagram` | `Alice ->> Bob: 消息` |\n| **甘特图** | `gantt` | `section [阶段]\\n 任务 :a1, 2024-01-01, 5d` |\n| **状态图** | `stateDiagram-v2` | `[*] --> State1\\n State1 --> [*]` |\n| **类图** | `classDiagram` | `class A { +attr }` |\n| **饼图** | `pie` | `title [标题]\\n \"项\" : 50` |\n| **ER图** | `erDiagram` | `ENTITY ||--o{ OTHER : rel` |\n| **旅程图** | `journey` | `section [阶段]\\n 步骤: 5: [角色]` |\n| **思维导图** | `mindmap` | `root((\"中心\"))\\n  分支` |\n| **时间线** | `timeline` | `2024 : [事件]` |\n| **看板图** | `kanban` | `[列名]\\n  [事项] @{ assigned: \"人\" }` |\n| **架构图** | `architecture` | `group 组名\\n service 服务名` |\n\n### 视觉初始化指令 (Directives)\n使用 `%%{init: {...}}%%` 定义全局风格：\n- `theme`: `default`, `forest`, `dark`, `neutral`, `base`。\n- `look`: `handDrawn` (手绘效果)。\n- `layout`: `elk` (针对复杂大图的算法优化)。",
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_architecture",
+    "parent_type": "mermaid",
+    "sub_type": "architecture",
+    "display_name": "IQS 架构拓扑/Architecture",
+    "description": "基于 Mermaid 的系统架构可视化工具。支持逻辑分层（Group）、服务定义及带方向的拓扑连线。",
+    "expertise": "系统架构设计, 服务拓扑分析, 云原生架构建模",
+    "intent_trigger": [
+      "架构图",
+      "拓扑图",
+      "系统架构",
+      "architecture"
+    ],
+    "inference_key": "architecture",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 结构建模类图表。用于刻画现代云原生或微服务架构的逻辑层级与物理拓扑。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **拓扑语法 (Critical)**: 连线方向必须遵循 `源节点:方向 --> 方向:目标节点`（例如 `gateway:R --> L:auth`）。\n- **命名建议**: Label 建议优先使用英文以确保持续兼容性。",
+    "syntax_rules": "### 全量图表关键字定义\n- `architecture-beta`: 定义架构图起始。\n- `group [ID](图标)[Label]`: 定义逻辑层级组。\n- `service [ID](图标)[Label]`: 定义具体服务节点。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"base\"}}%%` 样式渲染。",
+    "official_example": "architecture-beta\n    group api(cloud)[API Layer]\n    group services(server)[Service Layer]\n    group db(database)[Database Layer]\n\n    service gateway(internet)[API Gateway] in api\n    service auth(server)[Auth Service] in services\n    service user(server)[User Service] in services\n    service mysql(database)[MySQL] in db\n\n    gateway:R --> L:auth\n    gateway:B --> T:user\n    auth:R --> L:mysql\n    user:R --> L:mysql",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "服务层级定义及节点间的带有方向的拓扑关系"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_block",
+    "parent_type": "mermaid",
+    "sub_type": "block-beta",
+    "display_name": "IQS 分层块图/Block",
+    "description": "基于 Mermaid 的分块结构图。用于展示层级化的服务、组件或逻辑块，支持网格化布局。",
+    "expertise": "层级架构展示, 组件化建模, 网格化布局分析",
+    "intent_trigger": [
+      "块图",
+      "分层组件图",
+      "block diagram"
+    ],
+    "inference_key": "block-beta",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 结构建模类图表。用于将复杂的系统拆解为可视化的逻辑矩形块（Block）与容器。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **引号强制**: 在 `block-beta` 中，**所有中文标签必须用双引号 \"\" 包裹**。",
+    "syntax_rules": "### 全量图表关键字定义\n- `block-beta`: 定义块图起始。\n- `columns [N]`: 设置每行显示的网格列数。\n- `block:[ID]`: 定义容器块。\n- `\"Label\"`: 定义具体内容块。",
+    "official_example": "block-beta\n    columns 3\n    \"服务1\" \"服务2\" \"服务3\"\n    block:group1\n        columns 1\n        \"子项A\" \"子项B\"\n    end",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "层级结构描述，包含层级嵌套与网格排列逻辑"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_class",
+    "parent_type": "mermaid",
+    "sub_type": "classDiagram",
+    "display_name": "IQS 系统结构/类图",
+    "description": "基于 Mermaid 的类图建模工具。刻画系统组件间的继承、组合、关联关系。支持成员变量与方法标注。",
+    "expertise": "面向对象设计, 系统架构结构, 类关系建模",
+    "intent_trigger": [
+      "类图",
+      "UML类图",
+      "系统结构图",
+      "class diagram"
+    ],
+    "inference_key": "classDiagram",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 结构建模类图表。专注于软件工程中的静态结构，表现类、接口及其依赖路径。",
+    "syntax_rules": "### 全量图表关键字定义\n- `classDiagram`: 定义类图起始。\n- `<|--` (继承) / `*--` (组合) / `o--` (聚合)。\n- `+` (public) / `-` (private) / `#` (protected): 访问性标识。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\"}}%%` 进行标准化结构渲染。",
+    "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\nclassDiagram\n    class Vehicle {\n        +move()\n    }\n    class Car {\n        -engine: String\n        +drive()\n    }\n    Vehicle <|-- Car",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "类、属性及关系描述"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_er",
+    "parent_type": "mermaid",
+    "sub_type": "erDiagram",
+    "display_name": "IQS 数据建模/ER图",
+    "description": "基于 Mermaid 的实体关系建模工具。用于描述系统架构、数据模型及组织关系。强调一对多、多对一的关系严谨性。",
+    "expertise": "数据库设计, 数据模型建模, 实体关系分析",
+    "intent_trigger": [
+      "ER图",
+      "实体关系图",
+      "数据库模型",
+      "er diagram"
+    ],
+    "inference_key": "erDiagram",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 结构建模类图表。用于定义数据实体（Entities）及其相互关联（Relationships）。\n- **逻辑准则**: 刻画父子、依赖及引用关系。强调基数（Cardinality）的准确性，如 `||--o{` 代表一对多。",
+    "syntax_rules": "### 全量图表关键字定义\n- `erDiagram`: 定义 ER 图起始。\n- `||--o{` / `||--|{` / `}|--|{`: 定义基数关系。\n- `ENTITY { int id }`: 定义属性列表。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"forest\"}}%%` 适配森林工业风渲染。",
+    "official_example": "%%{init: {\"theme\": \"forest\"}}%%\nerDiagram\n    USER ||--o{ ORDER : \"下单\"\n    ORDER ||--|{ PRODUCT : \"包含\"\n    USER {\n        int id\n        string name\n    }",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "实体及关系描述（建议包含属性定义）"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_flowchart",
+    "parent_type": "mermaid",
+    "sub_type": "flowchart",
+    "display_name": "IQS 业务流程/流程图",
+    "description": "基于 Mermaid 的结构化建模工具。用于刻画业务流转、决策树及闭环逻辑。支持多种布局方向与样式自定义。",
+    "expertise": "业务流程建模, 逻辑决策树, 拓扑闭环分析",
+    "intent_trigger": [
+      "流程图",
+      "flowchart",
+      "业务流",
+      "决策图"
+    ],
+    "inference_key": "flowchart",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 逻辑流转类图表。专注于描述业务流转、决策分支及逻辑闭环。\n\n### 公共事项及说明 (Common Instructions)\n1. **纯净 DSL 范式**: AI 必须生成纯文本 DSL 指令。严禁将代码块包裹在 JSON 结构中或附加冗余解释。\n2. **符号冲突防御**: 在中文描述文字中，必须优先使用中文全角标点（如 ，、；、：）。严禁使用半角逗号或分号，防止解析误认。\n3. **复杂内容包裹**: 包含特殊符号或多行的节点，必须使用 [\"内容\"]（矩形）、(\"内容\")（圆角）等显式包裹。",
+    "syntax_rules": "### 全量图表关键字定义\n- `graph` / `flowchart`: 定义流程图起始。\n- `TD` (Top Down) / `LR` (Left Right): 定义布局方向。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\", \"look\": \"handDrawn\"}}%%` 进行手绘效果渲染。\n\n### 典型语法结构\n`A[节点] --> B{判断}`",
+    "official_example": "%%{init: {\"theme\": \"neutral\", \"look\": \"handDrawn\"}}%%\ngraph TD\n    A[提交申请] --> B{经理审批}\n    B -- \"通过\" --> C[财务放款]\n    B -- \"驳回\" --> D[退回修改]\n    D --> A\n    C --> E[流程结束]",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "流程逻辑描述（建议包含节点定义与连接关系）"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_gantt",
+    "parent_type": "mermaid",
+    "sub_type": "gantt",
+    "display_name": "IQS 进度计划/甘特图",
+    "description": "基于 Mermaid 的项目进度管理工具。专注于时间维度、阶段划分及任务分配。",
+    "expertise": "项目计划管理, 时间进度追踪, 任务计划排期",
+    "intent_trigger": [
+      "甘特图",
+      "进度计划",
+      "项目排期",
+      "gantt"
+    ],
+    "inference_key": "gantt",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 计划与追踪类图表。关注任务在时间轴上的分布、依赖及完成状态。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **缩放防御 (Critical)**: 若当前日期不在项目周期内，必须强制设置 `todayMarker off`，否则时间轴会被无限拉伸导致图例不可见。\n- **日期格式**: 必须通过 `dateFormat YYYY-MM-DD` 显式声明日期解析方式，以确保跨平台渲染一致性。",
+    "syntax_rules": "### 全量图表关键字定义\n- `gantt`: 定义甘特图起始。\n- `section`: 定义阶段。\n- `任务 :a1, 2024-03-01, 5d`: 任务定义语法。\n- `after a1`: 任务依赖语法。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"base\", \"gantt\": {\"barHeight\": 35, \"fontSize\": 16}}}%%` 进行基础风格渲染。",
+    "official_example": "%%{init: {\"theme\": \"base\", \"gantt\": {\"barHeight\": 35, \"fontSize\": 16}}}%%\ngantt\n    title 项目开发进度\n    dateFormat YYYY-MM-DD\n    todayMarker off\n    section 核心开发\n    架构设计 :a1, 2024-03-01, 5d\n    功能开发 :after a1, 10d\n    section 质量验证\n    集成测试 :2024-03-15, 7d",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "项目阶段与任务描述（建议包含开始日期与周期）"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_gitgraph",
+    "parent_type": "mermaid",
+    "sub_type": "gitGraph",
+    "display_name": "IQS Git 分支/GitGraph",
+    "description": "基于 Mermaid 的 Git 工作流模拟工具。展示提交记录、分支创建、切换及合并过程。",
+    "expertise": "版本控制可视化, Git 工作流分析, 代码提交记录建模",
+    "intent_trigger": [
+      "git图",
+      "分支图",
+      "代码提交记录",
+      "gitgraph"
+    ],
+    "inference_key": "gitGraph",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 逻辑流转类图表。专注于展示代码版本控制中的分支演进及合并逻辑。",
+    "syntax_rules": "### 全量图表关键字定义\n- `gitGraph`: 定义 Git 图起始。\n- `commit id: \"ID\"`: 提交记录。\n- `branch [Name]`: 创建分支。\n- `checkout [Name]`: 切换分支。\n- `merge [Name]`: 合并分支。",
+    "official_example": "gitGraph\n    commit id: \"Initial\"\n    branch develop\n    checkout develop\n    commit id: \"Feature-A\"\n    checkout main\n    merge develop\n    commit id: \"Release-1.0\"",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "Git 提交、分支及合并过程的逻辑描述"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_journey",
+    "parent_type": "mermaid",
+    "sub_type": "journey",
+    "display_name": "IQS 体验路径/旅程图",
+    "description": "基于 Mermaid 的用户旅程映射工具。标注不同阶段用户的情绪、动作与角色参与。适用于体验感知分析。",
+    "expertise": "用户体验映射, 客户旅程分析, 服务感知可视化",
+    "intent_trigger": [
+      "旅程图",
+      "用户旅程",
+      "体验路径",
+      "journey board"
+    ],
+    "inference_key": "journey",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 多维认知类图表。通过时间序列展示用户在交互过程中的情感曲线与参与点。",
+    "syntax_rules": "### 全量图表关键字定义\n- `journey`: 定义旅程图起始。\n- `title`: 设置旅程名称。\n- `section`: 设置阶段（如 搜索、决策）。\n- `动作: 5: 角色`: 分别代表 动作名, 评分 (0-5), 角色名。",
+    "official_example": "%%{init: {\"theme\": \"base\"}}%%\njourney\n    title 线上购物旅程\n    section 搜索\n      点击商品: 5: 用户\n      查看详情: 4: 用户\n    section 决策\n      加购物车: 5: 用户\n      下单支付: 3: 用户",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "旅程阶段、具体动作、评分及角色描述"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_kanban",
+    "parent_type": "mermaid",
+    "sub_type": "kanban",
+    "display_name": "IQS 任务看板/Kanban",
+    "description": "基于 Mermaid 的敏捷开发看板工具。支持列划分、任务卡片定义及责任人分配状态。",
+    "expertise": "敏捷开发管理, 任务看板展现, 工作流追踪",
+    "intent_trigger": [
+      "看板",
+      "kanban",
+      "任务流"
+    ],
+    "inference_key": "kanban",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 计划与追踪类图表。用于模拟敏捷看板，展示任务在不同状态列（Todo, InProgress, Done）间的分布。",
+    "syntax_rules": "### 全量图表关键字定义\n- `kanban`: 定义看板起始。\n- `[列名]`: 顶格书写定义列。\n- `[事项]`: 缩进定义任务项。\n- `@{ assigned: \"人\" }`: 分配责任人语法。",
+    "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\nkanban\n  Todo\n    需求评审\n    架构设计\n  InProgress\n    API开发\n  Done\n    环境搭建",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "看板列定义及各列中的任务清单"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_mindmap",
+    "parent_type": "mermaid",
+    "sub_type": "mindmap",
+    "display_name": "IQS 知识脑图/思维导图",
+    "description": "基于 Mermaid 的发散性思维梳理工具。通过中心节点放射出的层级结构，快速理清逻辑架构。",
+    "expertise": "思维导图, 逻辑结构梳理, 知识分类建模",
+    "intent_trigger": [
+      "脑图",
+      "思维导图",
+      "mindmap"
+    ],
+    "inference_key": "mindmap",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 多维认知类图表。用于非线性的思维发散与归纳。",
+    "syntax_rules": "### 全量图表关键字定义\n- `mindmap`: 定义脑图起始。\n- `root((\"中心\"))`: 双括号代表圆角容器。\n- `(分支)` / `{{ 六角 }}` / `[矩形]`: 节点边界语法。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\"}}%%` 样式渲染。",
+    "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\nmindmap\n  root((\"质量管理\"))\n    控制方法\n      (SPC 统计)\n      (异常拦截)\n    标准体系\n      (ISO 9001)\n      (行业标准)",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "脑图中心及分支层级描述"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_packet",
+    "parent_type": "mermaid",
+    "sub_type": "packet-beta",
+    "display_name": "IQS 报文解析/Packet",
+    "description": "基于 Mermaid 的报文协议可视化工具。用于精确刻画比特位偏移、字段宽度及报文协议头结构。",
+    "expertise": "报文协议分析, 比特位映射, 协议栈建模",
+    "intent_trigger": [
+      "报文图",
+      "协议解析",
+      "packet structure"
+    ],
+    "inference_key": "packet-beta",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 报文协议解析类。专注于底层通信数据结构的精确位图展示。",
+    "syntax_rules": "### 全量图表关键字定义\n- `packet-beta`: 定义报文图起始。\n- `[Start]-[End]: \"Label\"`: 定义位偏移量及字段名称（例：`0-7: \"Type\"`）。",
+    "official_example": "packet-beta\n    0-7: \"版本号\"\n    8-15: \"类型\"\n    16-31: \"校验和\"\n    32-63: \"偏移量\"",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "报文偏移量、位宽度及对应的协议字段定义"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_pie",
+    "parent_type": "mermaid",
+    "sub_type": "pie",
+    "display_name": "IQS 极简饼图 (Mermaid)",
+    "description": "基于 Mermaid 的极简数据比例展示工具。适用于文档内快速插入，对非工业级高精场景的补充。",
+    "expertise": "极简占比分析, 快速逻辑展示",
+    "intent_trigger": [
+      "极简饼图",
+      "Mermaid 饼图",
+      "mermaid pie"
+    ],
+    "inference_key": "pie",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 辅助类图表。仅当用户明确要求使用 Mermaid 或“极简”风格时使用。**常规占比分析首选 render_vchart_pie**。\n\n### 公共事项及说明 (Common Instructions)\n1. **标题策略**: 必须在 `pie` 关键字后显式跟随 `title [标题]`。\n2. **数值约束**: 建议项数不超过 8 个。",
+    "syntax_rules": "### 全量图表关键字定义\n- `pie`: 定义饼图起始。\n- `title [标题内容]`: 设置标题。\n- `\"项名\" : 数值`: 数据项定义语法 (项名必须用双引号包裹)。",
+    "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\npie title 缺陷原因分布\n    \"物流损坏\" : 45\n    \"品质瑕疵\" : 30\n    \"包装问题\" : 15\n    \"其他\" : 10",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "各项分类及其占位数值描述 (明确要求极简风格时使用)"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_quadrant",
+    "parent_type": "mermaid",
+    "sub_type": "quadrantChart",
+    "display_name": "IQS 四象限分析/象限图",
+    "description": "基于 Mermaid 的多维评估工具。通过 X/Y 轴构建四个维度象限，快速定位任务或对象的优先级。",
+    "expertise": "优先级评估, 战略分析, 四象限法则",
+    "intent_trigger": [
+      "象限图",
+      "四象限",
+      "优先级分析",
+      "quadrant chart"
+    ],
+    "inference_key": "quadrantChart",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 多维认知类图表。用于将事物按照两种维度的强弱划分为四个象限，辅助决策。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **引号强制**: 在 `quadrantChart` 中，**所有中文标签必须用双引号 \"\" 包裹**，否则会导致解析引擎挂起。",
+    "syntax_rules": "### 全量图表关键字定义\n- `quadrantChart`: 定义象限图起始。\n- `x-axis \"Min\" --> \"Max\"`: X 轴标签定义。\n- `quadrant-1 \"Label\"`: 象限区域标注。\n- `\"Item\": [x, y]`: 数据点定位语法。",
+    "official_example": "quadrantChart\n    title \"研发任务优先级\"\n    x-axis \"低价值\" --> \"高价值\"\n    y-axis \"难实现\" --> \"易实现\"\n    quadrant-1 \"重点投入\"\n    quadrant-2 \"长期规划\"\n    \"任务A\": [0.8, 0.9]\n    \"任务B\": [0.2, 0.3]",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "两个维度的定义、象限名称及带坐标的数据点列表"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_requirement",
+    "parent_type": "mermaid",
+    "sub_type": "requirementDiagram",
+    "display_name": "IQS 需求建模/需求图",
+    "description": "基于 Mermaid 的系统需求工程工具。定义需求条目、风险等级及验证方法，建立需求与实现的关联。",
+    "expertise": "需求工程, 系统规格定义, 追溯分析",
+    "intent_trigger": [
+      "需求图",
+      "requirement diagram",
+      "规格限制"
+    ],
+    "inference_key": "requirementDiagram",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 系统需求建模类图表。专注于需求条目的结构化定义及其在物理系统中的闭环验证。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **关系严谨**: 关系连接必须带箭头（如 `- satisfies ->`）。\n- **验证闭环**: 验证方法建议必须使用官方关键字 `verifyMethod`。",
+    "syntax_rules": "### 全量图表关键字定义\n- `requirementDiagram`: 定义需求图起始。\n- `requirement [Name] { id: text, risk: level }`: 需求定义块。\n- `element [Name] { type: \"Type\" }`: 系统元素定义块。\n- `element - satisfies -> requirement`: 关联关系定义。",
+    "official_example": "requirementDiagram\n    requirement req_lock {\n        id: 1.1\n        text: \"当速度超过20km/h时自动锁定车门\"\n        risk: medium\n        verifyMethod: test\n    }\n    element actuator {\n        type: \"Actuator\"\n    }\n    actuator - satisfies -> req_lock",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "需求条目描述、风险等级及对应的物理验证手段"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_sankey",
+    "parent_type": "mermaid",
+    "sub_type": "sankey-beta",
+    "display_name": "IQS 能量流向/桑基图",
+    "description": "基于 Mermaid 的能量或价值流向可视化工具。展现系统内部的分配与转移逻辑。",
+    "expertise": "能量平衡分析, 价值流映射 (VSM), 资源分配可视化",
+    "intent_trigger": [
+      "桑基图",
+      "sankey",
+      "流向图",
+      "分配图"
+    ],
+    "inference_key": "sankey-beta",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 能量/价值流向类图表。用于展示流动量在不同节点间的分配关系。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **语言退避 (Critical)**: 当前版本 `sankey-beta` 解析器对非 ASCII 字符极其敏感。**强烈建议强制使用英文标注**以确保渲染成功，否则可能导致节点崩解。",
+    "syntax_rules": "### 全量图表关键字定义\n- `sankey-beta`: 定义桑基图起始。\n- `Source,Sink,Value`: 数据行定义语法。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\"}}%%` 渲染样式。",
+    "official_example": "sankey-beta\n    Agricultural,Fertilizer,150\n    Agricultural,Irrigation,100\n    Fertilizer,Crop,120\n    Irrigation,Crop,80",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "源节点、目标节点及流向数值（建议使用英文标签）"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_sequence",
+    "parent_type": "mermaid",
+    "sub_type": "sequenceDiagram",
+    "display_name": "IQS 系统协作/时序图",
+    "description": "基于 Mermaid 的时序交互建模工具。用于刻画系统组件间的协作、调用链与消息传递。",
+    "expertise": "系统架构协作, 接口调用时序, 消息传递分析",
+    "intent_trigger": [
+      "时序图",
+      "顺序图",
+      "调用链",
+      "sequence diagram"
+    ],
+    "inference_key": "sequenceDiagram",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 时序交互类图表。专注于刻画参与者（Participants）之间的消息传递顺序与调用逻辑。\n\n### 公共事项及说明 (Common Instructions)\n1. **纯净 DSL 范式**: AI 必须生成纯文本 DSL 指令。严禁将代码块包裹在 JSON 结构中或附加冗余解释。\n2. **符号冲突防御**: 中文描述必须优先使用全角标点，或用引号包裹。例：`Alice ->> Bob: \"处理中，请稍候\"`。\n3. **角色定义**: 使用 `actor` 定义人工角色，`participant` 定义系统组件。",
+    "syntax_rules": "### 全量图表关键字定义\n- `sequenceDiagram`: 定义时序图起始。\n- `->>` (实线箭头) / `-->>` (虚线返回箭头)。\n- `activate` / `deactivate`: 开启/关闭生命线。\n- `loop` / `alt` / `opt`: 控制流结构。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"forest\"}}%%` 进行森林风格渲染。",
+    "official_example": "%%{init: {\"theme\": \"forest\"}}%%\nsequenceDiagram\n    actor 用户\n    participant Web as Web端\n    participant Srv as 服务端\n    \n    用户 ->> Web: 点击登录\n    Web ->> Srv: 发送鉴权请求\n    Srv -->> Web: 返回 Token\n    Web -->> 用户: 显示主界面",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "参与者交互描述（建议包含发送者、接收者及消息内容）"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_state",
+    "parent_type": "mermaid",
+    "sub_type": "stateDiagram-v2",
+    "display_name": "IQS 状态迁移/状态图",
+    "description": "基于 Mermaid 的系统状态建模工具。用于刻画对象的生命周期、状态演变及触发条件。",
+    "expertise": "系统状态建模, 生命周期分析, 业务状态流转",
+    "intent_trigger": [
+      "状态图",
+      "状态迁移图",
+      "生命周期图",
+      "state diagram"
+    ],
+    "inference_key": "stateDiagram-v2",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 逻辑流转类图表。专注于描述对象在不同触发条件下如何从一个状态转移到另一个状态。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **语义固化**: 必须采用 `state \"描述文本\" as 别名` 语法。严禁直接在转移连线上书写过于复杂的逻辑描述，以防渲染混乱。\n- **闭环思维**: 必须包含起始状态 `[*]`。建议显式标注每一个终结状态 `[*]`。",
+    "syntax_rules": "### 全量图表关键字定义\n- `stateDiagram-v2`: 定义状态图起始。\n- `-->`: 定义状态转移。\n- `[*]`: 定义起始/结束点。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\"}}%%` 进行中性风格渲染。",
+    "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\nstateDiagram-v2\n    state \"待支付\" as s1\n    state \"已支付\" as s2\n    state \"待发货\" as s3\n    [*] --> s1\n    s1 --> s2: 支付成功\n    s2 --> s3\n    s3 --> [*]",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "状态定义与迁移逻辑描述（建议包含触发动作）"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_timeline",
+    "parent_type": "mermaid",
+    "sub_type": "timeline",
+    "display_name": "IQS 历史年表/时间线",
+    "description": "基于 Mermaid 的时间轴呈现工具。用于展示产品迭代、历史事件及关键里程碑的线性演进。",
+    "expertise": "历史路径分析, 迭代周期展现, 时间线建模",
+    "intent_trigger": [
+      "时间线",
+      "年表",
+      "迭代记录",
+      "timeline"
+    ],
+    "inference_key": "timeline",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 计划与追踪类图表。专注于以非刻度化的方式展示重要事件的先后顺序环境。",
+    "syntax_rules": "### 全量图表关键字定义\n- `timeline`: 定义时间线起始。\n- `title`: 设置标题。\n- `2024 : [事件1] : [事件2]`: 时间段与事件定义语法。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"forest\"}}%%` 进行森林工业风格渲染。",
+    "official_example": "%%{init: {\"theme\": \"forest\"}}%%\ntimeline\n    title IQS 产品历史\n    2023 : 1.0 版本\n    2024 : 2.0 版本\n    2025 : 3.0 版本",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "时间节点及对应的关键事件列表"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_mermaid_xychart",
+    "parent_type": "mermaid",
+    "sub_type": "xychart-beta",
+    "display_name": "IQS 通用双轴图/XYChart",
+    "description": "基于 Mermaid 的通用组合图表。支持柱状与线状混合展示，适用于简单的趋势与对比分析。",
+    "expertise": "混合趋势分析, 双变量呈现, 通用统计绘图",
+    "intent_trigger": [
+      "xy图",
+      "组合图",
+      "双轴图",
+      "xychart"
+    ],
+    "inference_key": "xychart-beta",
+    "render_engine": "mermaid",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 通过 XY 坐标系展示混合趋势。相比 VChart 混合图，XYChart 更强调在文档流中的快速直观输出。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **引号强制**: 在 `xychart-beta` 中，**所有中文标签必须用双引号 \"\" 包裹**。",
+    "syntax_rules": "### 全量图表关键字定义\n- `xychart-beta`: 定义图表起始。\n- `x-axis [\"L1\", \"L2\"]`: X 轴离散标签。\n- `bar [v1, v2]` / `line [v1, v2]`: 系列定义语法。",
+    "official_example": "xychart-beta\n    title \"季度产量趋势\"\n    x-axis [\"Q1\", \"Q2\", \"Q3\", \"Q4\"]\n    y-axis \"产量(Ton)\" 0 --> 500\n    bar [320, 410, 390, 450]\n    line [300, 380, 420, 440]",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "X 轴分类、Y 轴量程及柱/线数据清单"
+      }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_vchart_master",
+    "parent_type": "vchart",
+    "sub_type": "master",
+    "display_name": "VChart 渲染总纲 (Master Protocol)",
+    "description": "IQS VChart 渲染引擎的核心专家灵魂与公共治理准则。定义了全局样式外壳及 100% 静态 JSON 约束。",
+    "expertise": "VChart (VisActor) 工业级可视化专家",
+    "expert_logic": "### 专家灵魂 (The Soul)\n- **DSL 文本外壳**: 必须以 `Title:` 开头，后跟 `Spec: { ... }`。严禁将最终结果作为纯 JSON 对象输出。\n- **核心语法二选一 (Syntax Selection)**:\n  1. **Spec 模式 (JSON Based)**: 适用于 Bar, Line, Area, Pie, Funnel, Gauge, Heatmap, Rose, Sankey, Sunburst, Treemap, Waterfall, WordCloud。必须包裹在 `Spec: { ... }` 块内。\n  2. **Custom DSL 模式 (K-V Based)**: 仅适用于 Radar, Scatter, Relation。采用关键字驱动，无需 JSON。\n- **100% 静态 Spec**: Spec 块内严禁出现任何 JavaScript 函数或注释。\n- **数据容器规范**: Spec.data 必须是数组 [{ values: [...] }]。",
+    "syntax_rules": "### 样式外壳 (DSL Wrapper)\nVChart 协议采用“外壳 + 内核”模式：\n- **外壳**: 控制标题、配色与显示行为。\n- **内核 (Spec)**: 标准的 VisActor JSON 配置。\n\n| 语法 | 说明 | 可选值 | 示例 |\n| :--- | :--- | :--- | :--- |\n| `Title:` | 图表标题文字 | 任意文本 | `Title: 核心指标分析` |\n| `ColorPalette:` | 配色主题 | `light / tech / vibrant / industrial / ocean / forest` | `ColorPalette: tech` |\n| `Spec:` | 核心 JSON 配置 | 标准 VisActor JSON | `Spec: { \"type\": \"bar\", ... }` |\n\n> **数据转换**: 对于传入的一系列数据（如 时间:数值），AI 必须将其转换为 `data: [{ \"values\": [{\"x\": \"A\", \"y\": 10}, ...] }]` 格式。",
+    "official_example": "Title: 月度设备综合效率 (OEE)\nColorPalette: tech\nShowTitle: true\n\nSpec: {\n  \"type\": \"bar\",\n  \"data\": [{ \"values\": [\n    { \"month\": \"1月\", \"v\": 0.85 }, { \"month\": \"2月\", \"v\": 0.88 }\n  ]}],\n  \"xField\": \"month\", \"yField\": \"v\",\n  \"label\": { \"visible\": true },\n  \"axes\": [\n    { \"orient\": \"bottom\", \"label\": { \"visible\": true } },\n    { \"orient\": \"left\", \"label\": { \"visible\": true } }\n  ]\n}",
+    "tier": "relief"
   },
   {
     "name": "render_vchart_area",
@@ -795,7 +893,8 @@
         "type": "string",
         "description": "各项目随时间的消耗或累积数值清单"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_bar",
@@ -820,7 +919,8 @@
         "type": "string",
         "description": "对比项名称及其对应的数值数据"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_boxplot",
@@ -845,7 +945,8 @@
         "type": "string",
         "description": "批次名称及其对应的五数概括值（min, q1, median, q3, max）"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_circular_progress",
@@ -870,7 +971,8 @@
         "type": "string",
         "description": "一个或多个项目的当前进度百分比数值"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_common",
@@ -895,7 +997,8 @@
         "type": "string",
         "description": "多组指标的对应数据，需指明哪组数据对应哪种图型及轴向"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_correlation_heat",
@@ -920,7 +1023,8 @@
         "type": "string",
         "description": "多个指标两两之间的相关系数值描述"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_funnel",
@@ -945,7 +1049,8 @@
         "type": "string",
         "description": "各个转化阶段的阶段名及剩余数据量"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_gauge",
@@ -970,7 +1075,8 @@
         "type": "string",
         "description": "当前的测量数值及其百分比位置"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_heatmap",
@@ -995,7 +1101,8 @@
         "type": "string",
         "description": "坐标维（如时间、产线）及其关联的数值强度描述"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_line",
@@ -1020,18 +1127,8 @@
         "type": "string",
         "description": "随时间或连续维度的趋势数据（如：1月 95%, 2月 96%...）"
       }
-    }
-  },
-  {
-    "name": "render_vchart_master",
-    "parent_type": "vchart",
-    "sub_type": "master",
-    "display_name": "VChart 渲染总纲 (Master Protocol)",
-    "description": "IQS VChart 渲染引擎的核心专家灵魂与公共治理准则。定义了全局样式外壳及 100% 静态 JSON 约束。",
-    "expertise": "VChart (VisActor) 工业级可视化专家",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **DSL 文本外壳**: 必须以 `Title:` 开头，后跟 `Spec: { ... }`。严禁将最终结果作为纯 JSON 对象输出。\n- **核心语法二选一 (Syntax Selection)**:\n  1. **Spec 模式 (JSON Based)**: 适用于 Bar, Line, Area, Pie, Funnel, Gauge, Heatmap, Rose, Sankey, Sunburst, Treemap, Waterfall, WordCloud。必须包裹在 `Spec: { ... }` 块内。\n  2. **Custom DSL 模式 (K-V Based)**: 仅适用于 Radar, Scatter, Relation。采用关键字驱动，无需 JSON。\n- **100% 静态 Spec**: Spec 块内严禁出现任何 JavaScript 函数或注释。\n- **数据容器规范**: Spec.data 必须是数组 [{ values: [...] }]。",
-    "syntax_rules": "### 样式外壳 (DSL Wrapper)\nVChart 协议采用“外壳 + 内核”模式：\n- **外壳**: 控制标题、配色与显示行为。\n- **内核 (Spec)**: 标准的 VisActor JSON 配置。\n\n| 语法 | 说明 | 可选值 | 示例 |\n| :--- | :--- | :--- | :--- |\n| `Title:` | 图表标题文字 | 任意文本 | `Title: 核心指标分析` |\n| `ColorPalette:` | 配色主题 | `light / tech / vibrant / industrial / ocean / forest` | `ColorPalette: tech` |\n| `Spec:` | 核心 JSON 配置 | 标准 VisActor JSON | `Spec: { \"type\": \"bar\", ... }` |\n\n> **数据转换**: 对于传入的一系列数据（如 时间:数值），AI 必须将其转换为 `data: [{ \"values\": [{\"x\": \"A\", \"y\": 10}, ...] }]` 格式。",
-    "official_example": "Title: 月度设备综合效率 (OEE)\nColorPalette: tech\nShowTitle: true\n\nSpec: {\n  \"type\": \"bar\",\n  \"data\": [{ \"values\": [\n    { \"month\": \"1月\", \"v\": 0.85 }, { \"month\": \"2月\", \"v\": 0.88 }\n  ]}],\n  \"xField\": \"month\", \"yField\": \"v\",\n  \"label\": { \"visible\": true },\n  \"axes\": [\n    { \"orient\": \"bottom\", \"label\": { \"visible\": true } },\n    { \"orient\": \"left\", \"label\": { \"visible\": true } }\n  ]\n}"
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_pie",
@@ -1056,7 +1153,8 @@
         "type": "string",
         "description": "各项分类及其对应的具体数值或百分比"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_radar",
@@ -1081,7 +1179,8 @@
         "type": "string",
         "description": "多维评估指标及其得分系列"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_rose",
@@ -1105,7 +1204,8 @@
         "type": "string",
         "description": "各项分类及其数值描述"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_sankey",
@@ -1130,7 +1230,8 @@
         "type": "string",
         "description": "源节点、目标节点及各层级间的流转量/流量描述"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_scatter",
@@ -1155,7 +1256,8 @@
         "type": "string",
         "description": "两组或三组对应变量的数据集"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_sunburst",
@@ -1180,7 +1282,8 @@
         "type": "string",
         "description": "层级化的分类描述（如：总成本包含材料和人工，材料包含原材料和辅料...）"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_treemap",
@@ -1205,7 +1308,8 @@
         "type": "string",
         "description": "层级化的分类结构及其对应的权重数值"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_waterfall",
@@ -1230,7 +1334,8 @@
         "type": "string",
         "description": "起始数值、中间各个增减项及其最终结果描述"
       }
-    }
+    },
+    "tier": "relief"
   },
   {
     "name": "render_vchart_wordcloud",
@@ -1255,6 +1360,37 @@
         "type": "string",
         "description": "关键词及其对应的出现频率或重要性数值"
       }
-    }
+    },
+    "tier": "relief"
+  },
+  {
+    "name": "render_flow",
+    "parent_type": "iqs_native",
+    "sub_type": "flow",
+    "display_name": "IQS 企业流程图/泳道图",
+    "description": "面向企业体系文件（CX 程序文件）的泳道流程图。基于字典-索引范式：Dict 定义部门/阶段/岗位/动作数组，Lane from 批量画泳道，W 节点引用字典并落格，分支/子流程 End 闭合，六属性边栏提取。",
+    "expertise": "泳道流程图 (Swimlane), BPMN 子集, 程序文件, 字典-索引, 岗位图例, 流程建模",
+    "intent_trigger": [
+      "流程图",
+      "泳道图",
+      "流程",
+      "程序文件",
+      "跨部门流程",
+      "BPMN",
+      "flow",
+      "swimlane"
+    ],
+    "inference_key": "flow",
+    "render_engine": "g6",
+    "expert_logic": "### 企业流程图 (Flow / BPMN 子集)\n流程图定义'谁（泳道）× 做什么（活动）× 什么条件下走哪条路（网关）'。面向企业 665 个体系文件中的程序文件（CX）建模。\n\n#### 字典-索引范式\n- **数据层 (Dict)**: 部门 D / 阶段 P / 岗位 R 为保留字，其余自定义。一处定义、多处索引引用。\n- **结构层**: `Lane from D[i,j] Layout H|V` 批量泳道；`W: id: 标签 Type[?] Location(D[i],P[j])` 节点落格。\n- **网格按 Lane from 定义产生**，坐标多余维度自动清洗。\n\n> [!IMPORTANT]\n> 图上的文字应显示字典展开值（如'信息中心'而非 D[0]）。节点只归属一个格子，跨泳道用连线表达，不复制节点。",
+    "syntax_rules": "### 基础配置\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 | `Title: 采购审批流程` |\n| `Layout:` | 方向 (`H` / `V`) | `Layout: H` |\n\n### 数据层（字典）\n- `Dict: D[部门,...]` `Dict: P[阶段,...]` `Dict: R[岗位,...]`（保留字）\n- `Dict: worker[动作,...]`（自定义）\n\n### 结构层\n- `Lane from D[0,1,2] Layout H`（横向泳道）\n- `Lane from P[0,1,2] Layout V`（纵向泳道）\n- `AxisX: 职能部门 Align C` / `AxisY: 推进阶段 Align C` / `Axis: 整图标题 AxisX`\n- `Attr active [Role,SOP,Lv,Time]`（属性边栏提取）\n\n### 节点\n- `W: w1: worker[0] Type[S] Location(D[0],P[0])`（开始）\n- `W: w2: worker[1] Location(D[0],P[1]) SOP(XX-CX-04) Role(R[0])`（任务+属性）\n- `W: q1: worker[2] Type[?]`（判断）\n  分支行：`是 → #w4` ... `End`\n- 类型：`Type[S]`开始 `Type[E]`结束 `Type[T]`任务 `Type[?]`判断 `Type[+]`并行 `Type[SUB]`子流程 `Type[N]`标注 `Type[DATA]`数据对象",
+    "official_example": "Title: 采购申请审批流程\nLayout: H\nDict: D[信息中心,综合计划科,办公室]\nDict: P[申请阶段,审批阶段,执行阶段,归档阶段]\nDict: R[申请员,部门经理,财务岗]\nDict: worker[提交采购申请,填写申请单,金额超过5000?,部门经理审批,直接执行,财务付款,归档]\nLane from D[0,1,2] Layout H\nLane from P[0,1,2,3] Layout V\nAxisX: 职能部门 Align C\nAxisY: 推进阶段 Align C\nAttr active [Role,SOP,Lv,Time]\nW: w1: worker[0] Type[S] Location(D[0],P[0])\nW: w2: worker[1] Location(D[0],P[0]) SOP(XX-CX-04) Role(R[0]) Lv(重要)\nW: q1: worker[2] Type[?] Location(D[0],P[1])\n   是 → #w4\n   否 → #w5\n   End\nW: w4: worker[3] Location(D[1],P[1]) Role(R[1]) Time(24h)\nW: w5: worker[4] Location(D[0],P[2])\nW: w6: worker[5] Location(D[2],P[2]) Role(R[2])\nW: w7: worker[6] Type[E] Location(D[1],P[3])\nw5 → #w6\nw6 → #w7",
+    "input_schema": {
+      "prompt": {
+        "type": "string",
+        "description": "需要绘制为流程图的业务、部门/阶段/岗位参与方及流转规则"
+      }
+    },
+    "tier": "core"
   }
 ]
