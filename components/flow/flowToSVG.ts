@@ -231,14 +231,26 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     const ma = nodeMetricMap.get(e.from);
     const mb = nodeMetricMap.get(e.to);
     if (!a || !b || !ma || !mb) continue;
-    const x1 = a.x + ma.halfW + 4;
-    const y1 = a.y;
-    const x2 = b.x - mb.halfW - 4;
-    const y2 = b.y;
-    // 回退/跨泳道：若目标在源行的下方（回边或下行），让线先沿带底走再上/折——统一先横后竖
-    const d = orthoPath(x1, y1, x2, y2);
-    const label = e.label ? `<text x="${(x1 + x2) / 2}" y="${(y1 + y2) / 2 - 4}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="3">${esc(e.label)}</text>` : '';
-    parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
+    const label = e.label ? `<text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 - 8}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="3">${esc(e.label)}</text>` : '';
+    // 回退边：目标在源的下方行 或 左方列（回环）→ 走节点底→带底间隙通道→目标底
+    const isBack = b.y > a.y + 10 || b.x < a.x - 10;
+    if (isBack) {
+      // 源底部 → 垂直下到带底通道（该行带底 = bandTop(ri)+bandH），水平到目标列中心，垂直上到目标底部
+      const srcBottom = a.y + ma.halfH + 4;
+      const dstBottom = b.y + mb.halfH + 4;
+      const channelY = Math.max(srcBottom, dstBottom) + 6; // 泳道带下缘通道
+      const midX = b.x; // 在目标列中心上下，避免横穿多格
+      const d = `M${a.x},${srcBottom} L${a.x},${channelY} L${midX},${channelY} L${midX},${dstBottom} L${b.x},${dstBottom}`;
+      parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
+    } else {
+      // 顺序边：源右缘 → 目标左缘，先横后竖
+      const x1 = a.x + ma.halfW + 4;
+      const y1 = a.y;
+      const x2 = b.x - mb.halfW - 4;
+      const y2 = b.y;
+      const d = orthoPath(x1, y1, x2, y2);
+      parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
+    }
   }
 
   // ===== 6. 节点（叠加） =====
