@@ -152,6 +152,16 @@ export const TOOL_CONFIGS = [
     color: 'text-indigo-600',
     bg: 'bg-indigo-50/50',
     accent: '#4f46e5'
+  },
+  {
+    type: QCToolType.FLOW,
+    name: '流程图',
+    enName: 'Flow / Swimlane',
+    desc: '企业体系文件流程图引擎，字典-索引范式定义泳道矩阵、BPMN 子集元素、岗位图例与属性边栏，适配程序文件（CX）编制。',
+    icon: <Workflow size={32} />,
+    color: 'text-teal-600',
+    bg: 'bg-teal-50/50',
+    accent: '#0d9488'
   }
 ];
 

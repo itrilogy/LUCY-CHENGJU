@@ -93,6 +93,12 @@ import { ArrowDiagram } from './components/ArrowDiagram';
 import { ArrowDiagramEditor, parseArrowDSL } from './components/ArrowDiagramEditor';
 import BasicEditor, { parseBasicDSL } from './components/BasicEditor';
 import BasicDiagram from './components/BasicDiagram';
+import FlowEditor from './components/flow/FlowEditor';
+import FlowDiagram from './components/flow/FlowDiagram';
+import { parseFlowDSL } from './components/flow/FlowParser';
+import { INITIAL_FLOW_DSL, INITIAL_FLOW_DATA } from './constants';
+import type { FlowData, FlowChartStyles } from './types';
+import { DEFAULT_FLOW_STYLES } from './types';
 import RadarEditor, { parseRadarDSL } from './components/RadarEditor';
 import RadarDiagram from './components/RadarDiagram';
 import { MermaidDiagram, MermaidDiagramRef } from './components/MermaidDiagram';
@@ -364,6 +370,14 @@ const parseInitialBasic = () => {
   }
 };
 
+const parseInitialFlow = () => {
+  try {
+    return parseFlowDSL(INITIAL_FLOW_DSL);
+  } catch {
+    return { data: INITIAL_FLOW_DATA, styles: DEFAULT_FLOW_STYLES };
+  }
+};
+
 const parseInitialRadar = () => {
   try {
     return parseRadarDSL(INITIAL_RADAR_DSL);
@@ -400,6 +414,7 @@ const App: React.FC = () => {
       arrow: QCToolType.ARROW,
       basic: QCToolType.BASIC,
       radar: QCToolType.RADAR,
+      flow: QCToolType.FLOW,
       mermaid: QCToolType.MERMAID,
       vchart: QCToolType.VCHART
     };
@@ -512,6 +527,15 @@ const App: React.FC = () => {
   const [basicStyles, setBasicStyles] = useState<BasicChartStyles>(() => {
     const dsl = (isHeadless && headlessType === QCToolType.BASIC && headlessDsl) ? headlessDsl : INITIAL_BASIC_DSL;
     try { return parseBasicDSL(dsl).styles; } catch { return parseInitialBasic().styles; }
+  });
+
+  const [flowData, setFlowData] = useState<FlowData>(() => {
+    const dsl = (isHeadless && headlessType === QCToolType.FLOW && headlessDsl) ? headlessDsl : INITIAL_FLOW_DSL;
+    try { return parseFlowDSL(dsl).data; } catch { return parseInitialFlow().data; }
+  });
+  const [flowStyles, setFlowStyles] = useState<FlowChartStyles>(() => {
+    const dsl = (isHeadless && headlessType === QCToolType.FLOW && headlessDsl) ? headlessDsl : INITIAL_FLOW_DSL;
+    try { return parseFlowDSL(dsl).styles; } catch { return DEFAULT_FLOW_STYLES; }
   });
 
   const [radarData, setRadarData] = useState<RadarData>(() => {
@@ -646,6 +670,7 @@ const App: React.FC = () => {
             case QCToolType.PDPC: return <PDPCDiagram ref={diagramRef} data={pdpcData} styles={pdpcStyles} onStylesChange={setPdpcStyles} />;
             case QCToolType.ARROW: return arrowData ? <ArrowDiagram ref={diagramRef} data={arrowData} styles={arrowStyles} /> : null;
             case QCToolType.BASIC: return <BasicDiagram ref={diagramRef} data={basicData} styles={basicStyles} />;
+            case QCToolType.FLOW: return <FlowDiagram ref={diagramRef as any} data={flowData} styles={flowStyles} />;
             case QCToolType.RADAR: return <RadarDiagram ref={diagramRef} data={radarData} styles={radarStyles} />;
             case QCToolType.MERMAID: return <MermaidDiagram ref={diagramRef} data={mermaidData} styles={mermaidStyles} />;
             case QCToolType.VCHART: return <VChartDiagram ref={diagramRef} data={vchartData} styles={vchartStyles} theme={theme} />;
@@ -779,6 +804,13 @@ const App: React.FC = () => {
                   onDataChange={setBasicData}
                   onStylesChange={setBasicStyles}
                 />
+              ) : selectedTool === QCToolType.FLOW ? (
+                <FlowEditor
+                  data={flowData}
+                  styles={flowStyles}
+                  onDataChange={setFlowData}
+                  onStylesChange={setFlowStyles}
+                />
               ) : selectedTool === QCToolType.RADAR ? (
                 <RadarEditor
                   data={radarData}
@@ -894,6 +926,8 @@ const App: React.FC = () => {
                     return arrowData ? <ArrowDiagram ref={diagramRef} data={arrowData} styles={arrowStyles} /> : null;
                   case QCToolType.BASIC:
                     return <BasicDiagram ref={diagramRef} data={basicData} styles={basicStyles} />;
+                  case QCToolType.FLOW:
+                    return <FlowDiagram ref={diagramRef as any} data={flowData} styles={flowStyles} />;
                   case QCToolType.RADAR:
                     return <RadarDiagram ref={diagramRef} data={radarData} styles={radarStyles} />;
                   case QCToolType.MERMAID:

@@ -1,0 +1,202 @@
+{
+  "version": "1.1.0",
+  "spec": "docs/IQS_DSL_V1_SPEC.md",
+  "manual": "docs/IQS_DSL_V1_MANUAL.md",
+  "comment": {
+    "canonical": "//",
+    "legacyHashCommentOutsideTree": true,
+    "hashIsStructureOnlyFor": ["fishbone"]
+  },
+  "coreKinds": [
+    {
+      "id": "fishbone",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "Tree",
+      "qcTool": "FISHBONE",
+      "mcpName": "render_fishbone",
+      "renderType": "fishbone",
+      "intents": ["鱼骨图", "因果图", "石川图", "fishbone", "根因分析", "5M1E", "4P"],
+      "typeDirective": null,
+      "colorSlots": ["Root", "RootText", "Main", "MainText", "Bone", "Line", "Text", "End"]
+    },
+    {
+      "id": "affinity",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "ItemTree",
+      "qcTool": "AFFINITY",
+      "mcpName": "render_affinity",
+      "renderType": "affinity",
+      "intents": ["亲和图", "KJ法", "系统图", "affinity", "卡片分组"],
+      "typeDirective": { "name": "Type", "values": ["Card", "Label"], "meaning": "renderMode" },
+      "colorSlots": ["TitleBg", "TitleText", "GroupHeaderBg", "GroupHeaderText", "ItemBg", "ItemText", "Line", "Border"]
+    },
+    {
+      "id": "pareto",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "Pairs",
+      "qcTool": "PARETO",
+      "mcpName": "render_pareto",
+      "renderType": "pareto",
+      "intents": ["排列图", "帕累托", "pareto", "二八定律", "80/20"],
+      "typeDirective": null,
+      "colorSlots": ["Title", "Bar", "Line", "MarkLine"]
+    },
+    {
+      "id": "histogram",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "ScalarList",
+      "qcTool": "HISTOGRAM",
+      "mcpName": "render_histogram",
+      "renderType": "histogram",
+      "intents": ["直方图", "分布", "Cp", "Cpk", "histogram"],
+      "typeDirective": null,
+      "colorSlots": ["Bar", "Curve", "USL", "LSL", "Target"]
+    },
+    {
+      "id": "control",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "Series",
+      "qcTool": "CONTROL",
+      "mcpName": "render_control",
+      "renderType": "control",
+      "intents": ["控制图", "SPC", "稳定性", "control chart", "Nelson"],
+      "typeDirective": {
+        "name": "Type",
+        "values": ["I-MR", "X-bar-R", "X-bar-S", "P", "NP", "C", "U"],
+        "meaning": "spcChartType"
+      },
+      "colorSlots": ["Line", "Point", "UCL", "CL", "LCL"]
+    },
+    {
+      "id": "scatter",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "TupleList",
+      "qcTool": "SCATTER",
+      "mcpName": "render_scatter",
+      "renderType": "scatter",
+      "intents": ["散点图", "相关分析", "回归", "scatter"],
+      "typeDirective": null,
+      "colorSlots": ["Point", "Trend"]
+    },
+    {
+      "id": "radar",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "AxisSeries",
+      "qcTool": "RADAR",
+      "mcpName": "render_radar",
+      "renderType": "radar",
+      "intents": ["雷达图", "多维对比", "radar", "综合评分"],
+      "typeDirective": null,
+      "colorSlots": []
+    },
+    {
+      "id": "relation",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "Graph",
+      "qcTool": "RELATION",
+      "mcpName": "render_relation",
+      "renderType": "relation",
+      "intents": ["关联图", "关系图", "因果网络", "relation"],
+      "typeDirective": null,
+      "colorSlots": ["Root", "RootText", "Middle", "MiddleText", "End", "EndText", "Line"]
+    },
+    {
+      "id": "arrow",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "Network",
+      "qcTool": "ARROW",
+      "mcpName": "render_arrow",
+      "renderType": "arrow",
+      "intents": ["矢线图", "网络图", "关键路径", "CPM", "arrow"],
+      "typeDirective": null,
+      "colorSlots": ["Node", "Line", "Critical", "Shortest"]
+    },
+    {
+      "id": "pdpc",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "ProcessGraph",
+      "qcTool": "PDPC",
+      "mcpName": "render_pdpc",
+      "renderType": "pdpc",
+      "intents": ["PDPC", "过程决策", "预案", "对策分支"],
+      "typeDirective": null,
+      "colorSlots": ["Start", "StartText", "Step", "StepText", "Countermeasure", "CountermeasureText", "End", "EndText", "Line"]
+    },
+    {
+      "id": "matrix",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "Matrix",
+      "qcTool": "MATRIX",
+      "mcpName": "render_matrix",
+      "renderType": "matrix",
+      "intents": ["矩阵图", "L型矩阵", "T型矩阵", "matrix"],
+      "typeDirective": { "name": "Type", "values": ["L", "T", "Y", "X", "C"], "meaning": "matrixGeometry" },
+      "colorSlots": []
+    },
+    {
+      "id": "matrixPlot",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "Table",
+      "qcTool": "MATRIX_PLOT",
+      "mcpName": "render_matrix_plot",
+      "renderType": "matrix_plot",
+      "intents": ["图矩阵", "相关矩阵", "matrix plot", "pairs plot"],
+      "typeDirective": null,
+      "colorSlots": []
+    },
+    {
+      "id": "basic",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "Dataset",
+      "qcTool": "BASIC",
+      "mcpName": "render_basic",
+      "renderType": "basic",
+      "intents": ["柱状图", "折线图", "饼图", "基础图", "bar", "line", "pie"],
+      "typeDirective": { "name": "Type", "values": ["bar", "line", "pie"], "meaning": "basicChartType" },
+      "colorSlots": ["Title", "Bg"]
+    },
+    {
+      "id": "flow",
+      "tier": "core",
+      "family": "iqs_native",
+      "body": "FlowGraph",
+      "qcTool": "FLOW",
+      "mcpName": "render_flow",
+      "renderType": "flow",
+      "intents": ["流程图", "泳道图", "BPMN", "流程", "程序文件", "flow", "航道"],
+      "typeDirective": null,
+      "colorSlots": ["Start", "StartText", "End", "EndText", "Task", "TaskText", "Gateway", "Parallel", "Subprocess", "Annotation", "Data", "Lane", "Axis", "Line", "Text", "Panel"]
+    }
+  ],
+  "reliefFamilies": [
+    {
+      "id": "mermaid",
+      "tier": "relief",
+      "family": "mermaid",
+      "body": "Foreign",
+      "mcpEntry": "render_mermaid_*",
+      "note": "类型外流程/结构/时序；非 QC 统计终稿"
+    },
+    {
+      "id": "vchart",
+      "tier": "relief",
+      "family": "vchart",
+      "body": "Foreign",
+      "mcpEntry": "render_vchart_*",
+      "note": "类型外复杂可视化；有 Native 等价时优先 Native"
+    }
+  ]
+}

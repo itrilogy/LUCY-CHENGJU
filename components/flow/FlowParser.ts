@@ -14,7 +14,7 @@ import type {
   FlowEdge,
   FlowNodeType,
   FlowChartStyles
-} from '../types';
+} from '../../types';
 
 /** 本地默认样式（避免跨文件运行时依赖，便于 Node strip-types 独立测试） */
 const DEFAULT_FLOW_STYLES: FlowChartStyles = {
