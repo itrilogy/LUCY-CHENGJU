@@ -3,7 +3,7 @@
  * 运行: node --experimental-strip-types scripts/assert_flow_svg.ts
  * 验证 flowToSVG 输出的结构正确性（节点落格中心、格子铺开、标签/连线存在）。
  */
-import { flowToSVG, getSvgSize } from '../components/flow/flowToSVG.ts';
+import { flowToSVG, getSvgSize, FLOW_SVG } from '../components/flow/flowToSVG.ts';
 import { parseFlowDSL } from '../components/flow/FlowParser.ts';
 
 let pass = 0, fail = 0;
@@ -69,6 +69,31 @@ if (rectXs.length === 12) {
   const deltas = sorted.slice(1).map((v,i) => +(v - sorted[i]).toFixed(1));
   check('列间距恒定 = cellW+gapX=280', deltas.every(d => Math.abs(d - 280) < 0.01), JSON.stringify(deltas));
 }
+
+// ===== 新修复行为验证 =====
+// 1. 菱形按文字自适应（不再固定64）
+const diamondRe = /<path d="M([^"]+)" fill="#(10b981|8b5cf6)"\/>/g;
+const diamondD: string[] = [];
+let dm: RegExpExecArray | null;
+while ((dm = diamondRe.exec(svg)) !== null) diamondD.push(dm[1]);
+check('菱形(判断/并行) path 存在', diamondD.length >= 1, `实际 ${diamondD.length}`);
+if (diamondD.length >= 1) {
+  const pts = diamondD[0].split(' ').map((p) => parseFloat(p.replace(/[ML]/g, '').split(',')[0]));
+  const xs = pts.filter((v) => !isNaN(v));
+  const bw = Math.max(...xs) - Math.min(...xs);
+  check('菱形宽随文字自适应(>旧的固定64)', bw > 80, `菱形宽 ${bw}`);
+  const ys = diamondD[0].split(' ').map((p) => parseFloat(p.replace(/[ML]/g, '').split(',')[1])).filter((v) => !isNaN(v));
+  const bh = Math.max(...ys) - Math.min(...ys);
+  check('菱形高随文字自适应(>=50)', bh >= 50, `菱形高 ${bh}`);
+}
+// 2. 连线端点贴节点边界：连线 path 起点 x 应等于源节点右缘（非固定±60）
+const edgeStarts = [...svg.matchAll(/<path d="M([\d.]+),([\d.]+) L/g)].map(m => parseFloat(m[1]));
+check('存在连线 path', edgeStarts.length >= 4, `实际 ${edgeStarts.length}`);
+check('存在非固定60的连线起点（贴边界）', edgeStarts.some(x => x > 100 && x < 400 && Math.abs(x - Math.round(x)) < 0.01));
+// 3. 行标签防裁切：左 header 区 head>=50, 行标签 text-anchor=middle 且 x 在 header 内
+check('行标签用 text-anchor=middle 防裁切', svg.includes('text-anchor="middle" fill="#334155" font-size="13"'));
+// 初始左 padding head>=50
+check('画布左 padding head>=50(防裁切)', FLOW_SVG.head >= 50, `head=${FLOW_SVG.head}`);
 
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);
