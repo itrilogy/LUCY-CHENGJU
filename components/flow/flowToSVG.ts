@@ -103,42 +103,44 @@ function dictValue(data: FlowData, dict: string, idx: number): string {
   return arr && arr[idx] !== undefined ? arr[idx] : `${dict}[${idx}]`;
 }
 
-/** 节点形状 SVG（返回 shape + text） */
+/** 节点形状 SVG（返回 shape + text）- VISIO 风格：圆角+细描边+文字留白 */
 function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy: number): string {
   const label = n.label || n.labelRef || n.id;
   const fs = st.nodeFontSize;
   const m = nodeMetrics(n, fs);
+  // VISIO 深浅双色：填充 + 深色细描边 + 浅色高光
+  const stroke = 'rgba(15,23,42,0.25)';
   let shape = '';
   switch (n.type) {
     case 'start':
-      shape = `<circle cx="${cx}" cy="${cy}" r="${m.halfW}" fill="${st.startColor}" stroke="#fff" stroke-width="2"/>`;
+      shape = `<circle cx="${cx}" cy="${cy}" r="${m.halfW}" fill="${st.startColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
     case 'end':
-      shape = `<circle cx="${cx}" cy="${cy}" r="${m.halfW}" fill="${st.endColor}" stroke="#fff" stroke-width="4"/>`;
+      shape = `<circle cx="${cx}" cy="${cy}" r="${m.halfW}" fill="${st.endColor}" stroke="${stroke}" stroke-width="3"/>`;
       break;
     case 'exclusiveGateway':
     case 'parallelGateway': {
       const w = m.halfW * 2, h = m.halfH * 2;
       const d = `M${cx},${cy - h / 2} L${cx + w / 2},${cy} L${cx},${cy + h / 2} L${cx - w / 2},${cy} Z`;
       const fill = n.type === 'parallelGateway' ? st.parallelColor : st.gatewayColor;
-      shape = `<path d="${d}" fill="${fill}"/>`;
+      shape = `<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
     }
     case 'annotation':
-      shape = `<rect x="${cx - m.halfW}" y="${cy - m.halfH}" width="${m.halfW * 2}" height="${m.halfH * 2}" rx="2" fill="${st.annotationColor}"/>`;
+      shape = `<rect x="${cx - m.halfW}" y="${cy - m.halfH}" width="${m.halfW * 2}" height="${m.halfH * 2}" rx="3" fill="${st.annotationColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
     case 'dataObject':
-      shape = `<rect x="${cx - m.halfW}" y="${cy - m.halfH}" width="${m.halfW * 2}" height="${m.halfH * 2}" rx="4" fill="${st.dataColor}"/>`;
+      shape = `<rect x="${cx - m.halfW}" y="${cy - m.halfH}" width="${m.halfW * 2}" height="${m.halfH * 2}" rx="5" fill="${st.dataColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
     case 'subprocess':
-      shape = `<rect x="${cx - m.halfW}" y="${cy - m.halfH}" width="${m.halfW * 2}" height="${m.halfH * 2}" rx="6" fill="${st.subprocessColor}" stroke="#f8fafc" stroke-width="2"/>`;
+      shape = `<rect x="${cx - m.halfW}" y="${cy - m.halfH}" width="${m.halfW * 2}" height="${m.halfH * 2}" rx="6" fill="${st.subprocessColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
     case 'task':
     default:
-      shape = `<rect x="${cx - m.halfW}" y="${cy - m.halfH}" width="${m.halfW * 2}" height="${m.halfH * 2}" rx="6" fill="${st.taskColor}"/>`;
+      shape = `<rect x="${cx - m.halfW}" y="${cy - m.halfH}" width="${m.halfW * 2}" height="${m.halfH * 2}" rx="6" fill="${st.taskColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
   }
-  return shape + `<text x="${cx}" y="${cy + 4}" text-anchor="middle" fill="#fff" font-size="${fs}">${esc(label)}</text>`;
+  return shape + `<text x="${cx}" y="${cy + fs * 0.36}" text-anchor="middle" fill="#fff" font-size="${fs}" font-weight="500">${esc(label)}</text>`;
 }
 
 /** 正交走线：先横后竖，端点贴节点边界（源右缘 → 目标左缘） */
@@ -168,21 +170,25 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   const bandLeft = FLOW_SVG.head + FLOW_SVG.rowLabelW;
   const bandRight = width - FLOW_SVG.gapX;
 
-  // ===== 1. 泳道带（每行一条贯穿背景条，非交叉格） =====
+  // ===== 1. 泳道带（每行一条贯穿背景条）+ 行标题表头栏 =====
+  const rowHeaderLeft = bandLeft - FLOW_SVG.rowLabelW;
   for (let ri = 0; ri < rows.length; ri++) {
     const ry = bandTop(ri);
     const label = dictValue(data, rows[ri].dict, rows[ri].idx);
-    // 贯穿泳道带背景
-    parts.push(`<rect x="${bandLeft}" y="${ry}" width="${bandRight - bandLeft}" height="${bandH}" rx="10" fill="${st.laneColor}" fill-opacity="0.22" stroke="${st.laneColor}" stroke-width="1.5"/>`);
-    // 行标签（泳道名，居左 header 区）
-    parts.push(`<text x="${FLOW_SVG.head}" y="${ry + bandH / 2}" text-anchor="middle" fill="${st.axisColor}" font-size="13" font-weight="bold">${esc(label)}</text>`);
+    // 贯穿泳道带背景（浅色，深描边边框）
+    parts.push(`<rect x="${bandLeft}" y="${ry}" width="${bandRight - bandLeft}" height="${bandH}" rx="8" fill="${st.laneColor}" fill-opacity="0.18" stroke="#cbd5e1" stroke-width="1"/>`);
+    // 行标题表头栏（行首横排块，文字居右，带浅灰底）
+    parts.push(`<rect x="${rowHeaderLeft}" y="${ry}" width="${FLOW_SVG.rowLabelW}" height="${bandH}" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>`);
+    parts.push(`<text x="${bandLeft - 12}" y="${ry + bandH / 2}" text-anchor="end" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(label)}</text>`);
   }
 
-  // ===== 2. 列标签（阶段名，顶部一条） =====
+  // ===== 2. 列标题表头带（顶部一条浅灰表头） =====
+  const colHeaderY = FLOW_SVG.head - 24;
+  parts.push(`<rect x="${bandLeft}" y="${colHeaderY}" width="${bandRight - bandLeft}" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>`);
   for (let ci = 0; ci < cols.length; ci++) {
     const cx0 = bandLeft + ci * (FLOW_SVG.cellW + FLOW_SVG.gapX);
     const colLabel = dictValue(data, cols[ci].dict, cols[ci].idx);
-    parts.push(`<text x="${cx0 + FLOW_SVG.cellW / 2}" y="${FLOW_SVG.head + FLOW_SVG.colLabelH - 8}" text-anchor="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(colLabel)}</text>`);
+    parts.push(`<text x="${cx0 + FLOW_SVG.cellW / 2}" y="${colHeaderY + 15}" text-anchor="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(colLabel)}</text>`);
   }
 
   // ===== 3. 节点中心 + 尺寸 metrics =====
@@ -224,23 +230,33 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     }
   }
 
-  // ===== 5. 连线（端点贴节点边界，正交；回边沿泳道底部走规整回线） =====
+  // ===== 5. 连线（端点贴节点边界，正交；回退边走相邻泳道带间间隙通道，不兜最底） =====
+  // 计算相邻泳道带之间间隙通道 y
+  const bandGapCenters: number[] = [];
+  for (let ri = 0; ri < rows.length - 1; ri++) {
+    bandGapCenters.push(bandTop(ri) + bandH + FLOW_SVG.gapY / 2);
+  }
+  function nearestChannel(y: number): number {
+    if (!bandGapCenters.length) return y;
+    let best = bandGapCenters[0], bd = Infinity;
+    for (const c of bandGapCenters) { const d = Math.abs(c - y); if (d < bd) { bd = d; best = c; } }
+    return best;
+  }
+
   for (const e of data.edges.filter((x) => !x.parent)) {
     const a = nodeCenter.get(e.from);
     const b = nodeCenter.get(e.to);
     const ma = nodeMetricMap.get(e.from);
     const mb = nodeMetricMap.get(e.to);
     if (!a || !b || !ma || !mb) continue;
-    const label = e.label ? `<text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 - 8}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="3">${esc(e.label)}</text>` : '';
-    // 回退边：目标在源的下方行 或 左方列（回环）→ 走节点底→带底间隙通道→目标底
+    const label = e.label ? `<text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 - 12}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(e.label)}</text>` : '';
+    // 回退边：目标在下方行 或 左方列（非简单右向顺序）→ 走就近泳道带间隙通道
     const isBack = b.y > a.y + 10 || b.x < a.x - 10;
     if (isBack) {
-      // 源底部 → 垂直下到带底通道（该行带底 = bandTop(ri)+bandH），水平到目标列中心，垂直上到目标底部
-      const srcBottom = a.y + ma.halfH + 4;
-      const dstBottom = b.y + mb.halfH + 4;
-      const channelY = Math.max(srcBottom, dstBottom) + 6; // 泳道带下缘通道
-      const midX = b.x; // 在目标列中心上下，避免横穿多格
-      const d = `M${a.x},${srcBottom} L${a.x},${channelY} L${midX},${channelY} L${midX},${dstBottom} L${b.x},${dstBottom}`;
+      const channelY = nearestChannel(Math.min(a.y, b.y)); // 取两节点间最近间隙
+      const aSideY = a.y < channelY ? a.y + ma.halfH + 4 : a.y - ma.halfH - 4; // 源朝通道侧边界
+      const bSideY = b.y < channelY ? b.y + mb.halfH + 4 : b.y - mb.halfH - 4;
+      const d = `M${a.x},${aSideY} L${a.x},${channelY} L${b.x},${channelY} L${b.x},${bSideY}`;
       parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
     } else {
       // 顺序边：源右缘 → 目标左缘，先横后竖
