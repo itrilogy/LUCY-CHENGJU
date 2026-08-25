@@ -124,11 +124,19 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
 
     const { hLanes, vLanes, cols, rows, rowIdx } = computeMatrix(data);
 
-    // ===== 构建矩阵 cell → combo =====
-    const combos: any[] = [];
-    const combosByCell = new Map<string, string>();
-
-    // 阶段列名
+    // ===== 计算每个格子中心坐标 =====
+    // 行 = H lanes（部门），列 = V lanes（阶段）
+    function cellCx(ci: number): number { return AXIS_HEAD + ci * (CELL_W + X_GAP) + CELL_W / 2; }
+    function cellCy(ri: number): number { return AXIS_HEAD + ri * (CELL_H + Y_GAP) + CELL_H / 2; }
+    // 行名：H lane 对应字典按索引取名
+    const rowNames: string[] = rows.map((rk, ri) => {
+      const dict = data.dicts[rk];
+      if (!dict) return rk;
+      const l = hLanes.find((x) => x.dict === rk);
+      const idx = l ? l.indices[ri % (l.indices.length || 1)] : parseInt(rowIdx[ri] || '0', 10);
+      return dict[idx] !== undefined ? dict[idx] : String(idx);
+    });
+    // 列名：V lane（阶段）对应字典按索引取名
     function colNameAt(j: number): string {
       const cls = cols[j];
       const l = vLanes.length ? vLanes[0] : null;
@@ -141,49 +149,80 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
       return cls || '';
     }
 
-    // 创建格子 combo（G6 v5: combo 坐标放 style.x/y，显式 rect 形状）
+    // ===== 泳道格子衬底（独立 rect 节点，固定尺寸，不可交互） =====
+    const g6Nodes: any[] = [];
+    const cellNodeId = new Map<string, string>();
     for (let ri = 0; ri < rows.length; ri++) {
       for (let ci = 0; ci < cols.length; ci++) {
         const cellKey = `${rows[ri]}${rowIdx[ri] || 0}${cols[ci]}`;
-        const cid = `cell_${ri}_${ci}`;
-        combosByCell.set(cellKey, cid);
-        combos.push({
-          id: cid,
+        const bgId = `bg_${ri}_${ci}`;
+        cellNodeId.set(cellKey, bgId);
+        g6Nodes.push({
+          id: bgId,
           type: 'rect',
           style: {
-            x: AXIS_HEAD + ci * (CELL_W + X_GAP) + CELL_W / 2,
-            y: AXIS_HEAD + ri * (CELL_H + Y_GAP) + CELL_H / 2,
+            x: cellCx(ci),
+            y: cellCy(ri),
             size: [CELL_W, CELL_H],
             fill: finalStyles.laneColor,
-            fillOpacity: 0.35,
+            fillOpacity: 0.3,
             stroke: '#cbd5e1',
             lineWidth: 1,
             radius: 8,
-            labelText: colNameAt(ci) || '',
-            labelFontSize: 11,
-            labelFill: '#64748b',
-            labelPlacement: 'top',
-            labelBackground: true,
-            labelBackgroundFill: '#f8fafc',
+            pointerEvents: 'none',
+            cursor: 'default',
           }
         });
       }
     }
 
-    // ===== 节点 → 坐标（G6 v5: 坐标放 style.x/style.y） =====
-    const g6Nodes = data.nodes.map((n) => {
+    // ===== 行（部门）标签节点 =====
+    for (let ri = 0; ri < rows.length; ri++) {
+      g6Nodes.push({
+        id: `rowh_${ri}`,
+        type: 'text',
+        style: {
+          x: AXIS_HEAD - 8,
+          y: cellCy(ri),
+          text: rowNames[ri] || '',
+          fontSize: 13,
+          fontWeight: 'bold',
+          fill: finalStyles.axisColor,
+          textAlign: 'right',
+          textBaseline: 'middle',
+        }
+      });
+    }
+
+    // ===== 列（阶段）标签节点 =====
+    for (let ci = 0; ci < cols.length; ci++) {
+      g6Nodes.push({
+        id: `colh_${ci}`,
+        type: 'text',
+        style: {
+          x: cellCx(ci),
+          y: AXIS_HEAD - 8,
+          text: colNameAt(ci) || '',
+          fontSize: 12,
+          fontWeight: 'bold',
+          fill: finalStyles.axisColor,
+          textAlign: 'center',
+          textBaseline: 'bottom',
+        }
+      });
+    }
+
+    // ===== 任务/BPMN 节点 → 坐标（叠加在格子中心） =====
+    for (const n of data.nodes) {
       const cellKey = cellKeyOf(n);
       let x: number, y: number;
-      let comboId: string | undefined;
-      if (cellKey) {
-        comboId = combosByCell.get(cellKey);
-      }
-      if (comboId) {
-        const [ri, ci] = comboId.replace('cell_', '').split('_').map(Number);
-        const gx = AXIS_HEAD + ci * (CELL_W + X_GAP);
-        const gy = AXIS_HEAD + ri * (CELL_H + Y_GAP);
-        x = gx + CELL_W / 2;
-        y = gy + CELL_H / 2;
+      const bgId = cellNodeId.get(cellKey || '');
+      const m = bgId ? bgId.match(/bg_(\d+)_(\d+)/) : null;
+      if (m) {
+        const ri = parseInt(m[1], 10);
+        const ci = parseInt(m[2], 10);
+        x = cellCx(ci);
+        y = cellCy(ri);
       } else {
         const ord = orderOf(n, data);
         x = 80 + ord * (CELL_W + X_GAP - 180);
@@ -191,9 +230,8 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
       }
       const shape = flowShape(n.type, finalStyles);
       const label = dictExpandLabel(n, data);
-      return {
+      g6Nodes.push({
         id: n.id,
-        combo: comboId,
         type: flowNodeType(n.type),
         style: {
           x,
@@ -205,16 +243,14 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
           size: [shape.w, shape.h],
           labelText: label,
           labelFontSize: finalStyles.nodeFontSize,
-          labelFill: finalStyles.textColor,
+          labelFill: '#ffffff',
           labelPlacement: 'center',
-          labelBackground: true,
-          labelBackgroundFill: '#ffffff',
-          labelBackgroundRadius: 4,
+          labelBackground: false,
         }
-      };
-    });
+      });
+    }
 
-    // ===== 边 =====
+    // ===== 边（只连任务节点，不连衬底） =====
     const g6Edges = data.edges.filter((e) => !e.parent).map((e) => {
       const label = e.label || '';
       return {
@@ -237,8 +273,8 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
     });
 
     const buildGraph = (g: Graph) => {
-      g.setData({ nodes: g6Nodes, edges: g6Edges, combos });
-      // G6 v5: 节点/边自带 style.x/y，不跑自动布局以免覆盖坐标
+      // G6 v5: 节点/边自带 style.x/y，不跑布局以免覆盖坐标；无 combo
+      g.setData({ nodes: g6Nodes, edges: g6Edges });
       g.render();
     };
 
@@ -247,36 +283,9 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
         container: containerRef.current,
         width,
         height,
-        data: { nodes: g6Nodes, edges: g6Edges, combos },
+        data: { nodes: g6Nodes, edges: g6Edges },
         behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
         autoFit: { type: 'view', options: { padding: 40 } } as any,
-        node: {
-          style: {
-            labelText: (d: any) => d.style?.labelText || d.data?.labelText || '',
-            labelFontSize: finalStyles.nodeFontSize,
-            labelFill: finalStyles.textColor,
-            labelPlacement: 'center',
-            labelBackground: true,
-            labelBackgroundFill: '#ffffff',
-            labelBackgroundRadius: 4,
-          }
-        },
-        edge: {
-          style: {
-            radius: 14,
-            lineWidth: finalStyles.lineWidth,
-            stroke: finalStyles.lineColor,
-            endArrow: true,
-          }
-        },
-        combo: {
-          style: {
-            labelText: (d: any) => d.style?.labelText || '',
-            labelFontSize: 11,
-            labelFill: '#64748b',
-            labelPlacement: 'top',
-          }
-        }
       });
       graphRef.current = graph;
       graph.render();
