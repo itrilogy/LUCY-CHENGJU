@@ -882,6 +882,7 @@ export interface FlowNode {
   cell: FlowCell | null;      // 显式坐标（已清洗）；null = 自动顺序落格
   attrs: Record<string, string>;  // 已小驼峰键（sop/role/lv/time/kpi/m）
   parent?: string;            // 子流程内部节点归属
+  vh?: 'V' | 'H';             // 格内链式排布：与上一节点 V(下方)/H(右侧)
 }
 
 export interface FlowEdge {

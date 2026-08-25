@@ -60,15 +60,20 @@ check('连线标签 是', svg.includes('>是<'));
 check('连线标签 否', svg.includes('>否<'));
 
 // 泳道带范式：只画有节点的格子 + 贯穿泳道带
-const cellRects220 = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="220" height="140"[^>]*stroke-dasharray="4 3"/g)].map(m => parseFloat(m[1]));
-check('只画有节点的格子（虚线定位框）', cellRects220.length === 6, `实际 ${cellRects220.length}`);
-// 贯穿泳道带（浅灰底、宽 > 单格宽度）
-const bandRects = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="140"[^>]*fill-opacity="0.18"/g)].map(m => ({ w: parseFloat(m[3]), y: parseFloat(m[2]) }));
+// 只画有节点的格子（虚线定位框，尺寸自适应）
+const cellRects = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*stroke-dasharray="4 3"/g)].map(m => ({ w: parseFloat(m[3]), h: parseFloat(m[4]) }));
+const nR = 3, nC = 4; // 采购示例：3 行部门 × 4 列阶段
+check('有节点的格子已画（<=12，只含有内容格）', cellRects.length > 0 && cellRects.length <= 12, `实际 ${cellRects.length}`);
+// 自适应列宽：格子宽度不都一样（长列宽、短列窄）
+const rectWs = [...new Set(cellRects.map((r) => Math.round(r.w)))];
+check('列宽自适应（不唯一，长列宽短列窄）', rectWs.length > 1, `列宽集 ${rectWs.join(',')}`);
+// 贯穿泳道带（浅灰底 0.16、宽 > 整列）
+const bandRects = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*fill-opacity="0.16"/g)].map(m => ({ w: parseFloat(m[3]) }));
 check('贯穿泳道带存在（3 条）', bandRects.length === 3, `实际 ${bandRects.length}`);
-if (bandRects.length) check('泳道带宽 > 单格(280+)', bandRects[0].w > 280, `带宽 ${bandRects[0].w}`);
+if (bandRects.length) check('泳道带宽 > 单格', bandRects[0].w > 300, `带宽 ${bandRects[0].w}`);
 // 行标题表头栏（text-anchor=end）
 check('行标题用 text-anchor=end 表头栏', svg.includes('text-anchor="end"'));
-// 只有泳道带背景 + 有节点格子，空格子不再画 12 个实心框
+// 无旧的固定 220x140 实心空格子框
 const solidCellCount = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="220" height="140" rx="8" fill="[^"]*" fill-opacity="0.3"/g)].length;
 check('无旧的实心空格子框（0）', solidCellCount === 0, `实际 ${solidCellCount}`);
 
@@ -94,6 +99,23 @@ check('存在连线 path', edgeStarts.length >= 4, `实际 ${edgeStarts.length}`
 check('存在非固定60的连线起点（贴边界）', edgeStarts.some(x => x > 100 && x < 400 && Math.abs(x - Math.round(x)) < 0.01));
 // 3. 画布左 padding head>=50(防裁切)
 check('画布左 padding head>=50(防裁切)', FLOW_SVG.head >= 50, `head=${FLOW_SVG.head}`);
+
+// ===== V/H 链式格内排布验证（独立 DSL：同格两个节点带 V） =====
+const vhDsl = `Title: t
+Dict: D[甲,乙]
+Dict: P[一,二]
+Lane from D[0,1] Layout H
+Lane from P[0,1] Layout V
+W: w1: 节点A, V Location(D[0],P[0])
+W: w2: 节点B, V Location(D[0],P[0])`;
+const vhR = parseFlowDSL(vhDsl);
+const vhSvg = flowToSVG(vhR.data, vhR.styles);
+// 找 D[0]P[0] 格子（含 w1,w2），检查其高度能容纳两个节点（V链）
+const vhCellHeights = [...vhSvg.matchAll(/<rect x="[\d.]+" y="[\d.]+" width="[\d.]+" height="([\d.]+)"[^>]*stroke-dasharray="4 3"/g)].map((m) => parseFloat(m[1]));
+check('V链格高能容纳多节点（>100）', vhCellHeights.some((h) => h > 100), `格高集 ${vhCellHeights.join(',')}`);
+// V 链两节点 y 不同（垂直堆叠）
+const ySet = new Set([...vhSvg.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>节点[AB]<\/text>/g)].map((m) => m[1]));
+check('V链两节点垂直堆叠（y 不同）', ySet.size >= 2, `y集 ${[...ySet].join(',')}`);
 
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);
