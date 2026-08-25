@@ -1,7 +1,7 @@
 # IQS-Flow DSL 规范（企业体系文件流程图）
 
-> **状态**: 设计落盘 v1（语法完备，尚未实现）
-> **版本**: 0.5.0
+> **状态**: 设计落盘 v2（字典-索引范式，尚未实现）
+> **版本**: 0.6.0
 > **适用范围**: 新增 IQS-DSL v1 第 14 个 core kind —— `flow`
 > **作者**: 洪光华 / 鹿溪联合创新实验室
 > **落盘日期**: 2026-08-25
@@ -14,11 +14,12 @@
 
 本规范定义第 14 个 core kind —— `flow`，一套**面向企业非技术员工、同时具备强机器可读性**的流程图 DSL。语义定界为 **BPMN 2.0 子集**，渲染**自研 SVG**（零新增第三方依赖）。
 
-### 0.1 设计三原则
+### 0.1 设计原则（v0.6 更新）
 
-1. **默认顺序流**：同一泳道内按书写顺序自动连线，省去约 80% 的显式连线书写。
-2. **泳道即节**：`Lane:` 开启一段，其下所有节点自动归属该泳道；泳道可声明语义轴。
-3. **放宽 → 归一**：解析器将人写 DSL 归一为 **canonical JSON**，`#id` 全局强制保证可审计与机器可读。
+1. **数据与结构分离（字典-索引范式）**：所有可变内容（部门/阶段/岗位/节点标签/属性值）集中在 `Dict` 字典数组定义，结构层（`Lane`/`W`/连线）只写**索引引用**。一处定义、多处引用、修改全局生效。
+2. **索引即引用**：`D[0]`、`P[1]`、`worker[0]` 是无歧义的稳定引用，越界可校验、canonical JSON 直接落索引——机器可读性优先于书写直觉；**渲染时索引全部展开为字典值**（图上显示"信息中心"而非 `D[0]`）。
+3. **默认顺序流**：W 节点按声明顺序自动连线，省去约 80% 显式连线书写；判断/并行节点的出口必须显式声明。
+4. **放宽 → 归一**：解析器将人写 DSL 归一为 **canonical JSON**，节点 id 可省略（自动编号 `w1,w2,...`）可显式（`W: w1: ...`），保证可审计与机器可读。
 
 ### 0.2 产品分层（沿用治理）
 
@@ -29,481 +30,549 @@
 
 ### 0.3 三层机器输出
 
-| 输出 | 用途 |
+DSL → 解析 → **canonical JSON**（校验/图谱抽取）→ **BPMN 2.0 XML**（专业工具交换）→ **自研 SVG**（渲染）。
+
+### 0.4 与上一版（v0.5）的范式变化
+
+| v0.5（命名直写） | v0.6（字典-索引） |
 |:---|:---|
-| **canonical JSON** | 校验、图谱抽取、版本 diff、跨文档审计 |
-| **BPMN 2.0 XML** | 可导入第三方 BPMN 专业工具交换 |
-| **自研 SVG** | 渲染与终端展示 |
+| `Lane:[sales,营销部,H,1]` 逐行声明 | `Lane from D[0,1,2,5] Layout H` 批量声明 |
+| 节点 `@[sales,step1]` 交叉格定位 | 节点 `Location(D[0],P[1])` 坐标引用字典索引 |
+| `axis:D[标题]` / `axis:P[标题]` | `AxisX: 职能部门 Align C` / `AxisY: ...` |
+| `axis:R[岗位清单]` + `for R[i]` | `Dict: R[...]` 岗位字典 + 属性 `Role(R[1])` |
+| 标签直写 | `W: worker[0]`（字典引用）或字面量 |
+| `[SOP 编号]` 方括号属性 | `SOP(编号)` 圆括号属性，值可字典引用 |
 
 ---
 
-## 1. 语法概览（BNF 骨架）
+## 1. 语言总览（文档结构与 BNF）
 
-```
-flow          := shell* axisDecl* (lane | pool | subprocess)*
-shell         := "Title:" text | "Layout:" layoutWord | 注释
-axisDecl      := "axis:" ("D" "[" title "]" | "P" "[" title "]" | "R" "[" roles "]")
-lane          := "Lane:[" name "," display? "," hv "," ord "]" (属性)* newline nodeOrBlock*
-pool          := "Pool:" name newline (lane)*
-nodeOrBlock   := nodeLine | branchBlock | subprocess
-nodeLine      := id "[" mark "," label "]" coord? forDecl? (属性)*
-coord         := "@[" name ("," name)? "]"
-forDecl       := "for" "R" "[" index "]"
-branchBlock   := gatewayLine branchLine* "End"
-subprocess    := nodeLine "[" "SUB" ... "]" coord? newline nodeOrBlock* "End"
-```
+### 1.1 文档结构
 
-核心语法模型：**显式 id + 显式块 + 坐标标记 + 文档级轴**。`axis:D[标题]`/`axis:P[标题]` 声明横/纵坐标轴语义标题，`axis:R[岗位清单]` 声明岗位图例；每个节点 `id [标记, 标签] @[泳道name,…] [for R[i]]` 一行；分支块与子流程块用 **`End`** 显式闭合；泳道用 `Lane:[name, 显示名, H/V, 序号]` 坐标标记，`H`/`V` 决定行列轴。
-
----
-
-## 2. 语义子集（BPMN 2.0 子集）
-
-面向企业体系文件，仅保留以下**8 种节点 + 3 种连线 + 3 种修饰**（裁掉边界事件、补偿、多实例、消息/定时/信号事件；保留**子流程**以满足"程序文件互相引用"刚需）。
-
-### 2.1 节点
-
-| 元素 | 主标记 | 兼容别名 | BPMN 视觉 |
-|:---|:---|:---|:---|
-| 开始 | `[S]` | `start` `开始` `[*]` | ○ 细圆 |
-| 结束 | `[E]` | `end` `结束` `[#]` | ● 粗圆 |
-| 任务 | `[T]`（可省） | `[task]` `[任务]` | 圆角矩形 |
-| 子流程 | `[SUB]` | `[@]` `subprocess` `子流程` | 圆角矩形＋ |
-| 排他网关 | `[?]` | `[G]` `gateway` `判断` | ◇ 菱形 |
-| 并行网关 | `[+]` | `[P]` `parallel` `并行` | ◇＋ |
-| 文本标注 | `[N]` | `[note]` `[注]` | 折角纸 |
-| 数据对象 | `[D]` | `[data]` `[数据]` | 纸带 |
-
-**标记放置**：`id [<标记>, <标签>] @[name,…]`。任务标记可省略；`[SUB]`/`[?]` 等纯标记即 `[SUB, …]`/`[?, …]` 元组中省略标签的退化写法，语义等价。坐标 `@[...]` 见 §3.4。
-
-### 2.2 连线
-
-| 连线 | 视觉 | 用途 |
-|:---|:---|:---|
-| 序列流 | 实线箭头 | 主流程流转（隐式自动连 + 显式补充） |
-| 消息流 | 虚线箭头 | 跨泳池传递（v0 预留） |
-| 关联 | 点线 | 修饰物挂接节点 |
-
----
-
-## 3. 泳道模型（坐标标记 × 矩阵布局 + 文档级轴语义）
-
-### 3.1 泳道坐标标记（`Lane:[name, displayText, H/V, order]`）
-
-每个泳道用**方括号四元组**声明，其 `name`（定位标记）是节点落格的唯一坐标锚：
-
-```
-Lane:[<name>, <显示文字>, <H|V>, <序号>]
+```text
+flowDoc := header* dict+ lane* axis* node* edge*
+header  := "Title:" str | "Layout:" ("H"|"V")
+dict    := "Dict:" name "[" value ("," value)* "]"
+lane    := "Lane from" dictRef "Layout" ("H"|"V")
+axis    := "AxisX:" str "Align" ("L"|"R"|"C")
+         | "AxisY:" str "Align" ("L"|"R"|"C")
+         | "Axis:" str ("AxisX"|"AxisY")
+node    := "W:" [id ":"] label [typeMark] [location] attr*
+label   := dictRef | str                 // 节点标签：字典引用或字面量
+typeMark:= "Type[" ("S"|"E"|"?"|"+"|"SUB"|"N"|"DATA") "]"   // 缺省=任务
+location:= "Location(" dictRef ("," dictRef)* ")"           // 如 Location(D[0],P[1])
+attr    := key "(" value ("," value)* ")"  // key ∈ {SOP,Role,Lv,Time,KPI,M}；值可列表
+dictRef := name "[" index ("," index)* "]"  // 索引引用；"*"=全部
+branch  := label [ "(" exitName ")" ] [ "[" cond "]" ] "→" target ["," target]*
+         | "否则 →" target ["," target]*
+target  := "#" id
+edge    := id "→" "#" id [label]         // 显式边
+blockEnd:= "End"                         // 闭合分支块/子流程块
 ```
 
-| 位 | 含义 | 示例 |
-|:---|:---|:---|:---|
-| `name` | 唯一标识（Locator），供 `@[name,…]` 锚定 | `sales` |
-| 显示文字 | 泳道/格子显示名（可省，默认取 name） | `营销部` |
-| `H`/`V` | 排列方向：**H=横向泳道（行）** / **V=纵向泳道（列）** | `H` |
-| 序号 | 同方向泳道中的排列序号（1 起） | `1` |
+### 1.2 词法约定
 
-```dsl
-Lane:[sales, 营销部, H, 1]     // 第1个横向泳道（行）
-Lane:[step1, 预售, V, 1]       // 第1个纵向泳道（列）
-Pool: 采购协同
-Lane:[office, 综合办, H, 2]
-```
-
-> **`name` 即坐标**：`[sales, …, H, 1]` 表明"营销部"占 H 方向第 1 行；`[step1, …, V, 1]` 占 V 方向第 1 列。交叉格即行列交集。
-
-### 3.2 文档级轴语义（axis:D / axis:P / axis:R）
-
-axis **不再挂 Lane**，改为**文档级声明**，放在 `Title/Layout` 之后、`Lane:` 之前。它不决定行列（行列全由 H/V + 序号管），而是给矩阵坐标轴加**语义标题/图例**——类似图纸的坐标轴名与右下角图例栏：
-
-```dsl
-Title: 采购申请审批流程
-Layout: H
-axis:D[职能部门]                 // 横轴标题：作为 H 泳道集合的语义名
-axis:P[推进阶段]                 // 纵轴标题：作为 V 泳道集合的语义名
-axis:R[申请员, 部门经理, 财务岗, 仓管员]   // 岗位图例清单（索引 0 起）
-```
-
-| axis | 含义 | 作用 |
-|:---|:---|:---|
-| `axis:D[标题]` | 职能部门轴标注 | 给横轴（H 泳道集合）一个语义标题，渲染为坐标轴标签 |
-| `axis:P[标题]` | 阶段轴标注 | 给纵轴（V 泳道集合）一个语义标题，渲染为坐标轴标签 |
-| `axis:R[岗位,...]` | 岗位图例清单 | **索引表**（0 起）；节点用 `for R[i]` 引用，渲染为节点右下角岗位标注 + 图纸式图例栏 |
-
-> **D/P/R 管理词汇映射**（语义注解，非渲染约束）：D=职能部门 / GF-CX 管业务；P=推进阶段 / BPA-BPM-BPI、PDCA；R=岗位 / GW 管人。这些语义由 axis 标题与岗位清单表达，不再与 H/V 行列绑定。
-
-### 3.3 二维交叉矩阵布局
-
-- **行轴** = 所有 `H` 泳道（`Lane:[…, H, 序]`），**列轴** = 所有 `V` 泳道（`Lane:[…, V, 序]`）。
-- 只有 H 泳道 → 单维横泳道；只有 V → 单维竖泳道。
-- 节点落在 `(H泳道, V泳道)` 交叉单元格。axis:D/P 的 `[标题]` 作为横/纵坐标轴标签。
-
-### 3.4 坐标锚定与岗位标注（`@[...]` + `for R[i]`）
-
-节点用 `@[<H泳道name>, <V泳道name>]` 锚定到交叉单元格；用 `for R[i]` 在**节点右下角**附加岗位说明（索引指向 `axis:R` 清单，0 起）：
-
-```dsl
-s1 [S, 处理预售] @[sales, step1] for R[0]    // 落"营销行×预售列"，右下角标注"申请员"
-b1 [ , 审批]     @[mgr,  step2] for R[1] [Time 24h]   // 右下角标注"部门经理"
-t2 [ , 返工]     @[qc,   check]             // 无 for，不标注岗位
-```
-
-表格：写法定（省略规则）
-
-| 写法 | 锚定 |
+| 规则 | 说明 |
 |:---|:---|
-| 节点写在某 H 泳道段内，省略 `@` | 行 = 该泳道，列 = 当前 V 泳道上下文 |
-| 省略 `for R[i]` | 无岗位右下角标注 |
-| 显式 `@[name1,name2]` | 完全按坐标，可跨行列放置 |
-| `for R[i]` | 索引引用 `axis:R` 清单，寄出越界则报校验错 |
+| 行注释 | `//`（沿用 v1 全局约定） |
+| `#` 字符 | **仅用于节点引用**（`#w1`），不作注释、不作层级 |
+| 结构分隔符 | Dict 数组内、Location 坐标内、分支多目标内用**半角逗号** `,` |
+| 内容标点 | 标签/字典值内的文字标点一律用**中文全角**（`，` `；` `：`），避免与结构分隔符冲突 |
+| 大小写 | 关键字 `Type`/`Location`/`Layout`/`Align`/`End`/`Dict`/`Lane` 大小写不敏感；字典名区分大小写 |
 
-> `@[name]` 单参数 = 只锚一维；两参 = 交叉格。旧 `@P:step1` 写法保留兼容。`for R[i]` 是 `Role` 属性的语法糖（见 §5）。
+### 1.3 依赖顺序（强制）
 
----
-
-## 4. 节点行语法
-
-```
-<id> [<标记>, <标签>] @[泳道name, …] [for R[i]] [<属性>]*
-```
-
-- **id 全局强制唯一**（字母/数字/下划线，如 `s1`、`b1`、`L1-check`）。
-- **标记 + 标签**：按 §2.1，用 `[标记, 标签]` 一元组内置（任务可省略标记）。也可用旧式 `id [标记] 标签`。
-- **坐标定位 `@[name1, name2]`**：锚到行列泳道交叉格（见 §3.4）；省略则继承当前泳道上下文。
-- **岗位标注 `for R[i]`**：索引引用 `axis:R` 岗位清单（0 起），渲染为节点**右下角**岗位说明（见 §3.2 / §3.4）；等价于 `[Role …]` 属性，详见 §5。
-- 属性：`[键 值]`，见 §5。多个属性依次排列。`for R[i]` 在属性之前优先解析。
-
-**示例**
-```dsl
-s1 [S, 提交采购申请] @[sales, step1] for R[0] [Time 2h]
-s2 [ , 填写申请单] @[sales, step1] for R[0]    // 无标记 → 任务
-q1 [?, 金额超过5000?] @[sales, step2]         // 无 for，不标注
-```
+`Dict` 定义必须先于 `Lane from` / `W` / `Location` 中的引用（**绘制泳道必须提前定义好 Dict 数组**），解析器对未定义字典报错。
 
 ---
 
-## 5. 节点业务属性（六属性规范化集）
+## 2. 字典层（Dict）——数据源
 
-| 属性键 | 含义 | 企业管理落点 | 常用度 |
-|:---|:---|:---|:---:|
-| `SOP` | **依据标准**（标准编号） | 绑定 GF/CX/GW，回溯依据 | ★★★ |
-| `Role` | **责任人/授权** | 岗位/角色 | ★★★ |
-| `Lv` | **管控级别/风险** | 重大/重要/一般（RAG） | ★★★ |
-| `Time` | **时限/SLA** | 完成时限 | ★★ |
-| `KPI` | **成效度量** | 质量目标 | ★★ |
-| `M` | **管理成熟度** | BPM/BPI、数字化等级 | ★ |
+### 2.1 语法
 
-> 封闭词表，扩展走 Spec 升版；值域见附录 A。
-
-### 5.1 属性语法与继承
-
-```dsl
-Lane:[sales, 营销部, H, 1] [SOP XX-GF-03]   // 泳道级默认属性（四元组 + 属性）
-s1 [S, 提交采购申请] @[sales, step1] [Time 2h]   // 节点级属性
-f1 [D, 付款记录] @[finance, settle] [KPI 退款率≤1‰] [M 已数字化]  // [D] 数据对象标记
+```
+Dict: <字典名>[<值1>,<值2>,<值3>,...]
 ```
 
-> **`[]` 区分**：`[标记, 标签]`（含逗号）= 节点类型区；`[键 值]`（空格）= 属性；`Lane:[name, text, H/V, 序]`（`Lane:` 前缀）= 泳道坐标标记。三者容器不同、首 token 区分。
+| 项 | 规则 |
+|:---|:---|
+| 字典名 | 字母/数字/下划线；**D / P / R 为常设固定命名**，分别代表**部门、阶段、岗位**；其余为自定义字典 |
+| 值 | 任意文本（推荐中文），元素内可用全角标点；值不可含半角逗号（如需用 `，` 全角） |
+| 索引 | 从 **0** 开始；`D[0]` 指第一个值 |
+| 重复定义 | 同一字典名不得重复定义（解析器报错） |
 
-**继承**：泳道属性扩展至其下所有节点，节点可覆盖。粒度：泳道 > 泳池 > 文档 > 默认。
-
-**`for R[i]` 与 `Role` 的统一**：`for R[i]` 是 `[Role 岗位名]` 的**语法糖**——解析时从 `axis:R[岗位清单]` 取第 `i` 位，写入节点 `attrs.role`；同时把该岗位渲染到节点**右下角**标注。等价写法：
+### 2.2 常设固定字典
 
 ```dsl
-s1 [S, 提交申请] @[sales,step1] for R[0]      // 语法糖 → role=申请员
-s2 [S, 提交申请] @[sales,step1] [Role 申请员]  // 等价底层属性
+Dict: D[信息中心,综合计划科,办公室]      // 部门字典 → D[0]=信息中心, D[1]=综合计划科, D[2]=办公室
+Dict: P[阶段一,阶段二,阶段三]           // 阶段字典 → P[0],P[1],P[2]
+Dict: R[岗位一,岗位二,岗位三]           // 岗位字典 → R[0],R[1],R[2]（渲染为图纸右下角岗位图例栏）
 ```
 
-> 未声明 `axis:R` 时 `for R[i]` 视为错误；`[Role 岗位名]` 则不依赖清单，直接赋岗位名。二者共存时以节点级为准。
+### 2.3 自定义字典
 
-### 5.2 canonical 属性键约定
+```dsl
+Dict: worker[动作一,动作二,动作三,动作四]   // 节点标签字典
+Dict: 标准[XX-CX-04,XX-GF-01]              // 属性值字典（SOP 值来源）
+```
 
-canonical JSON 属性键统一改**小写驼峰**（避免 `SOP` 大写 vs `role` 小写错位）：
+### 2.4 索引引用（全文档统一形式）
 
-| DSL 键 | canonical 键 | 值 |
+| 形式 | 含义 | 示例 |
 |:---|:---|:---|
-| `SOP` | `sop` | 标准编号 |
-| `Role` / `for R[i]` | `role` | 岗位名（`for R[i]` 由 `axis:R` 清单解析） |
-| `Lv` | `level` | `major`/`important`/`common` |
-| `Time` | `time` | SLA 时限 |
-| `KPI` | `kpi` | 指标 |
-| `M` | `maturity` | 成熟度档 |
-
-**图谱抽取价值**：`sop` 用于"流程 → 依据文件(GF/CX) → 责任人(role)"三层追溯，与体系文件 `[[wiki-link]]` 双链联动。
+| `名[i]` | 单个索引 | `D[0]`、`worker[2]` |
+| `名[i,j,k]` | 索引列表（Lane from 批量用） | `D[0,1,2,5]`（支持非连续/乱序） |
+| `名[*]` | 全部索引（便捷糖） | `P[*]` |
 
 ---
 
-## 6. 分支块（网关出口，显式 `End` 闭合）
+## 3. 泳道声明（Lane from）——结构层
 
-排他/并行网关的出口以**分支块**表达，用 **`End`** 显式结束（不依赖缩进）。
+### 3.1 批量语法
+
+```
+Lane from <字典引用> Layout <H|V>
+```
+
+| 项 | 含义 |
+|:---|:---|
+| 字典引用 | 引用固定字典（D/P）或自定义字典，索引列表决定画哪些泳道及顺序 |
+| `Layout H` | 该组泳道**横向排列**（行） |
+| `Layout V` | 该组泳道**纵向排列**（列） |
+
+```dsl
+Lane from D[0,1,2,5] Layout H   // 从部门字典批量画 4 条横向泳道（行），跳过索引 3,4
+Lane from P[1,3,4]  Layout V   // 从阶段字典批量画 3 条纵向泳道（列）
+```
+
+### 3.2 三种形态
+
+| 形态 | 写法 | 网格 |
+|:---|:---|:---|
+| **二维交叉矩阵** | 一条 `Lane from D[...] Layout H` + 一条 `Lane from P[...] Layout V` | 行=部门 × 列=阶段，交叉成格 |
+| **单维泳道** | 仅一条 `Lane from` | 行或列单向泳道 |
+| **无泳道** | 无 `Lane from` | 纯流程图，节点按 `Layout` 方向排布 |
+
+泳道宽度/高度由格子内节点数自动撑开（自研渲染）。
+
+### 3.3 网格坐标模型
+
+- 每个格子由 **(D 索引, P 索引)** 唯一确定，如 `(D[0],P[1])` = 信息中心行 × 阶段二列。
+- 节点落格用 `Location(D[0],P[1])` 显式坐标（见 §5.3）；坐标引用**必须**是已定义字典的合法索引。
+- 行/列顺序 = 索引列表顺序，与字典声明顺序无关。
+
+---
+
+## 4. 轴标题（AxisX / AxisY / Axis）
+
+### 4.1 语法
+
+```
+AxisX: <标题> Align L|R|C     // 横轴标题，文字横向排列；L/R/C = 左/右/中
+AxisY: <标题> Align L|R|C     // 纵轴标题，文字纵向排列（横向逆时针旋转 90°）；L/R/C = 下/上/中
+Axis: <整图标题> AxisX|AxisY   // 整图标题：通过 AxisX/AxisY 参数决定挂横轴外围或纵轴外围
+```
+
+### 4.2 示例
+
+```dsl
+AxisX: 职能部门 Align C
+AxisY: 推进阶段 Align C
+Axis: 采购申请审批流程 AxisX
+```
+
+渲染位置：AxisX 位于横向泳道组上方（或格子区域上方），AxisY 位于纵向泳道组左侧（文字纵向），Axis 整图标题置于所选轴的最外围。
+
+---
+
+## 5. 节点（W 行）
+
+### 5.1 W 行完整语法
+
+```
+W: [<id>:] <标签> [Type[<类型>]] [Location(<坐标>)] [<属性>...]
+```
+
+| 部分 | 说明 |
+|:---|:---|
+| `W:` | 节点行标识（Worker） |
+| `<id>:` | **可选** id；省略时解析器按声明顺序自动编号 `w1, w2, w3, ...`（稳定、可审计）；显式 id 用于分支/连线引用 |
+| `<标签>` | **字典引用**（`worker[0]`）或**字面量**（`提交采购申请`），二选一 |
+| `Type[...]` | 节点类型标记，**缺省 = 任务**（见 §5.2） |
+| `Location(...)` | 格子坐标（见 §5.3），缺省 = 自动顺序落格 |
+| `<属性>` | 六属性（见 §6），任意组合、可缺省 |
+
+```dsl
+W: w1: worker[0] Type[S] Location(D[0],P[0])        // 显式 id + 开始
+W: worker[1] Location(D[0],P[1]) SOP(XX-CX-04)      // 自动编号 w2 + 任务（Type 缺省）
+W: q1: worker[2] Type[?] Location(D[0],P[2])        // 判断
+W: 直接执行 Location(D[0],P[3])                      // 字面量标签（自动编号）
+```
+
+### 5.2 节点类型（Type 关键字）
+
+| 类型 | 写法 | BPMN 语义 | 视觉 |
+|:---|:---|:---|:---|
+| 开始 | `Type[S]` | startEvent | ○ 细圆 |
+| 结束 | `Type[E]` | endEvent | ● 粗圆 |
+| 任务 | （缺省）或 `Type[T]` | task | 圆角矩形 |
+| 判断 | `Type[?]` | exclusiveGateway | ◇ 菱形 |
+| 并行 | `Type[+]` | parallelGateway | ◇＋ |
+| 子流程 | `Type[SUB]` | subProcess | 圆角矩形＋（内嵌子图，见 §7.4） |
+| 文本标注 | `Type[N]` | textAnnotation | 折角纸（不占格，见 §5.5） |
+| 数据对象 | `Type[DATA]` | dataObject | 纸带（不占格，见 §5.5） |
+
+> 注：数据对象用 `Type[DATA]` 而非 `Type[D]`，避免与固定部门字典名 `D` 混淆。
+
+### 5.3 Location 坐标
+
+```
+Location(<D索引>, <P索引>)    // 二维：行×列交叉格
+Location(<D索引>)             // 单维：仅行（或列）泳道
+Location(<P索引>)
+```
+
+- 坐标引用**固定字典 D/P 的索引**；缺省 `Location` = **自动顺序落格**（按声明顺序从首个格子起填充，canonical 输出实际坐标，可审计）。
+- `Type[N]` / `Type[DATA]` 修饰类**不占格子**：Location 可省略（缺省依附声明顺序前驱节点），也可写坐标强制占格显示。
+- 语义上：**一个动作节点只归属一个格子**（单归属），跨泳道流转用连线表达，不复制节点。
+
+### 5.4 岗位标注
+
+岗位属于 R 字典，通过属性 `Role(R[k])` 标注在节点上（见 §6.2），渲染为**节点右下角一行小字**——如同图纸标注。岗位不参与格子坐标（axis=R 不占格）。
+
+---
+
+## 6. 属性（六属性规范化集）
 
 ### 6.1 语法
 
 ```
-<网关卡id> [?] 标签
-  <标签> <(出口标记)> [<条件>] → <目标>
-  ...
-End
+<键>(<值>)
 ```
 
-| 部分 | 语法 | 说明 |
-|:---|:---|:---|
-| 分支标签 | `是` `否` `通过`… | 连线标签 |
-| 出口标记 | `(pass)` | 可选命名，边 id 稳定；缺省自动编号 |
-| 条件 | `[金额>5000]` | 可选，输出 `condition` |
-| 目标 | `→ #b1` | **强制 `#id`**；多目标 `→ #w2, #w4`（自动拆并行边） |
-| 结束 | `End` | **必需**，闭合分支块 |
+值 = **字面量** 或 **字典引用**（`R[1]`、`标准[0]`）。圆括号与 `Type[...]`（节点类型）、`Dict[...]`（数组定义）三种容器**词法可区分**：`键(...)` = 属性，`Type[...]` = 类型，`名[索引]` = 字典引用。
 
-**四档弹性**：
-① 命名出口 `合格 (pass) → #w1`
-② 带条件　`返工 (rework) [缺陷≤3] → #q3`
-③ 默认出口 `否则 → #w3`
-④ 多目标　`报废 → #w2, #w4`
+### 6.2 六属性表
 
-**合并收敛**：多条分支指向同一节点 = 隐式合并，无需额外语法。
+| 键 | 含义 | 企业管理落点 | 示例 |
+|:---|:---|:---|:---|
+| `SOP` | 依据标准 | 绑定 GF/CX/GW 标准编号 | `SOP(XX-CX-04)`、`SOP(标准[0])` |
+| `Role` | 责任人/授权岗位 | 引用岗位字典 | `Role(R[1])` |
+| `Lv` | 管控程度/风险等级 | 重大/重要/一般 或 1/2/3 | `Lv(重要)` |
+| `Time` | 时效/SLA | 完成时限 | `Time(24h)`、`Time(2026-08-25)` |
+| `KPI` | 成效度量 | 质量目标/衡量指标 | `KPI(≤1‰)` |
+| `M` | 管理成熟度 | BPA/BPM/BPI、数字化档 | `M(BPM)` |
 
-### 6.2 示例
+> 使用强度阶梯：`SOP`/`Role`/`Lv` 高优先（体系文件几乎每步标依据/责任人/重要性），`Time`/`KPI` 中优先（程序文件），`M` 低优先（改进场景）。
 
-```dsl
-q2 [?, 检验结果?] @[qc, check]
-  合格 (pass) → #w1
-  返工 (rework) [缺陷≤3] → #q3
-  否则 → #w3
-  报废 → #w2, #w4
-End
-```
+### 6.3 canonical 键映射
 
-> 分支块**必须**紧跟网关节点之后；`End` 后继续平级节点。分支块与 `End` 同属节点流，不充当节点 id。网关节点可用 `@[...]` 显式锚格；分支出口不重复标坐标（分支连线跟随网关格）。
+属性键在 canonical JSON 中统一**小驼峰**：`SOP→sop`、`Role→role`、`Lv→lv`、`Time→time`、`KPI→kpi`、`M→m`；属性值保留 DSL 原文（字面量或引用串），渲染时引用串查字典展开。
 
 ---
 
-## 7. 子流程（内嵌子图，显式 `End` 闭合）
+## 7. 连线与分支
 
-子流程是块级容器，内部可再含节点与分支块。**支持一层嵌套**。
+### 7.1 默认顺序流（声明顺序自动连）
 
-### 7.1 语法
+普通节点（S/T/E/SUB/N/DATA）按**声明顺序**自动生成顺序边 `w1→w2→w3...`。断点规则：
+
+1. **`Type[?]` / `Type[+]` 节点不参与默认顺序流**——其出口必须用分支行显式声明（见 §7.3），否则校验报错。
+2. **判断/并行节点的显式出口目标节点**，其默认入边被抑制（该节点是分支起点，如两个分支目标之间不自动连线）。
+3. 普通节点之间的显式边（如回边 `b3 → #s2`）**不抑制**目标的默认入边（`s2` 保留默认入边 + 回边，形成合并汇聚）。
+
+canonical 输出中默认边全部展开为显式边（id 自动编号 `e1,e2,...`），校验可查。
+
+### 7.2 显式边
 
 ```
-<id> [SUB, <标签>] @[name1, name2]   // 容器节点可带坐标（见 §3.4），内部节点坐标相对容器
-  <子流程内节点/分支块>
-End
+<源id> → #<目标id> [<标签>]
 ```
-
-### 7.2 示例
 
 ```dsl
-a2 [SUB, 按《合同评审程序》执行] @[purchase, review]
-  c1 [S, 初审]                        // 内部节点，坐标继承容器
-  c2 [?, 合规?]
-    是 → #c3
-    否 → #s2
-  End
-  c3 [E, 盖章]
-End
+b3 → #s2            // 回边
+w1 → #w5 [超时]      // 带标签显式边
 ```
 
-> `[SUB, 标签]` 后是其内部节点；内部 `End` 结束内层分支块，外层 `End` 结束子流程容器。**子流程内节点 id 全局唯一**（不得与外层重复）。内部节点缺省继承容器格，也可显式 `@[...]` 覆盖（仍在容器边界内）。
+### 7.3 分支块（判断/并行节点出口）
+
+分支行紧跟所属节点，`End` 显式闭合（缩进仅为视觉辅助，不参与解析）：
+
+```
+W: <id>: <标签> Type[?] Location(...)
+   <标签> [(<出口名>)] [<条件>] → #<目标>[, #<目标>]*
+   否则 → #<目标>
+   End
+```
+
+| 分支行部分 | 语法 | 说明 |
+|:---|:---|:---|
+| 标签 | `是` `否` `通过` `报废`… | 任意文本，连线标签 |
+| 出口名 | `(pass)` | **可选**，分支线稳定 id；缺省自动 `{节点id}-Y`/`-N`/`-{序号}` |
+| 条件 | `[缺陷≤3]` | 可选，BPMN conditionExpression，输出 canonical `condition` |
+| 目标 | `#w4` | 强制 `#id`；**可省略** = 接声明顺序下一节点 |
+| 多目标 | `→ #w2, #w4` | 自动拆为多条并行边（语义等价并行扇出） |
+| 默认出口 | `否则 → #w5` | BPMN default flow，渲染为带斜杠实线箭头；每节点至多一条 |
+
+```dsl
+W: q2: worker[2] Type[?] Location(D[0],P[2])
+   合格 (pass) → #w3
+   返工 [缺陷≤3] → #q3
+   否则 → #w3
+   End
+```
+
+### 7.4 子流程块（内嵌子图）
+
+```
+W: <id>: <标签> Type[SUB] Location(...)
+   <内部 W 行>...          // 内部节点省略 Location，按声明顺序在子图内自动排布
+   End
+```
+
+- 内嵌一层（体系文件场景一层足够）；块内节点 id 全局唯一（自动编号顺延全局序，显式 id 亦可）。
+- canonical 中内部节点带 `parent` 字段归属子流程。
+- 程序文件互相引用（"按《XX程序》执行"）由此表达，DSL 内闭环。
+
+### 7.5 合并收敛（隐式）
+
+多条边指向同一节点 = BPMN 隐式合并，无需额外语法（分支目标与默认入边自动汇聚）。
 
 ---
 
 ## 8. 完整示例
 
-### 8.1 二维矩阵 + 分支 + 属性（典型 CX 程序文件）
+### 8.1 采购申请审批（二维矩阵泳道 + 岗位图例 + 回边）
 
 ```dsl
 Title: 采购申请审批流程
 Layout: H
-axis:D[职能部门]                       // 横轴标题
-axis:P[推进阶段]                       // 纵轴标题
-axis:R[申请员, 部门经理, 财务岗]        // 岗位图例清单（索引 0 起）
-Pool: 采购协同
 
-Lane:[step1, 申请阶段, V, 1]
-Lane:[step2, 审批阶段, V, 2]
-Lane:[step3, 结算阶段, V, 3]
+// ===== 数据层：字典 =====
+Dict: D[信息中心,综合计划科,办公室]
+Dict: P[申请阶段,审批阶段,执行阶段,归档阶段]
+Dict: R[申请员,部门经理,财务岗]
+Dict: worker[提交采购申请,填写申请单,金额超过5000?,部门经理审批,直接执行,财务付款,归档,退回修改]
 
-Lane:[sales, 申请人, H, 1] [SOP XX-GF-03]
-  s1 [S, 提交采购申请] @[sales, step1] for R[0] [Time 2h]
-  s2 [ , 填写申请单] @[sales, step1] for R[0] [Lv 一般]
-  s3 [?, 金额超过5000?] @[sales, step1]
-    是 → #b1
-    否 → #s4
-  End
-  s4 [ , 直接执行] @[sales, step1] for R[0]
-  s5 [E, 归档] @[sales, step3] for R[0]
+// ===== 结构层：泳道 =====
+Lane from D[0,1,2] Layout H
+Lane from P[0,1,2,3] Layout V
 
-Lane:[mgr, 部门经理, H, 2]
-  b1 [ , 审批] @[mgr, step2] for R[1] [Lv 重要] [Time 24h]
-  b2 [?, 是否通过?] @[mgr, step2]
-    是 → #f1
-    否 → #b3
-  End
-  b3 [ , 退回修改] @[mgr, step2] for R[1]
-  b3 → #s2
+// ===== 轴标题 =====
+AxisX: 职能部门 Align C
+AxisY: 推进阶段 Align C
+Axis: 采购申请审批流程 AxisX
 
-Lane:[finance, 财务, H, 3]
-  f1 [ , 付款] @[finance, step3] for R[2] [KPI 退款率≤1‰] [M 已数字化]
-  f2 [E, 完成] @[finance, step3] for R[2]
+// ===== 节点 =====
+W: w1: worker[0] Type[S] Location(D[0],P[0])
+W: w2: worker[1] Location(D[0],P[0]) SOP(XX-CX-04) Role(R[0]) Lv(重要)
+W: q1: worker[2] Type[?] Location(D[0],P[1])
+   是 → #w4
+   否 → #w5
+   End
+W: w4: worker[3] Location(D[1],P[1]) Role(R[1]) Time(24h)
+W: q2: 审批是否通过? Type[?] Location(D[1],P[1])
+   通过 → #w6
+   驳回 → #w2
+   End
+W: w5: worker[4] Location(D[0],P[2])
+W: w6: worker[5] Location(D[2],P[2]) Role(R[2]) KPI(≤1‰)
+W: w7: worker[6] Type[E] Location(D[1],P[3])
+
+// 显式边：补齐分支汇聚，理顺流转
+w5 → #w6          // 直接执行（否分支）→ 付款
+w6 → #w7          // 付款 → 归档
 ```
 
-### 8.2 纵泳道 + 多出口 + 子流程
+### 8.2 质检流程（单维纵泳道 + 多出口扇出 + 子流程）
 
 ```dsl
-Title: 合同评审
+Title: 来料检验与处置
 Layout: V
-axis:D[经办部门]
-axis:P[评审节点]
-axis:R[采购员, 法务专员, 质检员, 仓管员]
-Lane:[review, 评审阶段, V, 1]
-Lane:[sign, 会签阶段, V, 2]
 
-Lane:[purchase, 采购, H, 1]
-  a1 [S, 提交合同] @[purchase, review] for R[0]
-  a2 [SUB, 按《合同评审程序》执行] @[purchase, review]
-    c1 [S, 初审] for R[0]
-    c2 [?, 合规?]
-      是 → #c3
-      否 → #a4
-    End
-    c3 [E, 盖章] for R[0]
-  End
-  a3 [ , 归档] @[purchase, sign] for R[0]
-  a4 [E, 驳回] @[purchase, review]
+Dict: D[质检科,采购科,生产车间]
+Dict: R[检验员,采购员,车间主任]
+Dict: worker[来料检验,检验结果?,合格入库,退货处理,让步接收,不合格评审,复检,可接收?,记录归档]
+Dict: 标准[GB/T 2828.1-2012]
 
-Lane:[legal, 法务, H, 2]
-  l1 [ , 法律审查] @[legal, review] for R[1]
+Lane from D[0,1,2] Layout V
 
-Lane:[qc, 质检, H, 3]
-  q1 [S, 来料检验] @[qc, review] for R[2]
-  q2 [?, 检验结果?] @[qc, review]
-    合格 (pass) → #w1
-    返工 (rework) [缺陷≤3] → #q3
-    否则 → #w3
-    报废 → #w2, #w4
-  End
-  q3 [ , 返工处理] @[qc, review] for R[2]
-  q3 → #q1
+AxisX: 处置流向 Align L
+AxisY: 责任部门 Align C
 
-Lane:[warehouse, 仓库, H, 4]
-  w1 [ , 入库] @[warehouse, sign] for R[3]
-  w4 [ , 报废登记] @[warehouse, sign]
+W: w1: worker[0] Location(D[0]) SOP(标准[0]) Role(R[0])
+W: q1: worker[1] Type[?] Location(D[0])
+   合格 (pass) → #w2
+   不合格 → #q2
+   否则 → #w2
+   End
+W: w2: worker[2] Type[E] Location(D[1]) Role(R[1])
+W: q2: worker[5] Type[SUB] Location(D[0])   // 子流程：不合格评审
+   W: s1: worker[6] Type[S]
+   W: s2: worker[7] Type[?]
+      可接收 → #s3
+      不可接收 → #s4
+      End
+   W: s3: worker[3]
+   W: s4: worker[8] Type[E]
+   End
+W: w3: worker[8] Type[E] Location(D[2])
 
-Lane:[purchase2, 采购供应商, H, 5]
-  w2 [ , 联系供应商换货] @[purchase2, review]
-  w3 [ , 让步接收] @[purchase2, review]
+// 显式边：子流程结束后汇聚到记录归档
+q2 → #w3
 ```
 
 ---
 
 ## 9. canonical JSON
 
+### 9.1 结构
+
 ```json
 {
   "kind": "flow",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "title": "采购申请审批流程",
   "layout": "horizontal",
-  "axes": [
-    {"type": "D", "title": "职能部门", "axis": "H"},
-    {"type": "P", "title": "推进阶段", "axis": "V"},
-    {"type": "R", "roles": ["申请员", "部门经理", "财务岗"]}
-  ],
-  "pools": [{"id": "P1", "name": "采购协同"}],
+  "dicts": {
+    "D": ["信息中心", "综合计划科", "办公室"],
+    "P": ["申请阶段", "审批阶段", "执行阶段", "归档阶段"],
+    "R": ["申请员", "部门经理", "财务岗"],
+    "worker": ["提交采购申请", "填写申请单", "金额超过5000?", "部门经理审批", "直接执行", "财务付款", "归档", "退回修改"]
+  },
   "lanes": [
-    {"name": "step1", "displayName": "申请阶段", "hv": "V", "order": 1, "pool": "P1"},
-    {"name": "sales", "displayName": "申请人", "hv": "H", "order": 1,
-     "pool": "P1", "defaults": {"sop": "XX-GF-03"}}
+    {"dict": "D", "indices": [0, 1, 2], "layout": "H"},
+    {"dict": "P", "indices": [0, 1, 2, 3], "layout": "V"}
   ],
+  "axes": {
+    "x":  {"title": "职能部门", "align": "C"},
+    "y":  {"title": "推进阶段", "align": "C"},
+    "page": {"title": "采购申请审批流程", "place": "AxisX"}
+  },
   "nodes": [
-    {"id": "s1", "type": "start", "label": "提交采购申请",
-     "cell": ["sales", "step1"], "attrs": {"time": "2h", "role": "申请员"}},
-    {"id": "s3", "type": "exclusiveGateway", "label": "金额超过5000?",
-     "cell": ["sales", "step1"], "attrs": null}
+    {"id": "w1", "type": "start", "label": "提交采购申请", "labelRef": "worker[0]",
+     "cell": {"D": 0, "P": 0}, "attrs": {}},
+    {"id": "w2", "type": "task", "label": "填写申请单", "labelRef": "worker[1]",
+     "cell": {"D": 0, "P": 0},
+     "attrs": {"sop": "XX-CX-04", "role": "R[0]", "lv": "重要"}},
+    {"id": "q1", "type": "exclusiveGateway", "label": "金额超过5000?", "labelRef": "worker[2]",
+     "cell": {"D": 0, "P": 1}, "attrs": {}},
+    {"id": "q2", "type": "exclusiveGateway", "label": "审批是否通过?", "labelRef": null,
+     "cell": {"D": 1, "P": 1}, "attrs": {}},
+    {"id": "w7", "type": "end", "label": "归档", "labelRef": "worker[6]",
+     "cell": {"D": 1, "P": 3}, "attrs": {}}
   ],
   "edges": [
-    {"id": "pass", "from": "q2", "to": "w1", "type": "sequence", "label": "合格",
+    {"id": "e1", "from": "w1", "to": "w2", "type": "sequence", "label": null,
      "condition": null, "default": false},
-    {"id": "rework", "from": "q2", "to": "q3", "type": "sequence", "label": "返工",
-     "condition": "缺陷≤3", "default": false},
-    {"id": "q2-D", "from": "q2", "to": "w3", "type": "sequence", "label": "否则",
-     "condition": null, "default": true},
-    {"id": "q2-4a", "from": "q2", "to": "w2", "type": "sequence", "label": "报废", "condition": null, "default": false},
-    {"id": "q2-4b", "from": "q2", "to": "w4", "type": "sequence", "label": "报废", "condition": null, "default": false}
+    {"id": "e2", "from": "q1", "to": "w4", "type": "sequence", "label": "是",
+     "condition": null, "default": false},
+    {"id": "e3", "from": "q1", "to": "w5", "type": "sequence", "label": "否",
+     "condition": null, "default": false},
+    {"id": "e4", "from": "w5", "to": "w6", "type": "sequence", "label": null,
+     "condition": null, "default": false},
+    {"id": "e5", "from": "q2", "to": "w6", "type": "sequence", "label": "通过",
+     "condition": null, "default": false},
+    {"id": "e6", "from": "w6", "to": "w7", "type": "sequence", "label": null,
+     "condition": null, "default": false},
+    {"id": "e7", "from": "q2", "to": "w2", "type": "sequence", "label": "驳回",
+     "condition": null, "default": false}
   ],
-  "artifact": [
-    {"id": "n1", "type": "annotation", "label": "依据《XX制度》", "attach": "s2"}
-  ],
-  "subProcesses": [
-    {"id": "a2", "cell": ["purchase", "review"], "nodes": ["c1", "c2", "c3"]}
+  "subProcesses": [],
+  "artifacts": [
+    {"id": "n1", "type": "annotation", "label": "依据《XX制度》", "attach": "w2"}
   ]
 }
 ```
 
-**坐标落格**：`axes` 是文档级轴声明——`D[职能标题]`/`P[阶段标题]` 作横/纵坐标轴标签，`R[岗位清单]` 供 `for R[i]` 索引用。节点用 `cell: [<H泳道name>, <V泳道name>]` 表达交叉格；泳道 `hv`+`order` 决定行列序。
+### 9.2 要点
 
-> **图例落格与岗位标注**：渲染器先按全部泳道 `hv`+`order` 建二维网格，再把每个节点按 `cell` 放入交叉格；`for R[i]`（或 `role` 属性）渲染为节点**右下角岗位标注**，`axes` 的 `R[清单]` 作为**图纸式图例栏**列在右下角。跨泳道/跨阶段动作用 `→ #id` 引到目标格，不复制节点。
-
-**边 id 规则**：显式 `(out)` 用该名；缺省自动编号 `<源id>-<出口序>`（`q2-N`）或 `<源id>-<档位><序>`（多目标 `q2-4a`）。
+- `labelRef` 保留原始字典引用，`label` 为展开值；attrs 值保留 DSL 原文（引用串渲染时查字典展开）。
+- 默认顺序流与显式边/分支边统一展开进 `edges`，`type` 恒为 `sequence`（BPMN XML 映射见附录 B）。
+- 子流程内部节点带 `parent` 字段（如 `"parent": "q2"`）；修饰类节点进 `artifacts`。
 
 ---
 
 ## 10. 内置校验
 
-| 校验项 | 规则 |
+| # | 规则 | 级别 |
+|:---|:---|:---|
+| 1 | 字典名唯一（含固定 D/P/R，不得重复定义） | error |
+| 2 | `Lane from` / `Location` / 属性引用必须指向**已定义**字典（先 Dict 后使用） | error |
+| 3 | 字典索引越界（`D[5]` 而字典仅 3 项） | error |
+| 4 | W id 唯一（显式 id 与自动编号不冲突） | error |
+| 5 | `Type[?]` / `Type[+]` 节点必须有分支出口（至少一行分支行） | error |
+| 6 | 默认出口 `否则 →` 每节点至多一条 | error |
+| 7 | 分支目标 `#id` 必须存在；目标为修饰类节点报错 | error |
+| 8 | 开始节点 ≥ 1、结束节点 ≥ 1 | error |
+| 9 | 无孤立节点（无入边且非开始、或无出边且非结束） | error |
+| 10 | 分支块 / 子流程块 `End` 配对闭合 | error |
+| 11 | 子流程嵌套深度 ≤ 1 | error |
+| 12 | 分支出口标签在同一节点内唯一 | warn |
+| 13 | 回边（环路）允许，但环路须含至少一个判断节点 | warn |
+| 14 | 修饰类节点（N/DATA）存在性检查（依附目标存在） | error |
+
+---
+
+## 11. 渲染规格（自研 SVG，零新依赖）
+
+1. **网格构建**：`Lane from` 先建行（H）与列（V），行高/列宽由格子内节点数撑开；无 `Lane from` 时按 `Layout` 方向单轨排布。
+2. **节点落格**：按 `cell(D,P)` 放入交叉格；缺省 Location 的节点按声明顺序自动填充，canonical 记录实际坐标。
+3. **格子内排布**：节点沿 `Layout` 方向（H=左→右，V=上→下）排列；格子间节点用**正交连线**（曼哈顿路径）。
+4. **索引展开**：图上所有文字均为字典展开值（"信息中心"而非 `D[0]`）。
+5. **标题**：AxisX 横轴标题、AxisY 纵轴标题（文字纵向逆时针 90°，Align 决定位置）、Axis 整图标题挂最外围。
+6. **岗位图例栏**：`Dict: R[...]` 渲染为图纸右下角图例栏（材料表样式，R[k] 编号对应节点右下角 `Role` 标注）。
+7. **元素形状**：见 §5.2 视觉列（BPMN 标准形状）。
+8. **颜色槽**（对齐 kinds.json 机制）：`Color[Start|End|Task|Gateway|Parallel|Subprocess|Lane|Annotation|Data|Axis|Line|Text]`。
+
+---
+
+## 12. 落地路径（沿用既有治理，零新依赖）
+
+1. `dsl/kinds.json` 注册 `flow`（第 14 个 core kind）：`body=FlowGraph`、`mcpName=render_flow`、`renderType=flow`、intents（流程图/泳道图/BPMN/流程/程序文件）、colorSlots（§11.8）。
+2. `components/FlowEditor.tsx`（宽松解析 → canonical）+ `components/FlowDiagram.tsx`（自研 SVG 渲染）。
+3. `protocol/segments/flow.md`（Soul/Grammar/Seed 三段式协议切片，同步本 spec）。
+4. MCP `render_flow` + 校验器（§10 规则表）。
+5. `npm run validate:dsl` 集成；变更语法顺序：Spec → kinds.json → parser → mcp example → validate（governance.md §5）。
+
+---
+
+## 13. 与既有 kind 的关系
+
+| kind | 关系 |
 |:---|:---|
-| 开始点 | 全局仅一个 `start`；结束至少一个 `end` |
-| 节点 id | 全局唯一；`#id` 引用必须存在 |
-| **泳道 name** | 全局唯一；`@[...]` 引用的泳道 name 必须已定义 |
-| **axis 声明** | axis ∈ {D,P,R}；`D`/`P` 各至多一个带标题，`R` 为岗位清单 |
-| **for R[i] 索引** | `for R[i]` 的 `i` 必须在 `axis:R[清单]` 长度内；未声明 `axis:R` 时禁用 |
-| **坐标锚定** | `@[name]`/`@[name1,name2]` 两参数必须分别命中 H/V 泳道；仅单维时允许单参 |
-| 块闭合 | 每个分支块/子流程块必须有配对的 `End`，不交叉嵌套 |
-| 网关出入度 | 排他/并行：1 入 ≥1 出；默认出口仅一个 |
-| 孤立节点 | 无孤立（除开始/结束） |
-| 分支合法性 | 分支行仅能出现在网关之后的分支块内 |
-| 属性合法性 | 属性键 ∈ 规范化集；值 ∈ 值域（附录 A）；未知键报错并建议 |
-| 子图边界 | 子流程内嵌一层，不递归穿越 |
-
-校验失败返回短错误 + 骨架回执（沿用治理 §4）。
+| `pdpc` | **保留**：PDPC 是风险对策图（目标-路径-NG-对策），语义与 flow 不同；flow 不替代 |
+| `arrow` | 保留：箭头图（逻辑链）轻量场景仍可用 |
+| `mermaid`（relief） | flow 覆盖后，流程图场景禁止用 Mermaid 充当终稿（governance 红线） |
 
 ---
 
-## 11. 落地路径
+## 附录 A：属性值域
 
-按现有 IQS 治理新增 core kind 标准流程：
+| 键 | 值域 | 示例 |
+|:---|:---|:---|
+| `SOP` | 标准编号（`SRYC/<部门码>-<类型码>-<序号>-<年份>-<版本>` 或自定义）或字典引用 | `SOP(XX-CX-04)`、`SOP(标准[0])` |
+| `Role` | `R[0..n]` 岗位字典索引（可多个：`Role(R[0],R[2])`） | `Role(R[1])` |
+| `Lv` | `重大\|重要\|一般` 或 `1\|2\|3`（映射 RAG 红黄绿） | `Lv(重大)` |
+| `Time` | `\d+h`、`YYYY-MM-DD`、`D+N` 相对时限 | `Time(24h)` |
+| `KPI` | 指标文本（可含全角 `≤` `≥` `‰`） | `KPI(≤1‰)` |
+| `M` | `BPA\|BPM\|BPI` 或 `已数字化\|半数字化\|未数字化` | `M(BPM)` |
 
-1. **注册**：`dsl/kinds.json` 新增 `flow`（`tier: core`、`family: iqs_native`、`body: FlowGraph`、`mcpName: render_flow`、colorSlots）。
-2. **组件**：`components/FlowEditor.tsx`（宽松解析 → canonical）+ `components/FlowDiagram.tsx`（**自研 SVG**：矩阵泳道网格 + 正交连线 + 块内步进布局）。
-3. **协议切片**：`protocol/segments/flow.md`（Soul / Grammar / Seed）。
-4. **MCP**：发布 `render_flow`。
-5. **校验集成**：解析器 + validator + `npm run validate:dsl`。
-6. **文档闭环**：本 SPEC 升版 1.0 并登记进 `protocol/DSL_V1.md` 权威链。
+## 附录 B：BPMN 2.0 XML 映射
 
-**变更流程**：改语法 → 升 Spec 版本 → 改 `kinds.json` → 改 `FlowEditor` 解析器 → 改 MCP example → `npm run validate:dsl`。
-
----
-
-## 12. 与现有 kind 的关系
-
-| 既有 kind | 与本 flow 的关系 |
+| canonical | BPMN XML |
 |:---|:---|
-| `pdpc`（过程决策程序图） | PDPC 面向**风险对策推演**，flow 面向**岗位×活动流程**。互补不替代。 |
-| `arrow`（箭头/因果链） | arrow 单向因果链无泳道无网关；flow 完整流程建模。互补不重叠。 |
-| `mermaid`（救济） | flow 已覆盖时禁止用 Mermaid flowchart 充当成果终稿（治理红线 2/3）。 |
+| node type=start | `<bpmn:startEvent id="w1" name="提交采购申请"/>` |
+| node type=end | `<bpmn:endEvent id="w7" name="归档"/>` |
+| node type=task | `<bpmn:task id="w2" name="填写申请单"><bpmn:documentation>SOP=...; Role=...</bpmn:documentation></bpmn:task>` |
+| node type=exclusiveGateway | `<bpmn:exclusiveGateway id="q1" name="金额超过5000?"/>` |
+| node type=parallelGateway | `<bpmn:parallelGateway id="..." name="..."/>` |
+| node type=subprocess | `<bpmn:subProcess id="q2" name="不合格评审">…子节点…</bpmn:subProcess>` |
+| edge（sequence） | `<bpmn:sequenceFlow id="e1" sourceRef="w1" targetRef="w2"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">是</bpmn:conditionExpression></bpmn:sequenceFlow>`（default 出口的边设 `default` 属性于网关） |
+| lane | `<bpmn:laneSet><bpmn:lane id="D0" name="信息中心"><bpmn:flowNodeRef>…</bpmn:flowNodeRef></bpmn:lane></bpmn:laneSet>` |
+| 修饰 | `<bpmn:textAnnotation id="n1"><bpmn:text>依据《XX制度》</bpmn:text></bpmn:textAnnotation>` + `<bpmn:association>` |
+| attrs | 写入 `<bpmn:documentation>`（结构化键值），供机器回读 |
 
 ---
 
-## 附录 A：属性值域（规范化封闭集）
-
-| 键 | canonical 键 | 值域 | 说明 |
-|:---|:---|:---|:---|
-| `SOP` | `sop` | `<部门码>-<类型码>-<序号>`（如 `XX-CX-04`） | 标准编号 |
-| `Role` | `role` | 岗位/角色名（建议对照 GW 手册） | 与人岗体系对应 |
-| `Lv` | `level` | `重大`/`重要`/`一般`（或 `1`/`2`/`3`） | RAG：重大=红/重要=黄/一般=绿 |
-| `Time` | `time` | `24h`/`1d`/`3w`… | SLA 时限（h/d/w/m 后缀） |
-| `KPI` | `kpi` | 指标名+量值+单位 | 质量目标 |
-| `M` | `maturity` | `手工`/`已数字化`/`可监控`/`已优化` | BPM/BPI 成熟度 |
-
----
-
-*备案：鹿溪联合创新实验室 · 澄矩 ChengJu · 2026-08-25*
+*IQS Protocol Council — 2026.08（aligned with DSL v1 governance）*
