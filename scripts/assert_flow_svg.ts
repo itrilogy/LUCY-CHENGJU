@@ -59,16 +59,16 @@ for (const t of ['提交采购申请', '填写申请单', '金额超过5000?', '
 check('连线标签 是', svg.includes('>是<'));
 check('连线标签 否', svg.includes('>否<'));
 
-// 行列矩阵铺开：格子 x 依次递增 gapX
-const rectXs = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="220" height="140"/g)].map(m => parseFloat(m[1]));
-check('12 个单元格（220x140）', rectXs.length === 12, `实际 ${rectXs.length}`);
-if (rectXs.length === 12) {
-  const xs = [...new Set(rectXs)];
-  check('4 个不同列 x（列铺开）', xs.length === 4, `实际 ${xs.length}`);
-  const sorted = [...xs].sort((a,b) => a-b);
-  const deltas = sorted.slice(1).map((v,i) => +(v - sorted[i]).toFixed(1));
-  check('列间距恒定 = cellW+gapX=280', deltas.every(d => Math.abs(d - 280) < 0.01), JSON.stringify(deltas));
-}
+// 泳道带范式：只画有节点的格子 + 贯穿泳道带
+const cellRects220 = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="220" height="140"[^>]*stroke-dasharray="4 3"/g)].map(m => parseFloat(m[1]));
+check('只画有节点的格子（虚线定位框）', cellRects220.length === 6, `实际 ${cellRects220.length}`);
+// 贯穿泳道带（无虚线、宽 > 单格宽度）
+const bandRects = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="140"[^>]*fill-opacity="0.22"/g)].map(m => ({ w: parseFloat(m[3]), y: parseFloat(m[2]) }));
+check('贯穿泳道带存在（3 条）', bandRects.length === 3, `实际 ${bandRects.length}`);
+if (bandRects.length) check('泳道带宽 > 单格(280+)', bandRects[0].w > 280, `带宽 ${bandRects[0].w}`);
+// 只有泳道带背景 + 有节点格子，空格子不再画 12 个实心框
+const solidCellCount = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="220" height="140" rx="8" fill="[^"]*" fill-opacity="0.3"/g)].length;
+check('无旧的实心空格子框（0）', solidCellCount === 0, `实际 ${solidCellCount}`);
 
 // ===== 新修复行为验证 =====
 // 1. 菱形按文字自适应（不再固定64）

@@ -163,23 +163,29 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   const parts: string[] = [];
   parts.push(arrowMarker('flowArrow', st.lineColor));
 
-  // ===== 泳道格子衬底 + 行/列标签 =====
+  const bandH = FLOW_SVG.cellH;              // 泳道带高 = 格子高
+  const bandTop = (ri: number) => FLOW_SVG.head + FLOW_SVG.colLabelH + ri * (bandH + FLOW_SVG.gapY);
+  const bandLeft = FLOW_SVG.head + FLOW_SVG.rowLabelW;
+  const bandRight = width - FLOW_SVG.gapX;
+
+  // ===== 1. 泳道带（每行一条贯穿背景条，非交叉格） =====
   for (let ri = 0; ri < rows.length; ri++) {
-    const ry = FLOW_SVG.head + FLOW_SVG.colLabelH + ri * (FLOW_SVG.cellH + FLOW_SVG.gapY);
+    const ry = bandTop(ri);
     const label = dictValue(data, rows[ri].dict, rows[ri].idx);
-    // 行标签：放在格子左侧 header 区，text-anchor=middle 防裁切
-    parts.push(`<text x="${FLOW_SVG.head}" y="${ry + FLOW_SVG.cellH / 2}" text-anchor="middle" fill="${st.axisColor}" font-size="13" font-weight="bold">${esc(label)}</text>`);
-    for (let ci = 0; ci < cols.length; ci++) {
-      const cx0 = FLOW_SVG.head + FLOW_SVG.rowLabelW + ci * (FLOW_SVG.cellW + FLOW_SVG.gapX);
-      parts.push(`<rect x="${cx0}" y="${ry}" width="${FLOW_SVG.cellW}" height="${FLOW_SVG.cellH}" rx="8" fill="${st.laneColor}" fill-opacity="0.3" stroke="#cbd5e1" stroke-width="1"/>`);
-      if (ri === 0) {
-        const colLabel = dictValue(data, cols[ci].dict, cols[ci].idx);
-        parts.push(`<text x="${cx0 + FLOW_SVG.cellW / 2}" y="${ry - 6}" text-anchor="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(colLabel)}</text>`);
-      }
-    }
+    // 贯穿泳道带背景
+    parts.push(`<rect x="${bandLeft}" y="${ry}" width="${bandRight - bandLeft}" height="${bandH}" rx="10" fill="${st.laneColor}" fill-opacity="0.22" stroke="${st.laneColor}" stroke-width="1.5"/>`);
+    // 行标签（泳道名，居左 header 区）
+    parts.push(`<text x="${FLOW_SVG.head}" y="${ry + bandH / 2}" text-anchor="middle" fill="${st.axisColor}" font-size="13" font-weight="bold">${esc(label)}</text>`);
   }
 
-  // ===== 节点中心 + 尺寸 metrics =====
+  // ===== 2. 列标签（阶段名，顶部一条） =====
+  for (let ci = 0; ci < cols.length; ci++) {
+    const cx0 = bandLeft + ci * (FLOW_SVG.cellW + FLOW_SVG.gapX);
+    const colLabel = dictValue(data, cols[ci].dict, cols[ci].idx);
+    parts.push(`<text x="${cx0 + FLOW_SVG.cellW / 2}" y="${FLOW_SVG.head + FLOW_SVG.colLabelH - 8}" text-anchor="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(colLabel)}</text>`);
+  }
+
+  // ===== 3. 节点中心 + 尺寸 metrics =====
   const nodeCenter = new Map<string, { x: number; y: number }>();
   const nodeMetricMap = new Map<string, NodeMetrics>();
   const cellNodeId = new Map<string, string>();
@@ -202,24 +208,40 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     nodeMetricMap.set(n.id, nodeMetrics(n, st.nodeFontSize));
   }
 
-  // ===== 连线（端点贴节点边界，走正交，避让节点内部） =====
+  // ===== 4. 只画有节点的格子定位框（淡虚线；空格子不画） =====
+  const occupiedCell = new Set<string>();
+  for (const n of data.nodes) {
+    const key = cellKeyOf(n.cell);
+    if (key && cellNodeId.has(key)) {
+      const [ri, ci] = cellNodeId.get(key)!.split('_').map(Number);
+      const oc = `${ri}_${ci}`;
+      if (!occupiedCell.has(oc)) {
+        occupiedCell.add(oc);
+        const ry = bandTop(ri);
+        const cx0 = bandLeft + ci * (FLOW_SVG.cellW + FLOW_SVG.gapX);
+        parts.push(`<rect x="${cx0}" y="${ry}" width="${FLOW_SVG.cellW}" height="${FLOW_SVG.cellH}" rx="8" fill="none" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 3"/>`);
+      }
+    }
+  }
+
+  // ===== 5. 连线（端点贴节点边界，正交；回边沿泳道底部走规整回线） =====
   for (const e of data.edges.filter((x) => !x.parent)) {
     const a = nodeCenter.get(e.from);
     const b = nodeCenter.get(e.to);
     const ma = nodeMetricMap.get(e.from);
     const mb = nodeMetricMap.get(e.to);
     if (!a || !b || !ma || !mb) continue;
-    // 源右缘、目标左缘
-    const x1 = a.x + ma.halfW + 2;
+    const x1 = a.x + ma.halfW + 4;
     const y1 = a.y;
-    const x2 = b.x - mb.halfW - 2;
+    const x2 = b.x - mb.halfW - 4;
     const y2 = b.y;
+    // 回退/跨泳道：若目标在源行的下方（回边或下行），让线先沿带底走再上/折——统一先横后竖
     const d = orthoPath(x1, y1, x2, y2);
     const label = e.label ? `<text x="${(x1 + x2) / 2}" y="${(y1 + y2) / 2 - 4}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="3">${esc(e.label)}</text>` : '';
     parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
   }
 
-  // ===== 节点（叠加） =====
+  // ===== 6. 节点（叠加） =====
   for (const n of data.nodes) {
     const c = nodeCenter.get(n.id);
     if (!c) continue;
