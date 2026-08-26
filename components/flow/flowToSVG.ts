@@ -143,6 +143,8 @@ interface XyLayout {
   half: number;      // 0.5 单位
   bandLeft: number;
   bandTop: (ri: number) => number;
+  gridRight: number;
+  gridBottom: number;
 }
 
 export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayout {
@@ -284,9 +286,15 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     }
   }
 
-  const width = colX[nC - 1] + colWPx[nC - 1] + 20;
-  const height = bandTop(nR - 1) + rowHPx[nR - 1] + 20;
-  return { rows, cols, nodePos, colX, rowY: [], colWpx: colWPx, rowHpx: rowHPx, width, height, half, bandLeft, bandTop };
+  const width = colX[nC - 1] + colWPx[nC - 1] + 5;
+  const height = bandTop(nR - 1) + rowHPx[nR - 1] + 5;
+  // 网格右/下边界（与最末列/行格子完全对齐，无出血缺口）
+  const gridRight = colX[nC - 1] + colWPx[nC - 1];
+  const gridBottom = bandTop(nR - 1) + rowHPx[nR - 1];
+  return {
+    rows, cols, nodePos, colX, rowY: [], colWpx: colWPx, rowHpx: rowHPx,
+    width, height, half, bandLeft, bandTop, gridRight, gridBottom,
+  };
 }
 
 export function getSvgSize(data: FlowData, st?: FlowChartStyles): FlowSvgDims {
@@ -304,7 +312,7 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   const x0 = L.bandLeft, y0 = L.bandTop(0);
 
   // 泳道区背景
-  parts.push(`<rect x="${x0}" y="${y0}" width="${width - x0 - 5}" height="${height - y0 - 5}" fill="#f8fafc"/>`);
+  parts.push(`<rect x="${x0}" y="${y0}" width="${L.gridRight - x0}" height="${L.gridBottom - y0}" fill="#f8fafc"/>`);
   // 绘制格分布：每个交叉格（含空格）画真实列宽/行高的矩形，行列对齐直接可见
   for (let ri = 0; ri < nR; ri++) {
     for (let ci = 0; ci < nC; ci++) {
@@ -313,14 +321,14 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       parts.push(`<rect x="${gx0}" y="${gy0}" width="${gw}" height="${gh}" fill="none" stroke="#94a3b8" stroke-width="1"/>`);
     }
   }
-  // 真实列/行边界粗线（强调泳道格分布）
+  // 真实列/行边界粗线：与最末列/行格子边界完全对齐（无出血缺口）
   for (let ci = 0; ci <= nC; ci++) {
-    const gx = ci < nC ? L.colX[ci] : width - 5;
-    parts.push(`<line x1="${gx}" y1="${y0}" x2="${gx}" y2="${height - 5}" stroke="#64748b" stroke-width="1.2"/>`);
+    const gx = ci < nC ? L.colX[ci] : L.gridRight;
+    parts.push(`<line x1="${gx}" y1="${y0}" x2="${gx}" y2="${L.gridBottom}" stroke="#64748b" stroke-width="1.2"/>`);
   }
   for (let ri = 0; ri <= nR; ri++) {
-    const gy = L.bandTop(ri);
-    parts.push(`<line x1="${x0}" y1="${gy}" x2="${width - 5}" y2="${gy}" stroke="#64748b" stroke-width="1.2"/>`);
+    const gy = ri < nR ? L.bandTop(ri) : L.gridBottom;
+    parts.push(`<line x1="${x0}" y1="${gy}" x2="${L.gridRight}" y2="${gy}" stroke="#64748b" stroke-width="1.2"/>`);
   }
 
   // ===== 流程图标题：顶部通栏格子，默认居中 =====
@@ -329,19 +337,18 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   parts.push(`<text x="${width / 2}" y="${FLOW_SVG.titleH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
 
   // ===== 轴坐标标题 + 泳道标签：左/上表头，格子化，默认居中 =====
-  // 列表头（上）：axis-x 标题（若定义）占左上文头角格，各列 dict 值居中于各自列格
   const axisXT = data.axes?.x?.title || '';
   const axisYT = data.axes?.y?.title || '';
   const cornerW = L.bandLeft, cornerH = FLOW_SVG.colLabelH;
-  // 左上角格：轴标题（axis-x 顶部表头、axis-y 左侧表头，共用角格分两行展示）
+  // 左上角格：axis-x（顶部表头，水平居中）+ axis-y（左表头，纵向旋转 -90°）
   if (axisXT || axisYT) {
     parts.push(`<rect x="0" y="${FLOW_SVG.titleH}" width="${cornerW}" height="${cornerH}" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>`);
-    if (axisXT && axisYT) {
-      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + 11}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="11" font-weight="bold">${esc(axisXT)}</text>`);
-      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + 24}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="10">${esc(axisYT)}</text>`);
-    } else {
-      const axisLabel = axisXT || axisYT;
-      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(axisLabel)}</text>`);
+    if (axisXT) {
+      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(axisXT)}</text>`);
+    }
+    if (axisYT) {
+      // Y 侧轴标题：纵向（旋转 -90°），在左上角格内沿左边缘竖直排列
+      parts.push(`<text x="${cornerW - 8}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${cornerW - 8} ${FLOW_SVG.titleH + cornerH / 2})" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(axisYT)}</text>`);
     }
   }
   // 列标签格（顶部表头，每列一格，居中）
@@ -392,6 +399,36 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     return cands[0]; // 全部占用 → 复用最短端口（允许重复）
   }
 
+  // ===== 避障数据结构：所有节点形状包围盒（本边进出节点除外） =====
+  type Box = { x0: number; y0: number; x1: number; y1: number };
+  const nodeBoxes: Record<string, Box> = {};
+  for (const [id, p] of L.nodePos) {
+    nodeBoxes[id] = { x0: p.x - p.W / 2, y0: p.y - p.H / 2, x1: p.x + p.W / 2, y1: p.y + p.H / 2 };
+  }
+  function segHitsBox(x1: number, y1: number, x2: number, y2: number, bx: Box): boolean {
+    // 线段与矩形相交检测（含端点贴着矩形也算穿过，但首末端点贴源/目标自身时不挡）
+    const minX = Math.min(x1, x2) - 0.5, maxX = Math.max(x1, x2) + 0.5;
+    const minY = Math.min(y1, y2) - 0.5, maxY = Math.max(y1, y2) + 0.5;
+    if (maxX <= bx.x0 || minX >= bx.x1 || maxY <= bx.y0 || minY >= bx.y1) return false;
+    // 完全覆盖
+    if (x1 === x2) {
+      return !(Math.max(y1, y2) <= bx.y1 && Math.min(y1, y2) >= bx.y0 && (x1 <= bx.x0 || x1 >= bx.x1));
+    }
+    if (y1 === y2) {
+      return !(Math.max(x1, x2) <= bx.x1 && Math.min(x1, x2) >= bx.x0 && (y1 <= bx.y0 || y1 >= bx.y1));
+    }
+    return true;
+  }
+  function routeHits(pathPts: { x: number; y: number }[], skipA: string, skipB: string): boolean {
+    for (const [id, bx] of Object.entries(nodeBoxes)) {
+      if (id === skipA || id === skipB) continue;
+      for (let i = 0; i < pathPts.length - 1; i++) {
+        if (segHitsBox(pathPts[i].x, pathPts[i].y, pathPts[i + 1].x, pathPts[i + 1].y, bx)) return true;
+      }
+    }
+    return false;
+  }
+
   for (const e of data.edges.filter((x) => !x.parent)) {
     const a = nodeXY[e.from], b = nodeXY[e.to];
     if (!a || !b) continue;
@@ -401,16 +438,60 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     const tp = pickPort(b, targetCandidates(b, a));
     a.used.add(sp); b.used.add(tp);
     const s = portXY(a, sp), t = portXY(b, tp);
-    // 正交走线：先横后竖 or 先竖后横，取较短
-    let d: string;
-    if (Math.abs(s.y - t.y) < 1) {
-      d = `M${s.x},${s.y} L${t.x},${t.y}`;
-    } else if (Math.abs(s.x - t.x) < 1) {
-      d = `M${s.x},${s.y} L${t.x},${t.y}`;
-    } else {
-      // 先横后竖
-      d = `M${s.x},${s.y} L${t.x},${s.y} L${t.x},${t.y}`;
+    // 正交走线：首段垂直于源节点该边（R/L→先横，T/B→先竖），末段垂直于目标节点该边
+    const horiz1 = (sp === 'R' || sp === 'L');
+    const horiz2 = (tp === 'R' || tp === 'L');
+
+    // 生成候选正交路径（pts 数组），从"理想最短"开始，遇阻则确定性避障：
+    // 理想 → 同行下移 → 同列右移 → 扩格（每次扩一个绘制格半宽），上限 3 轮
+    function buildRoute(shiftY: number, shiftX: number): { x: number; y: number }[] {
+      let pts: { x: number; y: number }[] = [];
+      const sy = s.y + (horiz1 ? shiftY : 0);
+      const sx = s.x + (horiz1 ? 0 : shiftX);
+      const ty = t.y + (horiz2 ? shiftY : 0);
+      const tx = t.x + (horiz2 ? 0 : shiftX);
+      if (Math.abs(s.x - t.x) < 1 && Math.abs(s.y - t.y) < 1) {
+        pts = [{ x: sx, y: sy }, { x: tx, y: ty }];
+      } else if (horiz1 && horiz2) {
+        if (Math.abs(s.y - t.y) < 1) {
+          pts = [{ x: sx, y: sy }, { x: tx, y: ty }];
+        } else {
+          const midX = (sx + tx) / 2;
+          pts = [{ x: sx, y: sy }, { x: midX, y: sy }, { x: midX, y: ty }, { x: tx, y: ty }];
+        }
+      } else if (!horiz1 && !horiz2) {
+        if (Math.abs(s.x - t.x) < 1) {
+          pts = [{ x: sx, y: sy }, { x: tx, y: ty }];
+        } else {
+          const midY = (sy + ty) / 2;
+          pts = [{ x: sx, y: sy }, { x: sx, y: midY }, { x: tx, y: midY }, { x: tx, y: ty }];
+        }
+      } else {
+        const mx = horiz1 ? tx : sx;
+        const my = horiz1 ? sy : ty;
+        pts = [{ x: sx, y: sy }, { x: mx, y: my }, { x: tx, y: ty }];
+      }
+      return pts;
     }
+
+    let pts = buildRoute(0, 0);
+    let round = 0;
+    const MAX_ROUND = 3;
+    while (routeHits(pts, e.from, e.to) && round < MAX_ROUND) {
+      round++;
+      // 确定性顺序：先同行下移，再同列右移，再扩格
+      const dw = L.half / 2; // 单步移 corridor
+      const shiftCandidates: { y: number; x: number }[] = [
+        { y: (horiz1 || horiz2 ? dw : 0) * round, x: 0 },           // 同行下移（水平段下移一条走廊）
+        { y: 0, x: (!horiz1 || !horiz2 ? dw : 0) * round },         // 同列右移
+        { y: (horiz1 || horiz2 ? dw : 0) * round, x: (!horiz1 || !horiz2 ? dw : 0) * round }, // 扩格（横纵都扩）
+      ];
+      for (const c of shiftCandidates) {
+        const candidate = buildRoute(c.y, c.x);
+        if (!routeHits(candidate, e.from, e.to)) { pts = candidate; break; }
+      }
+    }
+    const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
     parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
   }
 
