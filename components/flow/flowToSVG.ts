@@ -357,10 +357,13 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   const titleText = data.title || st.title || '流程图';
   if (placeY) {
     // AxisY：左侧竖向标题带，宽度 titleBandW，旋转 -90°（文字竖向，宽度合理不横排）
-    // 高度从 y=0 到 gridBottom，与整个 X 轴泳道区齐平（含顶部表头，不留缺口）
+    // 高度：从 colLabelH 顶部（titleH）到 gridBottom，与 X 轴泳道区（列头+网格）齐平；
+    //   顶部 titleH 区域在 AxisY 模式下不再占位，故不包含，避免"超出一个单位"。
     const tbw = L.titleBandW || (st.titleFontSize + 32);
-    const bandMidY = L.gridBottom / 2;
-    parts.push(`<rect x="0" y="0" width="${tbw}" height="${L.gridBottom}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
+    const bandTopY = FLOW_SVG.titleH;
+    const bandH = L.gridBottom - bandTopY;
+    const bandMidY = bandTopY + bandH / 2;
+    parts.push(`<rect x="0" y="${bandTopY}" width="${tbw}" height="${bandH}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
     parts.push(`<text x="${tbw / 2}" y="${bandMidY}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${tbw / 2} ${bandMidY})" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
   } else {
     parts.push(`<rect x="0" y="0" width="${L.gridRight}" height="${FLOW_SVG.titleH}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
