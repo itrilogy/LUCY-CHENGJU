@@ -340,15 +340,15 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   const axisXT = data.axes?.x?.title || '';
   const axisYT = data.axes?.y?.title || '';
   const cornerW = L.bandLeft, cornerH = FLOW_SVG.colLabelH;
-  // 左上角格：axis-x（顶部表头，水平居中）+ axis-y（左表头，纵向旋转 -90°）
+  // 左上角格：axis-x（顶部表头，水平居中）+ axis-y（左上角格水平，与axis-x分两行）
   if (axisXT || axisYT) {
     parts.push(`<rect x="0" y="${FLOW_SVG.titleH}" width="${cornerW}" height="${cornerH}" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>`);
-    if (axisXT) {
-      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(axisXT)}</text>`);
-    }
-    if (axisYT) {
-      // Y 侧轴标题：纵向（旋转 -90°），在左上角格内沿左边缘竖直排列
-      parts.push(`<text x="${cornerW - 8}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${cornerW - 8} ${FLOW_SVG.titleH + cornerH / 2})" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(axisYT)}</text>`);
+    if (axisXT && axisYT) {
+      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + 11}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="11" font-weight="bold">${esc(axisXT)}</text>`);
+      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + 24}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="10">${esc(axisYT)}</text>`);
+    } else {
+      const axisLabel = axisXT || axisYT;
+      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(axisLabel)}</text>`);
     }
   }
   // 列标签格（顶部表头，每列一格，居中）
@@ -358,17 +358,18 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     parts.push(`<rect x="${L.colX[ci]}" y="${FLOW_SVG.titleH}" width="${L.colWpx[ci]}" height="${cornerH}" fill="${show ? '#e2e8f0' : 'none'}" stroke="#94a3b8" stroke-width="1"/>`);
     if (show) parts.push(`<text x="${L.colX[ci] + L.colWpx[ci] / 2}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(cl)}</text>`);
   }
-  // 行标签格（左表头，每行一格，居中）
+  // 行标签格（左表头，每行一格）：Y 泳道标题旋转 -90°（竖向排列）
   for (let ri = 0; ri < nR; ri++) {
     const rl = dictValue(data, L.rows[ri].dict, L.rows[ri].idx);
     const show = L.rows[ri].dict !== 'ROOT';
+    const rcx = cornerW / 2, rcy = L.bandTop(ri) + L.rowHpx[ri] / 2;
     parts.push(`<rect x="0" y="${L.bandTop(ri)}" width="${cornerW}" height="${L.rowHpx[ri]}" fill="${show ? '#e2e8f0' : 'none'}" stroke="#94a3b8" stroke-width="1"/>`);
-    if (show) parts.push(`<text x="${cornerW / 2}" y="${L.bandTop(ri) + L.rowHpx[ri] / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(rl)}</text>`);
+    if (show) parts.push(`<text x="${rcx}" y="${rcy}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${rcx} ${rcy})" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(rl)}</text>`);
   }
 
   // 连线：最小最短原则 + 进出口端口不重复（最短距离优先）
-  const nodeXY: Record<string, { x: number; y: number; W: number; H: number; used: Set<string> }> = {};
-  for (const [id, p] of L.nodePos) nodeXY[id] = { x: p.x, y: p.y, W: p.W, H: p.H, used: new Set() };
+  const nodeXY: Record<string, { x: number; y: number; W: number; H: number; usedIn: Set<string>; usedOut: Set<string> }> = {};
+  for (const [id, p] of L.nodePos) nodeXY[id] = { x: p.x, y: p.y, W: p.W, H: p.H, usedIn: new Set(), usedOut: new Set() };
 
   // 端口方向定义（从节点中心向外，走 0.5 连线区中线）
   type Port = 'R' | 'L' | 'T' | 'B';
@@ -392,11 +393,14 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     // 目标端口朝向源（与源候选相反方向优先）
     return sourceCandidates(b, a);
   }
-  function pickPort(n: { x: number; y: number; W: number; H: number; used: Set<string> }, cands: Port[]): Port {
-    // 最短距离优先：始终取朝向目标的最短端口（候选已按距离排序）。
-    // 若该端口已占用，允许重复（出口/入口重复是允许的），仅在多个朝向端口都可用时取未占用者。
-    for (const c of cands) if (!n.used.has(c)) return c;
-    return cands[0]; // 全部占用 → 复用最短端口（允许重复）
+  // 进出分开记录：出口/入口各自独立可选，重复（与相反向共用一侧）可接受
+  function pickPort(
+    n: { x: number; y: number; W: number; H: number; usedIn: Set<string>; usedOut: Set<string> },
+    cands: Port[], isOut: boolean,
+  ): Port {
+    const usedSet = isOut ? n.usedOut : n.usedIn;
+    for (const c of cands) if (!usedSet.has(c)) return c;
+    return cands[0]; // 该朝向全占用 → 复用最短朝向端口（允许重复）
   }
 
   // ===== 避障数据结构：所有节点形状包围盒（本边进出节点除外） =====
@@ -433,14 +437,31 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     return false;
   }
 
-  for (const e of data.edges.filter((x) => !x.parent)) {
+  // ===== 两趟端口分配：先"入口"（几何指向约束强），后"出口"（避开已占入口） =====
+  const edgeList = data.edges.filter((x) => !x.parent);
+  const targetPortOf = new Map<string, Port>(); // edge id -> target port (入口)
+  // 第一趟：入口端口
+  for (const e of edgeList) {
     const a = nodeXY[e.from], b = nodeXY[e.to];
     if (!a || !b) continue;
+    const tp = pickPort(b, targetCandidates(b, a), false);
+    b.usedIn.add(tp);
+    targetPortOf.set(e.id, tp);
+  }
+  // 第二趟：出口端口（避免与已占入口同侧；候选内优先未占）
+  for (const e of edgeList) {
+    const a = nodeXY[e.from], b = nodeXY[e.to];
+    if (!a || !b) continue;
+    const cands = sourceCandidates(a, b);
+    // 优先选"未被出入口占"的端口；若朝向全被占，则退而求其次选"未出"（避开已占入口）
+    let sp = cands[0];
+    let found = false;
+    for (const c of cands) { if (!a.usedOut.has(c) && !a.usedIn.has(c)) { sp = c; found = true; break; } }
+    if (!found) for (const c of cands) { if (!a.usedOut.has(c)) { sp = c; found = true; break; } }
+    a.usedOut.add(sp);
+
     const label = e.label ? `<text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 - 12}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(e.label)}</text>` : '';
-    // 选端口：源朝向目标、目标朝向源，优先未占用（最短距离优先）
-    const sp = pickPort(a, sourceCandidates(a, b));
-    const tp = pickPort(b, targetCandidates(b, a));
-    a.used.add(sp); b.used.add(tp);
+    const tp = targetPortOf.get(e.id) ?? 'T';
     const s = portXY(a, sp), t = portXY(b, tp);
     // 正交走线：首段垂直于源节点该边（R/L→先横，T/B→先竖），末段垂直于目标节点该边
     const horiz1 = (sp === 'R' || sp === 'L');

@@ -254,6 +254,13 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
 
   // ===== 建边（此时所有节点已注册） =====
   const suppressDefaultIn = new Set<string>();
+  // 分支目标只有是"该网关声明顺序的紧后节点"时，才应抑制其默认入边
+  // （否则会导致类似 w1→w2 这种更早声明节点的默认顺序流被误杀）
+  const nodeOrder = nodes.map((n) => n.id);
+  const nextOf = (gwId: string): string | null => {
+    const i = nodeOrder.indexOf(gwId);
+    return i >= 0 && i + 1 < nodeOrder.length ? nodeOrder[i + 1] : null;
+  };
   function addEdge(from: string, to: string, label: string | null, cond: string | null, isDefault: boolean, id?: string) {
     edges.push({ id: id || nextEdgeId(), from, to, type: 'sequence', label, condition: cond, default: isDefault });
   }
@@ -270,7 +277,8 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
         const isDef = label === '否则';
         addEdge(src, tid, label === '' ? null : label, cond || null, isDef,
           exitName || `${src}-${isDef ? 'D' : edgeLabelTag(label)}`);
-        suppressDefaultIn.add(tid);
+        // 仅当目标是该网关声明顺序的紧后节点时才抑制默认入边
+        if (nextOf(src) === tid) suppressDefaultIn.add(tid);
       }
     } else if (s.kind === 'node' && s.text.includes('→')) {
       // 显式边: from → #to
