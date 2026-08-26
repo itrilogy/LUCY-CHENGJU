@@ -67,8 +67,8 @@ check('有节点的绘制格已画（四周连线区）', linkAreas.length > 0, 
 // 自适应列宽：格宽不都一样（长节点列宽、短节点列窄）
 const rectWs = [...new Set(linkAreas.map((r) => Math.round(r.w)))];
 check('列宽自适应（不唯一）', rectWs.length > 1, `列宽集 ${rectWs.join(',')}`);
-// 统一网格线贯穿（stroke-width=0.5）
-const gridLines = [...svg.matchAll(/<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"[^>]*stroke-width="0.5"/g)].map(m => ({ x1: parseFloat(m[1]), y2: parseFloat(m[4]) }));
+// 统一网格线贯穿（绘制格内细线 stroke-width=0.4）
+const gridLines = [...svg.matchAll(/<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"[^>]*stroke-width="0.4"/g)].map(m => ({ x1: parseFloat(m[1]), y2: parseFloat(m[4]) }));
 check('统一网格线贯穿（含泳道区网格）', gridLines.length > 10, `实际 ${gridLines.length}`);
 // 纵向线贯穿到底
 const vertFull = gridLines.filter((g) => g.x1 > 100); // 泳道区内的纵向线

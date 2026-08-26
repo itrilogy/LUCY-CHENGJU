@@ -178,31 +178,40 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     cellXY.set(gk, { nx, ny, items });
   }
 
-  // ④ W列最大宽 / H行最大高（由该行列中心节点最大宽/高确定）
-  // 每列中心格宽 = 该列所有绘制格节点宽最大值；每行高 = 该行所有节点高最大值
-  const colWmin: number[] = new Array(nC).fill(0);
-  const rowHmin: number[] = new Array(nR).fill(0);
+  // ④ W列最大宽 / H行最大高（由该列/行中心节点最大宽/高确定）
+  const cellWself: number[] = new Array(nC).fill(0);
+  const cellHself: number[] = new Array(nR).fill(0);
   for (const [gk, cell] of cellXY) {
     const [ri, ci] = gk.split('_').map(Number);
     for (const it of cell.items) {
-      colWmin[ci] = Math.max(colWmin[ci], it.m.halfW * 2);
-      rowHmin[ri] = Math.max(rowHmin[ri], it.m.halfH * 2);
+      cellWself[ci] = Math.max(cellWself[ci], it.m.halfW * 2);
+      cellHself[ri] = Math.max(cellHself[ri], it.m.halfH * 2);
     }
   }
-  for (let c = 0; c < nC; c++) if (!colWmin[c]) colWmin[c] = 100;
-  for (let r = 0; r < nR; r++) if (!rowHmin[r]) rowHmin[r] = 60;
+  // 空列/空行用基础中心格宽高（不盲目拉大）
+  const BASE_W = 100, BASE_H = 60;
+  for (let c = 0; c < nC; c++) if (!cellWself[c]) cellWself[c] = BASE_W;
+  for (let r = 0; r < nR; r++) if (!cellHself[r]) cellHself[r] = BASE_H;
 
-  // ③ 列宽 = 该列最大 nx * (W + 2*half)；行高 = 该行最大 ny * (H + 2*half)
+  // ③ 每列宽 = 该列各交叉格"自身需要宽"的最大值（不被某格 nx 盲目拉满整列）
+  //   每个交叉格自身宽 = cell.nx × (该格节点最大宽 + 2*half)；自身高 = cell.ny × (该格节点最大高 + 2*half)
   const half = FLOW_SVG.half;
-  const colNx: number[] = new Array(nC).fill(1);
-  const rowNy: number[] = new Array(nR).fill(1);
+  const colWselfMax: number[] = new Array(nC).fill(BASE_W + 2 * half);
+  const rowHselfMax: number[] = new Array(nR).fill(BASE_H + 2 * half);
   for (const [gk, cell] of cellXY) {
     const [ri, ci] = gk.split('_').map(Number);
-    colNx[ci] = Math.max(colNx[ci], cell.nx);
-    rowNy[ri] = Math.max(rowNy[ri], cell.ny);
+    // 该格自身节点最大宽/高
+    let wMax = 0, hMax = 0;
+    for (const it of cell.items) { wMax = Math.max(wMax, it.m.halfW * 2); hMax = Math.max(hMax, it.m.halfH * 2); }
+    if (!wMax) wMax = BASE_W;
+    if (!hMax) hMax = BASE_H;
+    const needW = cell.nx * (wMax + 2 * half);
+    const needH = cell.ny * (hMax + 2 * half);
+    colWselfMax[ci] = Math.max(colWselfMax[ci], needW);
+    rowHselfMax[ri] = Math.max(rowHselfMax[ri], needH);
   }
-  const colWPx = colNx.map((nx, ci) => nx * (colWmin[ci] + 2 * half));
-  const rowHPx = rowNy.map((ny, ri) => ny * (rowHmin[ri] + 2 * half));
+  const colWPx = colWselfMax;
+  const rowHPx = rowHselfMax;
 
   const bandLeft = FLOW_SVG.head;
   const colX: number[] = []; let acc = bandLeft;
@@ -252,12 +261,26 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
 
   // 泳道区背景
   parts.push(`<rect x="${x0}" y="${y0}" width="${width - x0 - 5}" height="${height - y0 - 5}" fill="#f8fafc"/>`);
-  // ③ 统一网格线贯穿（每 half 一条，0.5 单位）
-  for (let gx = x0; gx <= width; gx += L.half) parts.push(`<line x1="${gx}" y1="${y0}" x2="${gx}" y2="${height - 5}" stroke="#cbd5e1" stroke-width="0.5"/>`);
-  for (let gy = y0; gy <= height; gy += L.half) parts.push(`<line x1="${x0}" y1="${gy}" x2="${width - 5}" y2="${gy}" stroke="#cbd5e1" stroke-width="0.5"/>`);
-  // 粗网格线：泳道边界（每行/列主边界）
-  for (let ri = 0; ri <= nR; ri++) { const gy = L.bandTop(ri); parts.push(`<line x1="${x0}" y1="${gy}" x2="${width - 5}" y2="${gy}" stroke="#94a3b8" stroke-width="1.5"/>`); }
-  for (let ci = 0; ci <= nC; ci++) { const gx = ci < nC ? L.colX[ci] : width - 5; parts.push(`<line x1="${gx}" y1="${y0}" x2="${gx}" y2="${height - 5}" stroke="#94a3b8" stroke-width="1.5"/>`); }
+  // 用真实列宽/行高画格子骨架（行列对齐直接可见）
+  // 纵向边界：每列 colX（粗线）
+  for (let ci = 0; ci <= nC; ci++) {
+    const gx = ci < nC ? L.colX[ci] : width - 5;
+    parts.push(`<line x1="${gx}" y1="${y0}" x2="${gx}" y2="${height - 5}" stroke="#94a3b8" stroke-width="1.2"/>`);
+  }
+  // 横向边界：每行 bandTop（粗线）
+  for (let ri = 0; ri <= nR; ri++) {
+    const gy = L.bandTop(ri);
+    parts.push(`<line x1="${x0}" y1="${gy}" x2="${width - 5}" y2="${gy}" stroke="#94a3b8" stroke-width="1.2"/>`);
+  }
+  // 每个绘制格内部：细网格线（0.5 单位，仅行列格内）——用列/行高宽对应的 half 细分
+  for (let ri = 0; ri < nR; ri++) {
+    for (let ci = 0; ci < nC; ci++) {
+      const gx0 = L.colX[ci], gy0 = L.bandTop(ri);
+      const gw = L.colWpx[ci], gh = L.rowHpx[ri];
+      for (let sx = gx0; sx <= gx0 + gw; sx += L.half) parts.push(`<line x1="${sx}" y1="${gy0}" x2="${sx}" y2="${gy0 + gh}" stroke="#cbd5e1" stroke-width="0.4"/>`);
+      for (let sy = gy0; sy <= gy0 + gh; sy += L.half) parts.push(`<line x1="${gx0}" y1="${sy}" x2="${gx0 + gw}" y2="${sy}" stroke="#cbd5e1" stroke-width="0.4"/>`);
+    }
+  }
 
   // 行/列标题
   for (let ri = 0; ri < nR; ri++) {
