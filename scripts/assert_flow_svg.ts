@@ -67,10 +67,12 @@ check('有节点的格子已画（<=12，只含有内容格）', cellRects.lengt
 // 自适应列宽：格子宽度不都一样（长列宽、短列窄）
 const rectWs = [...new Set(cellRects.map((r) => Math.round(r.w)))];
 check('列宽自适应（不唯一，长列宽短列窄）', rectWs.length > 1, `列宽集 ${rectWs.join(',')}`);
-// 贯穿泳道带（浅灰底 0.16、宽 > 整列）
-const bandRects = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*fill-opacity="0.16"/g)].map(m => ({ w: parseFloat(m[3]) }));
-check('贯穿泳道带存在（3 条）', bandRects.length === 3, `实际 ${bandRects.length}`);
-if (bandRects.length) check('泳道带宽 > 单格', bandRects[0].w > 300, `带宽 ${bandRects[0].w}`);
+// 统一网格线贯穿（纵向线从棋盘顶贯穿到底）
+const gridLines = [...svg.matchAll(/<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"[^>]*stroke-width="0.6"/g)].map(m => ({ x1: parseFloat(m[1]), y2: parseFloat(m[4]) }));
+check('统一网格线贯穿（含泳道区网格）', gridLines.length > 10, `实际 ${gridLines.length}`);
+// 纵向线贯穿到底（同一 x1 有多条不同 x2=y 一致贯穿）
+const vertFull = gridLines.filter((g) => g.x1 > 100); // 泳道区内的纵向线
+check('泳道区纵向网格线贯穿', vertFull.length > 5, `实际 ${vertFull.length}`);
 // 行标题表头栏（text-anchor=end）
 check('行标题用 text-anchor=end 表头栏', svg.includes('text-anchor="end"'));
 // 无旧的固定 220x140 实心空格子框

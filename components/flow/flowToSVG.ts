@@ -152,6 +152,9 @@ interface ExcelLayout {
   height: number;
   bandTop: (ri: number) => number;
   bandLeft: number;
+  gridStep: number;   // 半单位网格 px（0.5 单位 = 1 格）
+  colW: number[];     // 每列宽 px
+  rowH: number[];     // 每行高 px
 }
 
 export function computeExcelLayout(data: FlowData, st: FlowChartStyles): ExcelLayout {
@@ -220,43 +223,80 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): ExcelLa
   for (let c = 0; c < nC; c++) if (!colW[c]) colW[c] = 120;
   for (let r = 0; r < nR; r++) if (!rowH[r]) rowH[r] = 80;
 
-  // 4. 格子绝对坐标 + 节点绝对坐标（走廊50%：相邻格各贡献50%宽/高作为间距）
-  const bandLeft = FLOW_SVG.head;
-  // 列第 ci 个格子左缘：bandLeft + Σ(前面每个格子右走廊 + 当前格子左走廊)。
-  // 左走廊(0.5*colW) 仅首个格子外再加一次（最外也留50%）。
-  const colX: number[] = [];
-  {
-    let acc = bandLeft + colW[0] * 0.5; // 最左留 0.5 走廊
-    for (let ci = 0; ci < nC; ci++) {
-      colX.push(acc);
-      if (ci < nC - 1) acc += colW[ci] * 0.5 + colW[ci + 1] * 0.5;
+  // 4. 统一网格线坐标系统（贯穿棋盘）
+  // 网格单位：半单位 = GRID px，全单位 = 2*GRID px。
+  // 列宽 = 该列最大横向切分数 * 全单位；行高 = 该行最大纵向切分数 * 全单位。
+  // 泳道格相邻无走廊，网格线贯穿整个棋盘（一套坐标系统）。
+  const GRID = 34; // 半单位 px（0.5 单位 = 1 格）
+  // 每格 nx(横向切分)/ny(纵向切分)：按该格内节点网格坐标的最大值+1
+  const cellXY = new Map<string, { nx: number; ny: number }>();
+  for (let ri = 0; ri < nR; ri++) for (let ci = 0; ci < nC; ci++) {
+    const gk = `${ri}_${ci}`;
+    const content = group.get(gk) || [];
+    const xs = content.map((c) => c.node.vh === 'H' ? 1 : 0); // 简化：横向节点取横坐标偏移
+    // 每个节点占一个"绘制格"。绘制格在交叉格内的网格坐标 = 节点声明的排列位置。
+    // 用 vh 链式推断：V 节点纵向堆叠 → ny 增加；H 节点横向并排 → nx 增加。
+    let nx = 1, ny = 1;
+    let rowCursor = 0, colCursor = 0;
+    let prevDir: 'V' | 'H' = 'H';
+    for (const c of content) {
+      const dir = c.node.vh ?? prevDir;
+      if (dir === 'V') { rowCursor++; ny = Math.max(ny, rowCursor + 1); }
+      else { colCursor++; nx = Math.max(nx, colCursor + 1); }
+      prevDir = dir;
     }
+    cellXY.set(gk, { nx, ny });
   }
+  const colWArr: number[] = new Array(nC).fill(1);
+  const rowHArr: number[] = new Array(nR).fill(1);
+  for (let ri = 0; ri < nR; ri++) for (let ci = 0; ci < nC; ci++) {
+    const v = cellXY.get(`${ri}_${ci}`)!;
+    colWArr[ci] = Math.max(colWArr[ci], v.nx);
+    rowHArr[ri] = Math.max(rowHArr[ri], v.ny);
+  }
+  // 列宽(px) = nx * 2*GRID(全单位)；行高 = ny * 2*GRID
+  const colWpx = colWArr.map((v) => v * 2 * GRID);
+  const rowHpx = rowHArr.map((v) => v * 2 * GRID);
+  const bandLeft = FLOW_SVG.head;
+  const colX: number[] = [];
+  let acc = bandLeft;
+  for (let ci = 0; ci < nC; ci++) { colX.push(acc); acc += colWpx[ci]; }
   const bandTop = (ri: number) => {
-    let acc = FLOW_SVG.head + FLOW_SVG.colLabelH + rowH[0] * 0.5; // 顶部留 0.5 走廊
-    for (let r = 0; r < ri; r++) acc += rowH[r] * 0.5 + (r + 1 < nR ? rowH[r + 1] * 0.5 : 0);
-    return acc;
+    let a = FLOW_SVG.head + FLOW_SVG.colLabelH;
+    for (let r = 0; r < ri; r++) a += rowHpx[r];
+    return a;
   };
+  // 泳道格内每"绘制格"的局部网格坐标（在统一网格上）
   const cells: CellLayout[] = [];
   for (let ri = 0; ri < nR; ri++) {
     for (let ci = 0; ci < nC; ci++) {
       const key = `${ri}_${ci}`;
       const g = cellGeom.get(key);
-      const w = colW[ci], h = rowH[ri];
+      const w = colWpx[ci], h = rowHpx[ri];
       const x = colX[ci], y = bandTop(ri);
       const contents: CellContent[] = [];
-      if (g) for (const it of g.items) {
-        contents.push({ node: it.n, cx: x + it.lx, cy: y + it.ly, m: it.m });
-        nodeXY.set(it.n.id, { x: x + it.lx, y: y + it.ly, ri, ci });
+      // 每个绘制格 = w/nx × h/ny，节点放对应单元中心
+      const xy = cellXY.get(key) || { nx: 1, ny: 1 };
+      const pw = w / xy.nx, ph = h / xy.ny;
+      if (g) {
+        let rr = 0, cc = 0, prevDir: 'V' | 'H' = 'H';
+        for (const it of g.items) {
+          const dir = it.n.vh ?? prevDir;
+          // 节点放在当前 (rr,cc) 绘制格中心
+          const cx = x + cc * pw + pw / 2;
+          const cy = y + rr * ph + ph / 2;
+          contents.push({ node: it.n, cx, cy, m: it.m });
+          nodeXY.set(it.n.id, { x: cx, y: cy, ri, ci });
+          if (dir === 'V') rr++; else cc++;
+          prevDir = dir;
+        }
       }
       cells.push({ ri, ci, x, y, w, h, key, contents });
     }
   }
-  // 总尺寸：最后一格右缘 + 右走廊(0.5) + 余量；下缘同理
-  const totalW = colX[nC - 1] + colW[nC - 1] + colW[nC - 1] * 0.5 + 30;
-  const lastRowBottom = bandTop(nR - 1) + rowH[nR - 1];
-  const totalH = lastRowBottom + rowH[nR - 1] * 0.5 + 30;
-  return { rows, cols, cells, nodeXY, nodeM, width: totalW, height: totalH, bandTop, bandLeft };
+  const totalW = colX[nC - 1] + colWpx[nC - 1] + 20;
+  const totalH = bandTop(nR - 1) + rowHpx[nR - 1] + 20;
+  return { rows, cols, cells, nodeXY, nodeM, width: totalW, height: totalH, bandTop, bandLeft, gridStep: GRID, colW: colWpx, rowH: rowHpx };
 }
 
 /** 由 computeExcelLayout 计算画布尺寸（styles 可选，缺省用默认字体） */
@@ -272,25 +312,34 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   const parts: string[] = [];
   parts.push(arrowMarker('flowArrow', st.lineColor));
 
-  // 泳道带背景 + 行/列标题
+  // 统一网格线贯穿棋盘（横纵线从首到尾，gridStep 间距）
   const nR = L.rows.length || 1;
   const nC = L.cols.length || 1;
+  const x0 = L.bandLeft, y0 = L.bandTop(0);
+  // 泳道区背景
+  parts.push(`<rect x="${x0}" y="${y0}" width="${width - x0 - 5}" height="${height - y0 - 5}" fill="#f8fafc"/>`);
+  // 纵向网格线（贯穿到棋盘底）
+  for (let gx = x0; gx <= width; gx += L.gridStep) {
+    parts.push(`<line x1="${gx}" y1="${y0}" x2="${gx}" y2="${height - 5}" stroke="#cbd5e1" stroke-width="0.6"/>`);
+  }
+  // 横向网格线（贯穿到棋盘右缘）
+  for (let gy = y0; gy <= height; gy += L.gridStep) {
+    parts.push(`<line x1="${x0}" y1="${gy}" x2="${width - 5}" y2="${gy}" stroke="#cbd5e1" stroke-width="0.6"/>`);
+  }
+  // 泳道行标题（行标签，列标题右侧）
   for (let ri = 0; ri < nR; ri++) {
     const y = L.bandTop(ri);
-    const h = L.cells.find((c) => c.ri === ri)?.h ?? 80;
-    // 贯穿泳道带背景
-    parts.push(`<rect x="${L.bandLeft}" y="${y}" width="${width - L.bandLeft - 30}" height="${h}" rx="8" fill="${st.laneColor}" fill-opacity="0.16" stroke="#cbd5e1" stroke-width="1"/>`);
-    // 行标题
+    const h = L.rowH[ri];
     const rl = dictValue(data, L.rows[ri].dict, L.rows[ri].idx);
     parts.push(`<text x="${L.bandLeft - 12}" y="${y + h / 2}" text-anchor="end" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(rl)}</text>`);
   }
   // 列标题表头带
-  const colHeaderY = FLOW_SVG.head - 22;
-  parts.push(`<rect x="${L.bandLeft}" y="${colHeaderY}" width="${width - L.bandLeft - 30}" height="20" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>`);
+  const colHeaderY = FLOW_SVG.head - 16;
+  parts.push(`<rect x="${L.bandLeft}" y="${colHeaderY}" width="${width - L.bandLeft - 5}" height="18" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>`);
   for (let ci = 0; ci < nC; ci++) {
     const cx0 = L.cells.find((c) => c.ci === ci)?.x ?? L.bandLeft;
     const cl = dictValue(data, L.cols[ci].dict, L.cols[ci].idx);
-    parts.push(`<text x="${cx0 + 8}" y="${colHeaderY + 14}" text-anchor="start" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(cl)}</text>`);
+    parts.push(`<text x="${cx0 + 8}" y="${colHeaderY + 13}" text-anchor="start" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(cl)}</text>`);
   }
 
   // 格子边框（含内容的格子才画）
