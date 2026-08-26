@@ -66,8 +66,8 @@ check('交叉格矩形按真实分布绘制', gridRects.length >= 12, `实际 ${
 // 自适应列宽：交叉格宽不唯一（长列宽、短列窄）
 const rectWs = [...new Set(gridRects.map((r) => Math.round(r.w)))];
 check('列宽自适应（不唯一）', rectWs.length > 1, `列宽集 ${rectWs.join(',')}`);
-// 行标题表头栏（text-anchor=end）
-check('行标题用 text-anchor=end 表头栏', svg.includes('text-anchor="end"'));
+// 行/列标题表头栏（格子化 + 默认居中）
+check('行/列标题默认居中表头栏', svg.includes('text-anchor="middle"'));
 // 无旧的固定 220x140 实心空格子框
 const solidCellCount = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="220" height="140" rx="8" fill="[^"]*" fill-opacity="0.3"/g)].length;
 check('无旧的实心空格子框（0）', solidCellCount === 0, `实际 ${solidCellCount}`);

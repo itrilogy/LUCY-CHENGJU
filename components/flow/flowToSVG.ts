@@ -15,6 +15,7 @@ export interface FlowSvgDims { width: number; height: number; }
 export const FLOW_SVG = {
   head: 110,       // 左 header 区（行标签）
   colLabelH: 30,   // 顶部 header 区（列标签）
+  titleH: 44,      // 流程图标题通栏高度
   half: 34,        // 0.5 单位 px（连线区宽/高）
 };
 
@@ -258,7 +259,7 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   const colX: number[] = []; let acc = bandLeft;
   for (let ci = 0; ci < nC; ci++) { colX.push(acc); acc += colWPx[ci]; }
   const bandTop = (ri: number) => {
-    let a = FLOW_SVG.head + FLOW_SVG.colLabelH;
+    let a = FLOW_SVG.titleH + FLOW_SVG.colLabelH;
     for (let r = 0; r < ri; r++) a += rowHPx[r];
     return a;
   };
@@ -322,51 +323,93 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     parts.push(`<line x1="${x0}" y1="${gy}" x2="${width - 5}" y2="${gy}" stroke="#64748b" stroke-width="1.2"/>`);
   }
 
-  // 行/列标题（ROOT 占位泳道不显示标签）
-  for (let ri = 0; ri < nR; ri++) {
-    if (L.rows[ri].dict === 'ROOT') continue;
-    const rl = dictValue(data, L.rows[ri].dict, L.rows[ri].idx);
-    parts.push(`<text x="${L.bandLeft - 12}" y="${L.bandTop(ri) + L.rowHpx[ri] / 2}" text-anchor="end" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(rl)}</text>`);
+  // ===== 流程图标题：顶部通栏格子，默认居中 =====
+  const titleText = data.title || st.title || '流程图';
+  parts.push(`<rect x="0" y="0" width="${width}" height="${FLOW_SVG.titleH}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
+  parts.push(`<text x="${width / 2}" y="${FLOW_SVG.titleH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
+
+  // ===== 轴坐标标题 + 泳道标签：左/上表头，格子化，默认居中 =====
+  // 列表头（上）：axis-x 标题（若定义）占左上文头角格，各列 dict 值居中于各自列格
+  const axisXT = data.axes?.x?.title || '';
+  const axisYT = data.axes?.y?.title || '';
+  const cornerW = L.bandLeft, cornerH = FLOW_SVG.colLabelH;
+  // 左上角格：轴标题（axis-x 顶部表头、axis-y 左侧表头，共用角格分两行展示）
+  if (axisXT || axisYT) {
+    parts.push(`<rect x="0" y="${FLOW_SVG.titleH}" width="${cornerW}" height="${cornerH}" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>`);
+    if (axisXT && axisYT) {
+      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + 11}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="11" font-weight="bold">${esc(axisXT)}</text>`);
+      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + 24}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="10">${esc(axisYT)}</text>`);
+    } else {
+      const axisLabel = axisXT || axisYT;
+      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(axisLabel)}</text>`);
+    }
   }
+  // 列标签格（顶部表头，每列一格，居中）
   for (let ci = 0; ci < nC; ci++) {
-    if (L.cols[ci].dict === 'ROOT') continue;
     const cl = dictValue(data, L.cols[ci].dict, L.cols[ci].idx);
-    parts.push(`<text x="${L.colX[ci] + 8}" y="${FLOW_SVG.head - 6}" text-anchor="start" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(cl)}</text>`);
+    const show = L.cols[ci].dict !== 'ROOT';
+    parts.push(`<rect x="${L.colX[ci]}" y="${FLOW_SVG.titleH}" width="${L.colWpx[ci]}" height="${cornerH}" fill="${show ? '#e2e8f0' : 'none'}" stroke="#94a3b8" stroke-width="1"/>`);
+    if (show) parts.push(`<text x="${L.colX[ci] + L.colWpx[ci] / 2}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(cl)}</text>`);
+  }
+  // 行标签格（左表头，每行一格，居中）
+  for (let ri = 0; ri < nR; ri++) {
+    const rl = dictValue(data, L.rows[ri].dict, L.rows[ri].idx);
+    const show = L.rows[ri].dict !== 'ROOT';
+    parts.push(`<rect x="0" y="${L.bandTop(ri)}" width="${cornerW}" height="${L.rowHpx[ri]}" fill="${show ? '#e2e8f0' : 'none'}" stroke="#94a3b8" stroke-width="1"/>`);
+    if (show) parts.push(`<text x="${cornerW / 2}" y="${L.bandTop(ri) + L.rowHpx[ri] / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(rl)}</text>`);
   }
 
-  // 连线：最小最短原则 + 确定性
-  // 规则：目标在源右方同行→水平直达；目标在源下方同列→垂直直达；
-  //       否则先横后纵最短折线（横向向目标 x 移动，纵向向目标 y 移动，走连线区中线）
-  const nodeXY: Record<string, { x: number; y: number; W: number; H: number }> = {};
-  for (const [id, p] of L.nodePos) nodeXY[id] = { x: p.x, y: p.y, W: p.W, H: p.H };
+  // 连线：最小最短原则 + 进出口端口不重复（最短距离优先）
+  const nodeXY: Record<string, { x: number; y: number; W: number; H: number; used: Set<string> }> = {};
+  for (const [id, p] of L.nodePos) nodeXY[id] = { x: p.x, y: p.y, W: p.W, H: p.H, used: new Set() };
+
+  // 端口方向定义（从节点中心向外，走 0.5 连线区中线）
+  type Port = 'R' | 'L' | 'T' | 'B';
+  function portXY(n: { x: number; y: number; W: number; H: number }, dir: Port): { x: number; y: number } {
+    switch (dir) {
+      case 'R': return { x: n.x + n.W / 2 + L.half / 2, y: n.y };
+      case 'L': return { x: n.x - n.W / 2 - L.half / 2, y: n.y };
+      case 'T': return { x: n.x, y: n.y - n.H / 2 - L.half / 2 };
+      case 'B': return { x: n.x, y: n.y + n.H / 2 + L.half / 2 };
+    }
+  }
+  // 源端口候选：按朝向目标的方向优先（右>左>下>上 / 下>上>右>左）
+  function sourceCandidates(a: { x: number; y: number }, b: { x: number; y: number }): Port[] {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      return dx >= 0 ? ['R', 'B', 'T', 'L'] : ['L', 'B', 'T', 'R'];
+    }
+    return dy >= 0 ? ['B', 'R', 'L', 'T'] : ['T', 'R', 'L', 'B'];
+  }
+  function targetCandidates(b: { x: number; y: number }, a: { x: number; y: number }): Port[] {
+    // 目标端口朝向源（与源候选相反方向优先）
+    return sourceCandidates(b, a);
+  }
+  function pickPort(n: { x: number; y: number; W: number; H: number; used: Set<string> }, cands: Port[]): Port {
+    // 最短距离优先：始终取朝向目标的最短端口（候选已按距离排序）。
+    // 若该端口已占用，允许重复（出口/入口重复是允许的），仅在多个朝向端口都可用时取未占用者。
+    for (const c of cands) if (!n.used.has(c)) return c;
+    return cands[0]; // 全部占用 → 复用最短端口（允许重复）
+  }
+
   for (const e of data.edges.filter((x) => !x.parent)) {
     const a = nodeXY[e.from], b = nodeXY[e.to];
     if (!a || !b) continue;
     const label = e.label ? `<text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 - 12}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(e.label)}</text>` : '';
-    const sameRow = Math.abs(a.y - b.y) < 1;
-    const sameCol = Math.abs(a.x - b.x) < 1;
+    // 选端口：源朝向目标、目标朝向源，优先未占用（最短距离优先）
+    const sp = pickPort(a, sourceCandidates(a, b));
+    const tp = pickPort(b, targetCandidates(b, a));
+    a.used.add(sp); b.used.add(tp);
+    const s = portXY(a, sp), t = portXY(b, tp);
+    // 正交走线：先横后竖 or 先竖后横，取较短
     let d: string;
-    // 关键：从源节点"朝向目标那一侧"的连线区出发，直连到目标节点"朝向源那一侧"的连线区。
-    // 相邻节点（同行/同列/对角邻近）直接连通，不绕中介格。
-    const dx = b.x - a.x, dy = b.y - a.y;
-    if (sameRow) {
-      // 同行：水平直连（右侧/左侧连线区中线）
-      const x1 = b.x > a.x ? a.x + a.W / 2 + L.half / 2 : a.x - a.W / 2 - L.half / 2;
-      const x2 = b.x > a.x ? b.x - b.W / 2 - L.half / 2 : b.x + b.W / 2 + L.half / 2;
-      d = `M${x1},${a.y} L${x2},${b.y}`;
-    } else if (sameCol) {
-      // 同列：垂直直连（上/下连线区中线）
-      const y1 = b.y > a.y ? a.y + a.H / 2 + L.half / 2 : a.y - a.H / 2 - L.half / 2;
-      const y2 = b.y > a.y ? b.y - b.H / 2 - L.half / 2 : b.y + b.H / 2 + L.half / 2;
-      d = `M${a.x},${y1} L${b.x},${y2}`;
+    if (Math.abs(s.y - t.y) < 1) {
+      d = `M${s.x},${s.y} L${t.x},${t.y}`;
+    } else if (Math.abs(s.x - t.x) < 1) {
+      d = `M${s.x},${s.y} L${t.x},${t.y}`;
     } else {
-      // 相邻（对角邻近）：若 x 相近（同一列区）走垂直，若 y 相近（同一行区）走水平；
-      // 否则从"近侧"出发直连（L 型，不绕中介列）。选源→目标中，先沿主导方向走，再补另一方向。
-      // 用"源朝向目标最近侧"＋"目标朝向源最近侧"，直连一个 L。
-      const x1 = dx > 0 ? a.x + a.W / 2 + L.half / 2 : a.x - a.W / 2 - L.half / 2;
-      const y2 = dy > 0 ? b.y - b.H / 2 - L.half / 2 : b.y + b.H / 2 + L.half / 2;
-      // L 型：源近侧 → 水平到目标 x，再垂直到 y2（仅一次拐弯，不绕中介格）
-      d = `M${x1},${a.y} L${b.x},${a.y} L${b.x},${y2}`;
+      // 先横后竖
+      d = `M${s.x},${s.y} L${t.x},${s.y} L${t.x},${t.y}`;
     }
     parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
   }
