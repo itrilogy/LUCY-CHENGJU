@@ -183,8 +183,13 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): ExcelLa
   // 2. 每格内容按 V/H 链排，求格内局部坐标与包围盒
   const cellGeom = new Map<string, { w: number; h: number; items: { n: FlowData['nodes'][0]; lx: number; ly: number; m: NodeMetrics }[] }>();
   for (const [gk, contents] of group) {
-    // 链式排布：第一个节点放格内原点；后续按 vh 排
-    let cursorX = FLOW_SVG.padX, cursorY = FLOW_SVG.padY;
+    // 链式排布：每个节点 = 一个红框（节点区 + 右侧连线区）。
+    // 红框宽 = 节点区(节点宽) + 连线区(固定连廊slot)，高 = 节点高。
+    // 红框间距：框间留小 gap。多节点按 vh 链排（V=下、H=右）。
+    const linkSlot = 42;          // 红框内右侧"连线区"宽度
+    const frameGap = 16;          // 红框之间 gap
+    const pad = FLOW_SVG.padX;    // 格内 padding
+    let cursorX = pad, cursorY = pad;
     let prevDir: 'V' | 'H' = 'H';
     let maxX = 0, maxY = 0;
     const out: { n: FlowData['nodes'][0]; lx: number; ly: number; m: NodeMetrics }[] = [];
@@ -192,15 +197,16 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): ExcelLa
       const c = contents[i];
       const dir = c.node.vh ?? prevDir; // 无标注延续上一方向（首节点默认 H）
       if (i > 0) {
-        if (dir === 'V') { cursorY += (out[i - 1].m.halfH * 2) + 14; }
-        else { cursorX += (out[i - 1].m.halfW * 2) + 16; }
+        if (dir === 'V') { cursorY += (out[i - 1].m.halfH * 2) + frameGap; }
+        else { cursorX += (out[i - 1].m.halfW * 2) + linkSlot + frameGap; }
       }
       out.push({ n: c.node, lx: cursorX + c.m.halfW, ly: cursorY + c.m.halfH, m: c.m });
-      maxX = Math.max(maxX, cursorX + c.m.halfW * 2);
+      // 红框宽 = 节点区(2*halfW) + 连线区(linkSlot)；高 = 节点高
+      maxX = Math.max(maxX, cursorX + c.m.halfW * 2 + linkSlot);
       maxY = Math.max(maxY, cursorY + c.m.halfH * 2);
       prevDir = dir;
     }
-    cellGeom.set(gk, { w: Math.max(80, maxX + FLOW_SVG.padX), h: Math.max(60, maxY + FLOW_SVG.padY), items: out });
+    cellGeom.set(gk, { w: Math.max(90, maxX + pad), h: Math.max(64, maxY + pad), items: out });
   }
 
   // 3. 自适应列宽/行高
@@ -211,21 +217,33 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): ExcelLa
     if (ci >= 0 && ci < nC) colW[ci] = Math.max(colW[ci], g.w);
     if (ri >= 0 && ri < nR) rowH[ri] = Math.max(rowH[ri], g.h);
   }
-  // 空列/行给默认
   for (let c = 0; c < nC; c++) if (!colW[c]) colW[c] = 120;
   for (let r = 0; r < nR; r++) if (!rowH[r]) rowH[r] = 80;
 
-  // 4. 格子绝对坐标 + 节点绝对坐标
+  // 4. 格子绝对坐标 + 节点绝对坐标（走廊50%：相邻格各贡献50%宽/高作为间距）
   const bandLeft = FLOW_SVG.head;
-  const bandTop = (ri: number) => FLOW_SVG.head + FLOW_SVG.colLabelH + rowH.slice(0, ri).reduce((a, v) => a + v + FLOW_SVG.gapY, 0) + (ri === 0 ? 0 : 0);
-  const colX = (ci: number) => bandLeft + colW.slice(0, ci).reduce((a, v) => a + v + FLOW_SVG.gapX, 0);
+  // 列第 ci 个格子左缘：bandLeft + Σ(前面每个格子右走廊 + 当前格子左走廊)。
+  // 左走廊(0.5*colW) 仅首个格子外再加一次（最外也留50%）。
+  const colX: number[] = [];
+  {
+    let acc = bandLeft + colW[0] * 0.5; // 最左留 0.5 走廊
+    for (let ci = 0; ci < nC; ci++) {
+      colX.push(acc);
+      if (ci < nC - 1) acc += colW[ci] * 0.5 + colW[ci + 1] * 0.5;
+    }
+  }
+  const bandTop = (ri: number) => {
+    let acc = FLOW_SVG.head + FLOW_SVG.colLabelH + rowH[0] * 0.5; // 顶部留 0.5 走廊
+    for (let r = 0; r < ri; r++) acc += rowH[r] * 0.5 + (r + 1 < nR ? rowH[r + 1] * 0.5 : 0);
+    return acc;
+  };
   const cells: CellLayout[] = [];
   for (let ri = 0; ri < nR; ri++) {
     for (let ci = 0; ci < nC; ci++) {
       const key = `${ri}_${ci}`;
       const g = cellGeom.get(key);
       const w = colW[ci], h = rowH[ri];
-      const x = colX(ci), y = bandTop(ri);
+      const x = colX[ci], y = bandTop(ri);
       const contents: CellContent[] = [];
       if (g) for (const it of g.items) {
         contents.push({ node: it.n, cx: x + it.lx, cy: y + it.ly, m: it.m });
@@ -234,8 +252,10 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): ExcelLa
       cells.push({ ri, ci, x, y, w, h, key, contents });
     }
   }
-  const totalW = bandLeft + colW.reduce((a, v) => a + v, 0) + FLOW_SVG.gapX * (nC) + 30;
-  const totalH = FLOW_SVG.head + FLOW_SVG.colLabelH + rowH.reduce((a, v) => a + v, 0) + FLOW_SVG.gapY * (nR) + 30;
+  // 总尺寸：最后一格右缘 + 右走廊(0.5) + 余量；下缘同理
+  const totalW = colX[nC - 1] + colW[nC - 1] + colW[nC - 1] * 0.5 + 30;
+  const lastRowBottom = bandTop(nR - 1) + rowH[nR - 1];
+  const totalH = lastRowBottom + rowH[nR - 1] * 0.5 + 30;
   return { rows, cols, cells, nodeXY, nodeM, width: totalW, height: totalH, bandTop, bandLeft };
 }
 
