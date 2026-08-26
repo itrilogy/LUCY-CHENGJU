@@ -214,17 +214,20 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   };
 
   // 节点落中心格（3×3 布局中心格 = 1W×1H），四周 half 连线区
+  // 节点自身尺寸（nodeW/nodeH）= 该节点图形实际宽高（贴合自身，不被列/行最大拉大）
+  // 位置仍按行列统一网格对齐（半边=该列最大宽/该行最大高的一半，使节点在绘制格居中）
   const nodePos = new Map<string, NodePos>();
   for (const [gk, cell] of cellXY) {
     const [ri, ci] = gk.split('_').map(Number);
     const pw = colWPx[ci] / cell.nx, ph = rowHPx[ri] / cell.ny;
     for (const it of cell.items) {
-      // 绘制格内：中心格 = 节点区(W×H)，四周 half 连线区。中心坐标 = 格起点 + half + W/2
+      const nodeW = it.m.halfW * 2;   // 节点自身宽
+      const nodeH = it.m.halfH * 2;   // 节点自身高
       const gx = colX[ci] + it.gridX * pw;
       const gy = bandTop(ri) + it.gridY * ph;
-      const cx = gx + half + colWmin[ci] / 2;
-      const cy = gy + half + rowHmin[ri] / 2;
-      nodePos.set(it.n.id, { x: cx, y: cy, ri, ci, W: colWmin[ci], H: rowHmin[ri], n: it.n });
+      const cx = gx + half + nodeW / 2;  // 中心格内居中（自身宽）
+      const cy = gy + half + nodeH / 2;
+      nodePos.set(it.n.id, { x: cx, y: cy, ri, ci, W: nodeW, H: nodeH, n: it.n });
     }
   }
 
