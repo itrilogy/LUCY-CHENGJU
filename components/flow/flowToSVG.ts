@@ -97,14 +97,19 @@ function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy:
   const label = n.label || n.labelRef || n.id;
   const fs = st.nodeFontSize;
   const stroke = 'rgba(15,23,42,0.25)';
+  const tw = textW(label, fs);
   let shape = '';
+  // 圆形节点（start/end）：字符超出圆形时加"字符底色"底板（与节点色、字体色均差异的灰色）
+  if (n.type === 'start' || n.type === 'end') {
+    const r = Math.min(W, H) / 2;
+    const fill = n.type === 'start' ? st.startColor : st.endColor;
+    const sw = n.type === 'start' ? 1.5 : 3;
+    const labelPlate = tw > r * 1.6
+      ? `<rect x="${cx - tw / 2 - 6}" y="${cy - fs / 2 - 4}" width="${tw + 12}" height="${fs + 8}" rx="4" fill="#64748b" stroke="none" opacity="0.9"/>`
+      : '';
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>${labelPlate}<text x="${cx}" y="${cy + fs * 0.36}" text-anchor="middle" fill="${labelPlate ? '#f8fafc' : '#fff'}" font-size="${fs}" font-weight="500">${esc(label)}</text>`;
+  }
   switch (n.type) {
-    case 'start':
-      shape = `<circle cx="${cx}" cy="${cy}" r="${Math.min(W, H) / 2}" fill="${st.startColor}" stroke="${stroke}" stroke-width="1.5"/>`;
-      break;
-    case 'end':
-      shape = `<circle cx="${cx}" cy="${cy}" r="${Math.min(W, H) / 2}" fill="${st.endColor}" stroke="${stroke}" stroke-width="3"/>`;
-      break;
     case 'exclusiveGateway':
     case 'parallelGateway': {
       const d = `M${cx},${cy - H / 2} L${cx + W / 2},${cy} L${cx},${cy + H / 2} L${cx - W / 2},${cy} Z`;
@@ -124,7 +129,13 @@ function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy:
       shape = `<rect x="${cx - W / 2}" y="${cy - H / 2}" width="${W}" height="${H}" rx="6" fill="${st.taskColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
   }
-  return shape + `<text x="${cx}" y="${cy + fs * 0.36}" text-anchor="middle" fill="#fff" font-size="${fs}" font-weight="500">${esc(label)}</text>`;
+  const tw2 = textW(label, fs);
+  const overflow = tw2 > W - 8;
+  // 矩形等其它节点：文字超宽时也给底色（与形状色差异），字体色差异
+  const plate = overflow
+    ? `<rect x="${cx - tw2 / 2 - 6}" y="${cy - fs / 2 - 4}" width="${tw2 + 12}" height="${fs + 8}" rx="4" fill="#475569" opacity="0.9"/>`
+    : '';
+  return shape + plate + `<text x="${cx}" y="${cy + fs * 0.36}" text-anchor="middle" fill="${overflow ? '#f8fafc' : '#fff'}" font-size="${fs}" font-weight="500">${esc(label)}</text>`;
 }
 
 function arrowMarker(id: string, color: string): string {
@@ -321,20 +332,20 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       parts.push(`<rect x="${gx0}" y="${gy0}" width="${gw}" height="${gh}" fill="none" stroke="#94a3b8" stroke-width="1"/>`);
     }
   }
-  // 真实列/行边界粗线：与最末列/行格子边界完全对齐（无出血缺口）
+  // 真实列/行边界：虚线-细线（避免与连线视觉重叠）
   for (let ci = 0; ci <= nC; ci++) {
     const gx = ci < nC ? L.colX[ci] : L.gridRight;
-    parts.push(`<line x1="${gx}" y1="${y0}" x2="${gx}" y2="${L.gridBottom}" stroke="#64748b" stroke-width="1.2"/>`);
+    parts.push(`<line x1="${gx}" y1="${y0}" x2="${gx}" y2="${L.gridBottom}" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="4 4"/>`);
   }
   for (let ri = 0; ri <= nR; ri++) {
     const gy = ri < nR ? L.bandTop(ri) : L.gridBottom;
-    parts.push(`<line x1="${x0}" y1="${gy}" x2="${L.gridRight}" y2="${gy}" stroke="#64748b" stroke-width="1.2"/>`);
+    parts.push(`<line x1="${x0}" y1="${gy}" x2="${L.gridRight}" y2="${gy}" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="4 4"/>`);
   }
 
-  // ===== 流程图标题：顶部通栏格子，默认居中 =====
+  // ===== 流程图标题：顶部通栏格子，默认居中（宽度与绘制区 gridRight 对齐，无出血） =====
   const titleText = data.title || st.title || '流程图';
-  parts.push(`<rect x="0" y="0" width="${width}" height="${FLOW_SVG.titleH}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
-  parts.push(`<text x="${width / 2}" y="${FLOW_SVG.titleH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
+  parts.push(`<rect x="0" y="0" width="${L.gridRight}" height="${FLOW_SVG.titleH}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
+  parts.push(`<text x="${L.gridRight / 2}" y="${FLOW_SVG.titleH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
 
   // ===== 轴坐标标题 + 泳道标签：左/上表头，格子化，默认居中 =====
   const axisXT = data.axes?.x?.title || '';
@@ -460,14 +471,13 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     if (!found) for (const c of cands) { if (!a.usedOut.has(c)) { sp = c; found = true; break; } }
     a.usedOut.add(sp);
 
-    const label = e.label ? `<text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 - 12}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(e.label)}</text>` : '';
     const tp = targetPortOf.get(e.id) ?? 'T';
     const s = portXY(a, sp), t = portXY(b, tp);
     // 正交走线：首段垂直于源节点该边（R/L→先横，T/B→先竖），末段垂直于目标节点该边
     const horiz1 = (sp === 'R' || sp === 'L');
     const horiz2 = (tp === 'R' || tp === 'L');
 
-    // 构建正交路径。拐点"中线"可上下/左右挪动以避障。
+    // 构建正交路径：应保持最简 L 型（1 次拐弯），不产生 U/n 形
     function buildRoute(midX: number | null, midY: number | null): { x: number; y: number }[] {
       let pts: { x: number; y: number }[] = [];
       if (Math.abs(s.x - t.x) < 1 && Math.abs(s.y - t.y) < 1) {
@@ -486,7 +496,23 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
         const my = horiz1 ? s.y : t.y;
         pts = [{ x: s.x, y: s.y }, { x: mx, y: my }, { x: t.x, y: t.y }];
       }
-      return pts;
+      // 去除零长段与共线中间点（避免多余点造成重复/回折，也使得标签落于真正的最长段）
+      const clean = [pts[0]];
+      for (let i = 1; i < pts.length; i++) {
+        const a = clean[clean.length - 1], b = pts[i];
+        if (Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5) continue; // 零长
+        // 若与上一段共线（同向），用 b 替换 a（合并共线点）
+        const prev = clean[clean.length - 2];
+        if (prev) {
+          const v1x = a.x - prev.x, v1y = a.y - prev.y;
+          const v2x = b.x - a.x, v2y = b.y - a.y;
+          const cross = v1x * v2y - v1y * v2x;
+          const dot = v1x * v2x + v1y * v2y;
+          if (Math.abs(cross) < 0.5 && dot >= 0) { clean[clean.length - 1] = b; continue; }
+        }
+        clean.push(b);
+      }
+      return clean;
     }
 
     let pts = buildRoute(null, null);
@@ -520,6 +546,22 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
         if (!routeHits(candidate, e.from, e.to)) { pts = candidate; found = true; break; }
       }
       if (!found) break;
+    }
+    // ===== 标签：放在折线"最长线段"的中点（条件分支文本），非矩形中心 =====
+    let label = '';
+    if (e.label) {
+      let li = 0, maxLen = 0;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const len = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+        if (len > maxLen) { maxLen = len; li = i; }
+      }
+      const lx = (pts[li].x + pts[li + 1].x) / 2;
+      const ly = (pts[li].y + pts[li + 1].y) / 2;
+      const horizontal = Math.abs(pts[li + 1].y - pts[li].y) < Math.abs(pts[li + 1].x - pts[li].x);
+      // 水平段标签放线上方，垂直段放线右侧
+      const dx = horizontal ? 0 : 10;
+      const dy = horizontal ? -10 : 0;
+      label = `<text x="${lx + dx}" y="${ly + dy}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(e.label)}</text>`;
     }
     const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
     parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
