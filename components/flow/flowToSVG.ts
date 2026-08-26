@@ -405,25 +405,29 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   for (const [id, p] of L.nodePos) {
     nodeBoxes[id] = { x0: p.x - p.W / 2, y0: p.y - p.H / 2, x1: p.x + p.W / 2, y1: p.y + p.H / 2 };
   }
-  function segHitsBox(x1: number, y1: number, x2: number, y2: number, bx: Box): boolean {
-    // 线段与矩形相交检测（含端点贴着矩形也算穿过，但首末端点贴源/目标自身时不挡）
-    const minX = Math.min(x1, x2) - 0.5, maxX = Math.max(x1, x2) + 0.5;
-    const minY = Math.min(y1, y2) - 0.5, maxY = Math.max(y1, y2) + 0.5;
-    if (maxX <= bx.x0 || minX >= bx.x1 || maxY <= bx.y0 || minY >= bx.y1) return false;
-    // 完全覆盖
-    if (x1 === x2) {
-      return !(Math.max(y1, y2) <= bx.y1 && Math.min(y1, y2) >= bx.y0 && (x1 <= bx.x0 || x1 >= bx.x1));
+  function segIntersectsBox(ax: number, ay: number, bx: number, by: number, r: Box): boolean {
+    // 标准线段-矩形相交（含端点在内；端点恰好接触不算穿过——留给调用方跳过源/目标）
+    const dx = bx - ax, dy = by - ay;
+    // 用参数化裁剪（Liang-Barsky）
+    let tmin = 0, tmax = 1;
+    const p = [-dx, dx, -dy, dy];
+    const q = [ax - r.x0, r.x1 - ax, ay - r.y0, r.y1 - ay];
+    for (let k = 0; k < 4; k++) {
+      if (p[k] === 0) {
+        if (q[k] < 0) return false;
+      } else {
+        const rk = q[k] / p[k];
+        if (p[k] < 0) { if (rk > tmin) tmin = rk; }
+        else { if (rk < tmax) tmax = rk; }
+      }
     }
-    if (y1 === y2) {
-      return !(Math.max(x1, x2) <= bx.x1 && Math.min(x1, x2) >= bx.x0 && (y1 <= bx.y0 || y1 >= bx.y1));
-    }
-    return true;
+    return tmin <= tmax;
   }
   function routeHits(pathPts: { x: number; y: number }[], skipA: string, skipB: string): boolean {
     for (const [id, bx] of Object.entries(nodeBoxes)) {
       if (id === skipA || id === skipB) continue;
       for (let i = 0; i < pathPts.length - 1; i++) {
-        if (segHitsBox(pathPts[i].x, pathPts[i].y, pathPts[i + 1].x, pathPts[i + 1].y, bx)) return true;
+        if (segIntersectsBox(pathPts[i].x, pathPts[i].y, pathPts[i + 1].x, pathPts[i + 1].y, bx)) return true;
       }
     }
     return false;
@@ -442,54 +446,59 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     const horiz1 = (sp === 'R' || sp === 'L');
     const horiz2 = (tp === 'R' || tp === 'L');
 
-    // 生成候选正交路径（pts 数组），从"理想最短"开始，遇阻则确定性避障：
-    // 理想 → 同行下移 → 同列右移 → 扩格（每次扩一个绘制格半宽），上限 3 轮
-    function buildRoute(shiftY: number, shiftX: number): { x: number; y: number }[] {
+    // 构建正交路径。拐点"中线"可上下/左右挪动以避障。
+    function buildRoute(midX: number | null, midY: number | null): { x: number; y: number }[] {
       let pts: { x: number; y: number }[] = [];
-      const sy = s.y + (horiz1 ? shiftY : 0);
-      const sx = s.x + (horiz1 ? 0 : shiftX);
-      const ty = t.y + (horiz2 ? shiftY : 0);
-      const tx = t.x + (horiz2 ? 0 : shiftX);
       if (Math.abs(s.x - t.x) < 1 && Math.abs(s.y - t.y) < 1) {
-        pts = [{ x: sx, y: sy }, { x: tx, y: ty }];
+        pts = [{ x: s.x, y: s.y }, { x: t.x, y: t.y }];
       } else if (horiz1 && horiz2) {
-        if (Math.abs(s.y - t.y) < 1) {
-          pts = [{ x: sx, y: sy }, { x: tx, y: ty }];
-        } else {
-          const midX = (sx + tx) / 2;
-          pts = [{ x: sx, y: sy }, { x: midX, y: sy }, { x: midX, y: ty }, { x: tx, y: ty }];
-        }
+        // 源水平出 + 目标水平入：横-竖-横（竖段在 midX）
+        const mx = midX ?? (s.x + t.x) / 2;
+        pts = [{ x: s.x, y: s.y }, { x: mx, y: s.y }, { x: mx, y: t.y }, { x: t.x, y: t.y }];
       } else if (!horiz1 && !horiz2) {
-        if (Math.abs(s.x - t.x) < 1) {
-          pts = [{ x: sx, y: sy }, { x: tx, y: ty }];
-        } else {
-          const midY = (sy + ty) / 2;
-          pts = [{ x: sx, y: sy }, { x: sx, y: midY }, { x: tx, y: midY }, { x: tx, y: ty }];
-        }
+        // 源竖直出 + 目标竖直入：竖-横-竖（横段在 midY）
+        const my = midY ?? (s.y + t.y) / 2;
+        pts = [{ x: s.x, y: s.y }, { x: s.x, y: my }, { x: t.x, y: my }, { x: t.x, y: t.y }];
       } else {
-        const mx = horiz1 ? tx : sx;
-        const my = horiz1 ? sy : ty;
-        pts = [{ x: sx, y: sy }, { x: mx, y: my }, { x: tx, y: ty }];
+        // 一横一竖：L 型一次拐弯
+        const mx = horiz1 ? t.x : s.x;
+        const my = horiz1 ? s.y : t.y;
+        pts = [{ x: s.x, y: s.y }, { x: mx, y: my }, { x: t.x, y: t.y }];
       }
       return pts;
     }
 
-    let pts = buildRoute(0, 0);
+    let pts = buildRoute(null, null);
     let round = 0;
     const MAX_ROUND = 3;
+    const dw = L.half; // 走廊步长 = 0.5 连线区宽
     while (routeHits(pts, e.from, e.to) && round < MAX_ROUND) {
       round++;
-      // 确定性顺序：先同行下移，再同列右移，再扩格
-      const dw = L.half / 2; // 单步移 corridor
-      const shiftCandidates: { y: number; x: number }[] = [
-        { y: (horiz1 || horiz2 ? dw : 0) * round, x: 0 },           // 同行下移（水平段下移一条走廊）
-        { y: 0, x: (!horiz1 || !horiz2 ? dw : 0) * round },         // 同列右移
-        { y: (horiz1 || horiz2 ? dw : 0) * round, x: (!horiz1 || !horiz2 ? dw : 0) * round }, // 扩格（横纵都扩）
-      ];
-      for (const c of shiftCandidates) {
-        const candidate = buildRoute(c.y, c.x);
-        if (!routeHits(candidate, e.from, e.to)) { pts = candidate; break; }
+      // 确定性避障：同行下移→同列右移→反向→扩格
+      const tryOrder: { mX: number | null; mY: number | null }[] = [];
+      if (horiz1 && horiz2) {
+        const baseX = (s.x + t.x) / 2;
+        // 竖段左右挪：先右移，再左移，再更远
+        tryOrder.push({ mX: baseX + dw * round, mY: null }, { mX: baseX - dw * round, mY: null });
+      } else if (!horiz1 && !horiz2) {
+        const baseY = (s.y + t.y) / 2;
+        // 横段下移/上移
+        tryOrder.push({ mX: null, mY: baseY + dw * round }, { mX: null, mY: baseY - dw * round });
+      } else {
+        // L 型：拐点固定（无中间走廊可移），尝试整体下移/右移（扩格模拟）
+        const my = horiz1 ? s.y : t.y;
+        const mx = horiz1 ? t.x : s.x;
+        tryOrder.push(
+          { mX: mx + dw * round, mY: horiz1 ? my + dw * round : my },
+          { mX: horiz1 ? mx : mx + dw * round, mY: my + dw * round },
+        );
       }
+      let found = false;
+      for (const c of tryOrder) {
+        const candidate = buildRoute(c.mX, c.mY);
+        if (!routeHits(candidate, e.from, e.to)) { pts = candidate; found = true; break; }
+      }
+      if (!found) break;
     }
     const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
     parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
