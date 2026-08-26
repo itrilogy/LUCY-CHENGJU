@@ -156,6 +156,7 @@ interface XyLayout {
   bandTop: (ri: number) => number;
   gridRight: number;
   gridBottom: number;
+  titleBandW: number;
 }
 
 export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayout {
@@ -271,12 +272,14 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   const bandLeft = (() => {
     // 左表头列宽：按轴标题文字宽度略宽（非 Y 泳道文字宽度）
     const axisTitles = [data.axes?.x?.title || '', data.axes?.y?.title || ''].filter(Boolean);
-    if (!axisTitles.length) return FLOW_SVG.head;
-    const fs = 12;
-    const maxW = Math.max(...axisTitles.map((t) => textW(t, fs)));
-    return Math.max(48, maxW + 28); // 文字宽 + 边距（略宽），最小 48px
+    const axisW = axisTitles.length
+      ? Math.max(48, Math.max(...axisTitles.map((t) => textW(t, 12))) + 28)
+      : 0;
+    return axisTitles.length ? axisW : FLOW_SVG.head;
   })();
-  const colX: number[] = []; let acc = bandLeft;
+  // 整图标题 AxisY：左侧额外竖向标题带（不横排超宽），titleBandW = 字号 + 边距
+  const titleBandW = data.axes?.page?.place === 'AxisY' ? st.titleFontSize + 32 : 0;
+  const colX: number[] = []; let acc = bandLeft + titleBandW;
   for (let ci = 0; ci < nC; ci++) { colX.push(acc); acc += colWPx[ci]; }
   const bandTop = (ri: number) => {
     let a = FLOW_SVG.titleH + FLOW_SVG.colLabelH;
@@ -311,7 +314,7 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   const gridBottom = bandTop(nR - 1) + rowHPx[nR - 1];
   return {
     rows, cols, nodePos, colX, rowY: [], colWpx: colWPx, rowHpx: rowHPx,
-    width, height, half, bandLeft, bandTop, gridRight, gridBottom,
+    width, height, half, bandLeft, bandTop, gridRight, gridBottom, titleBandW,
   };
 }
 
@@ -327,7 +330,8 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   const parts: string[] = [];
   parts.push(arrowMarker('flowArrow', st.lineColor));
   const nR = L.rows.length, nC = L.cols.length;
-  const x0 = L.bandLeft, y0 = L.bandTop(0);
+  const x0 = L.bandLeft + L.titleBandW, y0 = L.bandTop(0);
+  const placeY = data.axes?.page?.place === 'AxisY';
 
   // 泳道区背景
   parts.push(`<rect x="${x0}" y="${y0}" width="${L.gridRight - x0}" height="${L.gridBottom - y0}" fill="#f8fafc"/>`);
@@ -349,24 +353,34 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     parts.push(`<line x1="${x0}" y1="${gy}" x2="${L.gridRight}" y2="${gy}" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="4 4"/>`);
   }
 
-  // ===== 流程图标题：顶部通栏格子，默认居中（宽度与绘制区 gridRight 对齐，无出血） =====
+  // ===== 流程图标题：AxisX=顶部通栏 / AxisY=左侧竖向标题带（不横排超宽） =====
   const titleText = data.title || st.title || '流程图';
-  parts.push(`<rect x="0" y="0" width="${L.gridRight}" height="${FLOW_SVG.titleH}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
-  parts.push(`<text x="${L.gridRight / 2}" y="${FLOW_SVG.titleH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
+  if (placeY) {
+    // AxisY：左侧竖向标题带，宽度 titleBandW，旋转 -90°（文字竖向，宽度合理不横排）
+    const tbw = L.titleBandW || (st.titleFontSize + 32);
+    const bandMidY = y0 + (L.gridBottom - y0) / 2;
+    parts.push(`<rect x="0" y="${y0}" width="${tbw}" height="${L.gridBottom - y0}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
+    parts.push(`<text x="${tbw / 2}" y="${bandMidY}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${tbw / 2} ${bandMidY})" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
+  } else {
+    parts.push(`<rect x="0" y="0" width="${L.gridRight}" height="${FLOW_SVG.titleH}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
+    parts.push(`<text x="${L.gridRight / 2}" y="${FLOW_SVG.titleH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
+  }
 
   // ===== 轴坐标标题 + 泳道标签：左/上表头，格子化，默认居中 =====
   const axisXT = data.axes?.x?.title || '';
   const axisYT = data.axes?.y?.title || '';
   const cornerW = L.bandLeft, cornerH = FLOW_SVG.colLabelH;
   // 左上角格：axis-x（顶部表头，水平居中）+ axis-y（左上角格水平，与axis-x分两行）
+  // 左表头整体向右偏移 titleBandW（AxisY 标题带在最左）
+  const hx = L.titleBandW;
   if (axisXT || axisYT) {
-    parts.push(`<rect x="0" y="${FLOW_SVG.titleH}" width="${cornerW}" height="${cornerH}" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>`);
+    parts.push(`<rect x="${hx}" y="${FLOW_SVG.titleH}" width="${cornerW}" height="${cornerH}" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>`);
     if (axisXT && axisYT) {
-      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + 11}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="11" font-weight="bold">${esc(axisXT)}</text>`);
-      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + 24}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="10">${esc(axisYT)}</text>`);
+      parts.push(`<text x="${hx + cornerW / 2}" y="${FLOW_SVG.titleH + 11}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="11" font-weight="bold">${esc(axisXT)}</text>`);
+      parts.push(`<text x="${hx + cornerW / 2}" y="${FLOW_SVG.titleH + 24}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="10">${esc(axisYT)}</text>`);
     } else {
       const axisLabel = axisXT || axisYT;
-      parts.push(`<text x="${cornerW / 2}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(axisLabel)}</text>`);
+      parts.push(`<text x="${hx + cornerW / 2}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(axisLabel)}</text>`);
     }
   }
   // 列标签格（顶部表头，每列一格，居中）
@@ -380,8 +394,8 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   for (let ri = 0; ri < nR; ri++) {
     const rl = dictValue(data, L.rows[ri].dict, L.rows[ri].idx);
     const show = L.rows[ri].dict !== 'ROOT';
-    const rcx = cornerW / 2, rcy = L.bandTop(ri) + L.rowHpx[ri] / 2;
-    parts.push(`<rect x="0" y="${L.bandTop(ri)}" width="${cornerW}" height="${L.rowHpx[ri]}" fill="${show ? '#e2e8f0' : 'none'}" stroke="#94a3b8" stroke-width="1"/>`);
+    const rcx = hx + cornerW / 2, rcy = L.bandTop(ri) + L.rowHpx[ri] / 2;
+    parts.push(`<rect x="${hx}" y="${L.bandTop(ri)}" width="${cornerW}" height="${L.rowHpx[ri]}" fill="${show ? '#e2e8f0' : 'none'}" stroke="#94a3b8" stroke-width="1"/>`);
     if (show) parts.push(`<text x="${rcx}" y="${rcy}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${rcx} ${rcy})" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(rl)}</text>`);
   }
 

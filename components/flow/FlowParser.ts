@@ -368,7 +368,8 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
   }
 
   const data: FlowData = {
-    title: pageTitle,
+    // 整图标题：Axis: 优先（page.title），否则用 Title:，最后回退
+    title: axes.page.title || pageTitle,
     layout,
     dicts,
     lanes,
