@@ -261,25 +261,22 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
 
   // 泳道区背景
   parts.push(`<rect x="${x0}" y="${y0}" width="${width - x0 - 5}" height="${height - y0 - 5}" fill="#f8fafc"/>`);
-  // 用真实列宽/行高画格子骨架（行列对齐直接可见）
-  // 纵向边界：每列 colX（粗线）
-  for (let ci = 0; ci <= nC; ci++) {
-    const gx = ci < nC ? L.colX[ci] : width - 5;
-    parts.push(`<line x1="${gx}" y1="${y0}" x2="${gx}" y2="${height - 5}" stroke="#94a3b8" stroke-width="1.2"/>`);
-  }
-  // 横向边界：每行 bandTop（粗线）
-  for (let ri = 0; ri <= nR; ri++) {
-    const gy = L.bandTop(ri);
-    parts.push(`<line x1="${x0}" y1="${gy}" x2="${width - 5}" y2="${gy}" stroke="#94a3b8" stroke-width="1.2"/>`);
-  }
-  // 每个绘制格内部：细网格线（0.5 单位，仅行列格内）——用列/行高宽对应的 half 细分
+  // 绘制格分布：每个交叉格（含空格）画真实列宽/行高的矩形，行列对齐直接可见
   for (let ri = 0; ri < nR; ri++) {
     for (let ci = 0; ci < nC; ci++) {
       const gx0 = L.colX[ci], gy0 = L.bandTop(ri);
       const gw = L.colWpx[ci], gh = L.rowHpx[ri];
-      for (let sx = gx0; sx <= gx0 + gw; sx += L.half) parts.push(`<line x1="${sx}" y1="${gy0}" x2="${sx}" y2="${gy0 + gh}" stroke="#cbd5e1" stroke-width="0.4"/>`);
-      for (let sy = gy0; sy <= gy0 + gh; sy += L.half) parts.push(`<line x1="${gx0}" y1="${sy}" x2="${gx0 + gw}" y2="${sy}" stroke="#cbd5e1" stroke-width="0.4"/>`);
+      parts.push(`<rect x="${gx0}" y="${gy0}" width="${gw}" height="${gh}" fill="none" stroke="#94a3b8" stroke-width="1"/>`);
     }
+  }
+  // 真实列/行边界粗线（强调泳道格分布）
+  for (let ci = 0; ci <= nC; ci++) {
+    const gx = ci < nC ? L.colX[ci] : width - 5;
+    parts.push(`<line x1="${gx}" y1="${y0}" x2="${gx}" y2="${height - 5}" stroke="#64748b" stroke-width="1.2"/>`);
+  }
+  for (let ri = 0; ri <= nR; ri++) {
+    const gy = L.bandTop(ri);
+    parts.push(`<line x1="${x0}" y1="${gy}" x2="${width - 5}" y2="${gy}" stroke="#64748b" stroke-width="1.2"/>`);
   }
 
   // 行/列标题

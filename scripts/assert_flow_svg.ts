@@ -67,12 +67,9 @@ check('有节点的绘制格已画（四周连线区）', linkAreas.length > 0, 
 // 自适应列宽：格宽不都一样（长节点列宽、短节点列窄）
 const rectWs = [...new Set(linkAreas.map((r) => Math.round(r.w)))];
 check('列宽自适应（不唯一）', rectWs.length > 1, `列宽集 ${rectWs.join(',')}`);
-// 统一网格线贯穿（绘制格内细线 stroke-width=0.4）
-const gridLines = [...svg.matchAll(/<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"[^>]*stroke-width="0.4"/g)].map(m => ({ x1: parseFloat(m[1]), y2: parseFloat(m[4]) }));
-check('统一网格线贯穿（含泳道区网格）', gridLines.length > 10, `实际 ${gridLines.length}`);
-// 纵向线贯穿到底
-const vertFull = gridLines.filter((g) => g.x1 > 100); // 泳道区内的纵向线
-check('泳道区纵向网格线贯穿', vertFull.length > 5, `实际 ${vertFull.length}`);
+// 绘制格分布：每个交叉格（含空格）画真实列宽/行高矩形（fill=none stroke=#94a3b8）
+const gridRects = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*fill="none" stroke="#94a3b8"/g)].map(m => ({ w: parseFloat(m[3]), h: parseFloat(m[4]) }));
+check('交叉格矩形按真实分布绘制', gridRects.length >= 12, `实际 ${gridRects.length}`);
 // 行标题表头栏（text-anchor=end）
 check('行标题用 text-anchor=end 表头栏', svg.includes('text-anchor="end"'));
 // 无旧的固定 220x140 实心空格子框
