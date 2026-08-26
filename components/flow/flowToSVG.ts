@@ -27,27 +27,40 @@ function textW(text: string, fs: number): number {
 
 export interface NodeMetrics { halfW: number; halfH: number; shapeType: 'circle' | 'diamond' | 'rect'; }
 /** 节点 W/H = 文字宽 + 边距（供计算中心格尺寸） */
+/** 节点基础尺寸（供整体缩放基准 + 空行/空列中心格） */
+export const NODE_BASE = {
+  task: { w: 120, h: 44 },
+  subprocess: { w: 140, h: 48 },
+  gateway: { w: 80, h: 50 },
+  startEnd: { w: 44, h: 44 },
+  annotation: { w: 120, h: 36 },
+  data: { w: 100, h: 36 },
+};
+
 export function nodeMetrics(n: FlowData['nodes'][0], fs: number): NodeMetrics {
   const label = n.label || n.labelRef || n.id;
   const tw = textW(label, fs);
   switch (n.type) {
     case 'start':
-    case 'end':
-      return { halfW: 22, halfH: 22, shapeType: 'circle' };
+    case 'end': {
+      const r = Math.max(NODE_BASE.startEnd.w / 2, NODE_BASE.startEnd.h / 2, 22);
+      return { halfW: r, halfH: r, shapeType: 'circle' };
+    }
     case 'exclusiveGateway':
     case 'parallelGateway': {
-      const dw = Math.max(64, tw + 36);
-      const dh = Math.max(50, fs + 22);
+      const dw = Math.max(NODE_BASE.gateway.w, tw + 36);
+      const dh = Math.max(NODE_BASE.gateway.h, fs + 22);
       return { halfW: dw / 2, halfH: dh / 2, shapeType: 'diamond' };
     }
     case 'annotation':
-      return { halfW: Math.max(60, tw / 2 + 12), halfH: 18, shapeType: 'rect' };
+      return { halfW: Math.max(NODE_BASE.annotation.w / 2, tw / 2 + 12), halfH: NODE_BASE.annotation.h / 2, shapeType: 'rect' };
     case 'dataObject':
-      return { halfW: Math.max(50, tw / 2 + 12), halfH: 18, shapeType: 'rect' };
+      return { halfW: Math.max(NODE_BASE.data.w / 2, tw / 2 + 12), halfH: NODE_BASE.data.h / 2, shapeType: 'rect' };
     case 'subprocess':
+      return { halfW: Math.max(NODE_BASE.subprocess.w / 2, tw / 2 + 14), halfH: NODE_BASE.subprocess.h / 2, shapeType: 'rect' };
     case 'task':
     default:
-      return { halfW: Math.max(52, tw / 2 + 14), halfH: 20, shapeType: 'rect' };
+      return { halfW: Math.max(NODE_BASE.task.w / 2, tw / 2 + 14), halfH: NODE_BASE.task.h / 2, shapeType: 'rect' };
   }
 }
 
@@ -264,27 +277,44 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     parts.push(`<rect x="${gx}" y="${gy}" width="${gw}" height="${gh}" rx="3" fill="#e0f2fe"/>`);
   }
 
-  // 连线：从节点四周 0.5 连线区中线出发，确定性避障
-  // 正交折线：水平段走源行中线，垂直段走"源列与目标列之间空隙"（避开节点），目标列中线进
+  // 连线：最小最短原则 + 确定性
+  // 规则：目标在源右方同行→水平直达；目标在源下方同列→垂直直达；
+  //       否则先横后纵最短折线（横向向目标 x 移动，纵向向目标 y 移动，走连线区中线）
   const nodeXY: Record<string, { x: number; y: number; W: number; H: number }> = {};
   for (const [id, p] of L.nodePos) nodeXY[id] = { x: p.x, y: p.y, W: p.W, H: p.H };
   for (const e of data.edges.filter((x) => !x.parent)) {
     const a = nodeXY[e.from], b = nodeXY[e.to];
     if (!a || !b) continue;
     const label = e.label ? `<text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 - 12}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(e.label)}</text>` : '';
-    // 源右连线区中线 → 目标左连线区中线。x 方向用两者间距，y 方向先横后纵。
-    const x1 = a.x + a.W / 2 + L.half / 2; // 右连线区中线
-    const y1 = a.y;
-    const x2 = b.x - b.W / 2 - L.half / 2; // 左连线区中线
-    const y2 = b.y;
+    const sameRow = Math.abs(a.y - b.y) < 1;
+    const sameCol = Math.abs(a.x - b.x) < 1;
     let d: string;
-    if (Math.abs(y1 - y2) < 1) {
-      // 同行：水平直达
-      d = `M${x1},${y1} L${x2},${y2}`;
+    if (sameRow && b.x > a.x) {
+      // 同行向右：源右连线区中线 → 目标左连线区中线
+      const x1 = a.x + a.W / 2 + L.half / 2, x2 = b.x - b.W / 2 - L.half / 2;
+      d = `M${x1},${a.y} L${x2},${b.y}`;
+    } else if (sameRow && b.x < a.x) {
+      // 同行向左：源左连线区中线 → 目标右连线区中线
+      const x1 = a.x - a.W / 2 - L.half / 2, x2 = b.x + b.W / 2 + L.half / 2;
+      d = `M${x1},${a.y} L${x2},${b.y}`;
+    } else if (sameCol && b.y > a.y) {
+      // 同列向下：源下连线区中线 → 目标上连线区中线
+      const y1 = a.y + a.H / 2 + L.half / 2, y2 = b.y - b.H / 2 - L.half / 2;
+      d = `M${a.x},${y1} L${b.x},${y2}`;
+    } else if (sameCol && b.y < a.y) {
+      // 同列向上：源上连线区中线 → 目标下连线区中线
+      const y1 = a.y - a.H / 2 - L.half / 2, y2 = b.y + b.H / 2 + L.half / 2;
+      d = `M${a.x},${y1} L${b.x},${y2}`;
     } else {
-      // 异行：先横到中点列，再纵移，最后横到目标。中点列 = 距源列最近的空隙（这里用两者 x 中点）
-      const mx = (x1 + x2) / 2;
-      d = `M${x1},${y1} L${mx},${y1} L${mx},${y2} L${x2},${y2}`;
+      // 异行异列：先横后纵最短折线（源右→中转列→目标，或源下→中转行→目标，取较近方向）
+      // 走"源右连线区中线"横移到目标 x，再纵移到目标行，最后横到目标左中（若目标在下）
+      // 更稳：向目标 x 水平 → 向目标 y 垂直 → 进目标左/上中
+      const x1 = a.x + a.W / 2 + L.half / 2;
+      const x2 = b.x - b.W / 2 - L.half / 2;
+      const y1 = a.y + a.H / 2 + L.half / 2;
+      const y2 = b.y - b.H / 2 - L.half / 2;
+      // 先水平到 b.x，再垂直到 b.y（正交最短）
+      d = `M${x1},${a.y} L${b.x},${a.y} L${b.x},${y2}`;
     }
     parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
   }

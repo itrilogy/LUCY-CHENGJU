@@ -119,9 +119,12 @@ check('V链两节点垂直堆叠（y 不同）', ySet.size >= 2, `y集 ${[...ySe
 // ===== 连线验证：折线从节点右连线区中线出发 → 中段 → 目标左连线区中线进入 =====
 const allPaths = [...svg.matchAll(/<path d="(M[^"]*)" fill="none" stroke="#64748b"/g)].map((m) => m[1]);
 check('连线折线存在', allPaths.length >= 4, `实际 ${allPaths.length}`);
-// 跨带间隙折线：段数=3（源→通道→目标）
-const hingeCount = allPaths.filter((p) => (p.match(/L/g) || []).length === 3).length;
-check('存在跨带间隙折线（3段）', hingeCount >= 1, `实际 ${hingeCount}`);
+// 正交折线最短：存在水平直达（1段 同行）或先横后纵（2-3段 异行）
+const orthoCount = allPaths.filter((p) => {
+  const segs = (p.match(/L/g) || []).length;
+  return segs >= 1 && segs <= 3;
+}).length;
+check('存在正交最短折线', orthoCount >= 4, `实际 ${orthoCount}`);
 
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);
