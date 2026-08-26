@@ -289,33 +289,29 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     const sameRow = Math.abs(a.y - b.y) < 1;
     const sameCol = Math.abs(a.x - b.x) < 1;
     let d: string;
-    if (sameRow && b.x > a.x) {
-      // 同行向右：源右连线区中线 → 目标左连线区中线
-      const x1 = a.x + a.W / 2 + L.half / 2, x2 = b.x - b.W / 2 - L.half / 2;
+    // 关键：从源节点"朝向目标那一侧"的连线区出发，直连到目标节点"朝向源那一侧"的连线区。
+    // 相邻节点（同行/同列/对角邻近）直接连通，不绕中介格。
+    const dx = b.x - a.x, dy = b.y - a.y;
+    if (sameRow) {
+      // 同行：水平直连（右侧/左侧连线区中线）
+      const x1 = b.x > a.x ? a.x + a.W / 2 + L.half / 2 : a.x - a.W / 2 - L.half / 2;
+      const x2 = b.x > a.x ? b.x - b.W / 2 - L.half / 2 : b.x + b.W / 2 + L.half / 2;
       d = `M${x1},${a.y} L${x2},${b.y}`;
-    } else if (sameRow && b.x < a.x) {
-      // 同行向左：源左连线区中线 → 目标右连线区中线
-      const x1 = a.x - a.W / 2 - L.half / 2, x2 = b.x + b.W / 2 + L.half / 2;
-      d = `M${x1},${a.y} L${x2},${b.y}`;
-    } else if (sameCol && b.y > a.y) {
-      // 同列向下：源下连线区中线 → 目标上连线区中线
-      const y1 = a.y + a.H / 2 + L.half / 2, y2 = b.y - b.H / 2 - L.half / 2;
-      d = `M${a.x},${y1} L${b.x},${y2}`;
-    } else if (sameCol && b.y < a.y) {
-      // 同列向上：源上连线区中线 → 目标下连线区中线
-      const y1 = a.y - a.H / 2 - L.half / 2, y2 = b.y + b.H / 2 + L.half / 2;
+    } else if (sameCol) {
+      // 同列：垂直直连（上/下连线区中线）
+      const y1 = b.y > a.y ? a.y + a.H / 2 + L.half / 2 : a.y - a.H / 2 - L.half / 2;
+      const y2 = b.y > a.y ? b.y - b.H / 2 - L.half / 2 : b.y + b.H / 2 + L.half / 2;
       d = `M${a.x},${y1} L${b.x},${y2}`;
     } else {
-      // 异行异列：先横后纵最短折线（源右→中转列→目标，或源下→中转行→目标，取较近方向）
-      // 走"源右连线区中线"横移到目标 x，再纵移到目标行，最后横到目标左中（若目标在下）
-      // 更稳：向目标 x 水平 → 向目标 y 垂直 → 进目标左/上中
-      const x1 = a.x + a.W / 2 + L.half / 2;
-      const x2 = b.x - b.W / 2 - L.half / 2;
-      const y1 = a.y + a.H / 2 + L.half / 2;
-      const y2 = b.y - b.H / 2 - L.half / 2;
-      // 先水平到 b.x，再垂直到 b.y（正交最短）
+      // 相邻（对角邻近）：若 x 相近（同一列区）走垂直，若 y 相近（同一行区）走水平；
+      // 否则从"近侧"出发直连（L 型，不绕中介列）。选源→目标中，先沿主导方向走，再补另一方向。
+      // 用"源朝向目标最近侧"＋"目标朝向源最近侧"，直连一个 L。
+      const x1 = dx > 0 ? a.x + a.W / 2 + L.half / 2 : a.x - a.W / 2 - L.half / 2;
+      const y2 = dy > 0 ? b.y - b.H / 2 - L.half / 2 : b.y + b.H / 2 + L.half / 2;
+      // L 型：源近侧 → 水平到目标 x，再垂直到 y2（仅一次拐弯，不绕中介格）
       d = `M${x1},${a.y} L${b.x},${a.y} L${b.x},${y2}`;
     }
+    parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
     parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
   }
 
