@@ -59,17 +59,13 @@ for (const t of ['提交采购申请', '填写申请单', '金额超过5000?', '
 check('连线标签 是', svg.includes('>是<'));
 check('连线标签 否', svg.includes('>否<'));
 
-// 泳道带范式：只画有节点的绘制格 + 统一网格线贯穿
-// 节点四周连线区（fill=#e0f2fe）数量 = 有节点绘制格数
-const linkAreas = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*fill="#e0f2fe"/g)].map(m => ({ w: parseFloat(m[3]), h: parseFloat(m[4]) }));
-const nR = 3, nC = 4; // 采购示例：3 行部门 × 4 列阶段
-check('有节点的绘制格已画（四周连线区）', linkAreas.length > 0, `实际 ${linkAreas.length}`);
-// 自适应列宽：格宽不都一样（长节点列宽、短节点列窄）
-const rectWs = [...new Set(linkAreas.map((r) => Math.round(r.w)))];
-check('列宽自适应（不唯一）', rectWs.length > 1, `列宽集 ${rectWs.join(',')}`);
+// 泳道带范式：只画有节点的绘制格（不填充连线区色）
 // 绘制格分布：每个交叉格（含空格）画真实列宽/行高矩形（fill=none stroke=#94a3b8）
 const gridRects = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*fill="none" stroke="#94a3b8"/g)].map(m => ({ w: parseFloat(m[3]), h: parseFloat(m[4]) }));
 check('交叉格矩形按真实分布绘制', gridRects.length >= 12, `实际 ${gridRects.length}`);
+// 自适应列宽：交叉格宽不唯一（长列宽、短列窄）
+const rectWs = [...new Set(gridRects.map((r) => Math.round(r.w)))];
+check('列宽自适应（不唯一）', rectWs.length > 1, `列宽集 ${rectWs.join(',')}`);
 // 行标题表头栏（text-anchor=end）
 check('行标题用 text-anchor=end 表头栏', svg.includes('text-anchor="end"'));
 // 无旧的固定 220x140 实心空格子框

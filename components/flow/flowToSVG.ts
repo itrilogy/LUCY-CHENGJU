@@ -153,8 +153,15 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   const fs = st.nodeFontSize;
 
   const cellNodeId = new Map<string, { ri: number; ci: number }>();
-  for (let ri = 0; ri < nR; ri++) for (let ci = 0; ci < nC; ci++)
-    cellNodeId.set(`${rows[ri].dict}${rows[ri].idx}${cols[ci].dict}${cols[ci].idx}`, { ri, ci });
+  for (let ri = 0; ri < nR; ri++) for (let ci = 0; ci < nC; ci++) {
+    const rowKey = `${rows[ri].dict}${rows[ri].idx}`;
+    const colKey = `${cols[ci].dict}${cols[ci].idx}`;
+    const rc = { ri, ci };
+    cellNodeId.set(rowKey + colKey, rc);
+    // 单维泳道兼容：节点 cell 只有一维时，缺失维度由 ROOT 侧匹配
+    if (rows[ri].dict === 'ROOT') cellNodeId.set(colKey, rc);   // 单维纵向：cell 只写列键
+    if (cols[ci].dict === 'ROOT') cellNodeId.set(rowKey, rc);   // 单维横向：cell 只写行键
+  }
 
   // 归类节点到交叉格 (ri,ci)，按声明序；每格内节点链式布局（V/H）求 nx(横)/ny(纵)
   const group = new Map<string, FlowData['nodes'][0][]>();
@@ -237,8 +244,9 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
       const nodeH = it.m.halfH * 2;   // 节点自身高
       const gx = colX[ci] + it.gridX * pw;
       const gy = bandTop(ri) + it.gridY * ph;
-      const cx = gx + half + nodeW / 2;  // 中心格内居中（自身宽）
-      const cy = gy + half + nodeH / 2;
+      // 节点严格居中于其绘制格 [gx,gx+pw]×[gy,gy+ph]（两侧连线区等宽，消除空隙/扩展格）
+      const cx = gx + pw / 2;
+      const cy = gy + ph / 2;
       nodePos.set(it.n.id, { x: cx, y: cy, ri, ci, W: nodeW, H: nodeH, n: it.n });
     }
   }
@@ -282,25 +290,16 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     parts.push(`<line x1="${x0}" y1="${gy}" x2="${width - 5}" y2="${gy}" stroke="#64748b" stroke-width="1.2"/>`);
   }
 
-  // 行/列标题
+  // 行/列标题（ROOT 占位泳道不显示标签）
   for (let ri = 0; ri < nR; ri++) {
+    if (L.rows[ri].dict === 'ROOT') continue;
     const rl = dictValue(data, L.rows[ri].dict, L.rows[ri].idx);
     parts.push(`<text x="${L.bandLeft - 12}" y="${L.bandTop(ri) + L.rowHpx[ri] / 2}" text-anchor="end" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(rl)}</text>`);
   }
   for (let ci = 0; ci < nC; ci++) {
+    if (L.cols[ci].dict === 'ROOT') continue;
     const cl = dictValue(data, L.cols[ci].dict, L.cols[ci].idx);
     parts.push(`<text x="${L.colX[ci] + 8}" y="${FLOW_SVG.head - 6}" text-anchor="start" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(cl)}</text>`);
-  }
-
-  // 每格绘制格：画中心节点区 + 四周连线区（浅色背景示意）
-  // 由 nodePos 逐节点画其绘制格四周连线区（0.5 half 环绕）
-  for (const [, p] of L.nodePos) {
-    const gx = p.x - p.W / 2 - L.half;
-    const gy = p.y - p.H / 2 - L.half;
-    const gw = p.W + 2 * L.half;
-    const gh = p.H + 2 * L.half;
-    // 四周连线区（整格浅底），中心节点区留白（节点块会覆盖）
-    parts.push(`<rect x="${gx}" y="${gy}" width="${gw}" height="${gh}" rx="3" fill="#e0f2fe"/>`);
   }
 
   // 连线：最小最短原则 + 确定性
@@ -337,7 +336,6 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       // L 型：源近侧 → 水平到目标 x，再垂直到 y2（仅一次拐弯，不绕中介格）
       d = `M${x1},${a.y} L${b.x},${a.y} L${b.x},${y2}`;
     }
-    parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
     parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
   }
 
