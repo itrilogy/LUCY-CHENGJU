@@ -202,7 +202,7 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     group.get(gk)!.push(n);
   }
   for (const [gk, nodes] of group) {
-    let nx = 1, ny = 1, gx = 0, gy = 0, prevDir: 'V' | 'H' = 'H';
+    let nx = 1, ny = 1, gx = 0, gy = 0, prevDir: 'V' | 'H' = 'V'; // 无标注默认纵向
     const items: { n: FlowData['nodes'][0]; gridX: number; gridY: number; m: NodeMetrics }[] = [];
     for (const n of nodes) {
       const m = nodeMetrics(n, fs);
@@ -230,25 +230,22 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   for (let c = 0; c < nC; c++) if (!cellWself[c]) cellWself[c] = BASE_W;
   for (let r = 0; r < nR; r++) if (!cellHself[r]) cellHself[r] = BASE_H;
 
-  // ③ 每列宽 = 该列各交叉格"自身需要宽"的最大值（不被某格 nx 盲目拉满整列）
-  //   每个交叉格自身宽 = cell.nx × (该格节点最大宽 + 2*half)；自身高 = cell.ny × (该格节点最大高 + 2*half)
+  // ③ 整行/整列统一扩展（对齐关键，XY 矩阵规范）
+  //   - 列宽 = 该列"最大横向绘制格数 nx_max" × (该列节点最大宽 + 2*half)
+  //     → 该列所有交叉格都按 nx_max 个绘制格等分（整列统一，不各列独立）
+  //   - 行高 = 该行"最大纵向绘制格数 ny_max" × (该行节点最大高 + 2*half)
+  //     → 该行所有交叉格都按 ny_max 个绘制格等分（整行统一）
   const half = FLOW_SVG.half;
-  const colWselfMax: number[] = new Array(nC).fill(BASE_W + 2 * half);
-  const rowHselfMax: number[] = new Array(nR).fill(BASE_H + 2 * half);
+  // 每列最大横向绘制格数 nx，该列节点最大宽 W
+  const colNxMax: number[] = new Array(nC).fill(1);
+  const rowNyMax: number[] = new Array(nR).fill(1);
   for (const [gk, cell] of cellXY) {
     const [ri, ci] = gk.split('_').map(Number);
-    // 该格自身节点最大宽/高
-    let wMax = 0, hMax = 0;
-    for (const it of cell.items) { wMax = Math.max(wMax, it.m.halfW * 2); hMax = Math.max(hMax, it.m.halfH * 2); }
-    if (!wMax) wMax = BASE_W;
-    if (!hMax) hMax = BASE_H;
-    const needW = cell.nx * (wMax + 2 * half);
-    const needH = cell.ny * (hMax + 2 * half);
-    colWselfMax[ci] = Math.max(colWselfMax[ci], needW);
-    rowHselfMax[ri] = Math.max(rowHselfMax[ri], needH);
+    if (ci >= 0 && ci < nC) colNxMax[ci] = Math.max(colNxMax[ci], cell.nx);
+    if (ri >= 0 && ri < nR) rowNyMax[ri] = Math.max(rowNyMax[ri], cell.ny);
   }
-  const colWPx = colWselfMax;
-  const rowHPx = rowHselfMax;
+  const colWPx = colNxMax.map((nx, ci) => nx * (cellWself[ci] + 2 * half));
+  const rowHPx = rowNyMax.map((ny, ri) => ny * (cellHself[ri] + 2 * half));
 
   const bandLeft = FLOW_SVG.head;
   const colX: number[] = []; let acc = bandLeft;
@@ -265,7 +262,8 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   const nodePos = new Map<string, NodePos>();
   for (const [gk, cell] of cellXY) {
     const [ri, ci] = gk.split('_').map(Number);
-    const pw = colWPx[ci] / cell.nx, ph = rowHPx[ri] / cell.ny;
+    // 整列/整行统一：绘制格宽=列宽/该列最大nx；绘制格高=行高/该行最大ny
+    const pw = colWPx[ci] / colNxMax[ci], ph = rowHPx[ri] / rowNyMax[ri];
     for (const it of cell.items) {
       const nodeW = it.m.halfW * 2;   // 节点自身宽
       const nodeH = it.m.halfH * 2;   // 节点自身高
