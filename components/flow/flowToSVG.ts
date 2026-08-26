@@ -202,16 +202,23 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     group.get(gk)!.push(n);
   }
   for (const [gk, nodes] of group) {
-    let nx = 1, ny = 1, gx = 0, gy = 0, prevDir: 'V' | 'H' = 'V'; // 无标注默认纵向
+    let nx = 1, ny = 1, gx = 0, gy = 0;
     const items: { n: FlowData['nodes'][0]; gridX: number; gridY: number; m: NodeMetrics }[] = [];
-    for (const n of nodes) {
+    nodes.forEach((n, i) => {
       const m = nodeMetrics(n, fs);
-      const dir = n.vh ?? prevDir;
+      if (i === 0) {
+        // 首节点定位格内原点 (0,0)
+        gx = 0; gy = 0;
+      } else {
+        // 后续节点按其自身 vh 相对上一节点排布（默认 V 纵向）
+        const dir = n.vh ?? 'V';
+        if (dir === 'V') gy++;
+        else gx++;
+      }
       items.push({ n, gridX: gx, gridY: gy, m });
-      if (dir === 'V') { gy++; ny = Math.max(ny, gy + 1); }
-      else { gx++; nx = Math.max(nx, gx + 1); }
-      prevDir = dir;
-    }
+      nx = Math.max(nx, gx + 1);
+      ny = Math.max(ny, gy + 1);
+    });
     cellXY.set(gk, { nx, ny, items });
   }
 
