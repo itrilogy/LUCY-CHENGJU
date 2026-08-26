@@ -69,10 +69,10 @@
 
 ## ⑧ 画布与整理布局
 
-- SVG 内部已渲染完整标题/表头 → **组件层不重复渲染标题**
-- **整理布局（fitView）**：整体绘制内容高宽自适应，**按比例选其一**——宽优先（按容器宽等比缩放）或高优先（按容器高等比缩放），底部按钮切换
-- **拖动平移**：`preventDefault` + `user-select:none` + `touch-action:none` + 阻止原生 drag，避免拖动触发浏览器原生操作白屏
-- pan/zoom（滚轮缩放、拖拽平移）
+- SVG 内部已渲染完整标题/表头 → **组件层不重复渲染标题**，不额外添加布局控件
+- **整理布局（tidyLayout）**：App.tsx 的「整理布局」按钮调用 `diagramRef.tidyLayout()`，将整体绘制内容**等比缩放至"尽可能占据画布"**（contain 适配容器，居中显示）
+- **拖动平移**：`preventDefault` + `user-select:none` + `touch-action:none` + 阻止原生 drag；**平移软边界**（clampView 限制 tx/ty 不滑出内容太多，留 10% 余量）——避免拖出画布边缘导致页面空白
+- pan/zoom（滚轮缩放以中心为锚、拖拽平移）
 
 ---
 

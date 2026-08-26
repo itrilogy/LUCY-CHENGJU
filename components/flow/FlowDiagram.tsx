@@ -53,6 +53,44 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
     }
   };
 
+  // 整理布局：整体绘制内容"尽可能占据画布"（按容器与内容比例自适应缩放）
+  const fitView = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    const cw = el.clientWidth;
+    const ch = el.clientHeight;
+    if (cw <= 0 || ch <= 0 || size.width <= 0 || size.height <= 0) return;
+    // 等比缩放至完全容纳（contain）；如需"尽可能占据"可再乘放大系数
+    const scale = Math.min(cw / size.width, ch / size.height);
+    const applied = Math.max(0.05, Math.min(3, scale));
+    // 软边界：平移范围钳制在 [容器 - 内容×缩放, 0]，避免拖出画布空白
+    const minTx = cw - size.width * applied;
+    const minTy = ch - size.height * applied;
+    setView({
+      scale: applied,
+      tx: Math.min(0, Math.max(minTx, (cw - size.width * applied) / 2)),
+      ty: Math.min(0, Math.max(minTy, (ch - size.height * applied) / 2)),
+    });
+  };
+
+  const clampView = (scale: number, tx: number, ty: number): { scale: number; tx: number; ty: number } => {
+    const el = containerRef.current;
+    if (!el) return { scale, tx, ty };
+    const cw = el.clientWidth, ch = el.clientHeight;
+    const w = size.width * scale, h = size.height * scale;
+    // 平移钳制：内容小于容器时居中，大于容器时可滚动到边缘但不能滑出太多（留 40% 余量防白屏）
+    const minTx = Math.min(0, cw - w);
+    const minTy = Math.min(0, ch - h);
+    const maxTx = Math.max(0, cw - w);
+    const maxTy = Math.max(0, ch - h);
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+    return {
+      scale,
+      tx: clamp(tx, minTx - cw * 0.1, maxTx + cw * 0.1),
+      ty: clamp(ty, minTy - ch * 0.1, maxTy + ch * 0.1),
+    };
+  };
+
   useImperativeHandle(ref, () => ({
     getDataURL: async (options) => {
       const pixelRatio = options?.pixelRatio || 3;
@@ -65,7 +103,8 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
       a.href = url;
       a.download = `${data.title || 'flow'}.png`;
       a.click();
-    }
+    },
+    tidyLayout: fitView,
   }));
 
   // 键盘 pan/zoom（wheel 缩放，拖拽平移）
@@ -73,7 +112,13 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
     e.preventDefault();
     setView((v) => {
       const scale = Math.max(0.2, Math.min(4, v.scale * (e.deltaY < 0 ? 1.1 : 0.9)));
-      return { ...v, scale };
+      // 以中心缩放
+      const el = containerRef.current;
+      const cx = el ? el.clientWidth / 2 : 0;
+      const cy = el ? el.clientHeight / 2 : 0;
+      const tx = cx - (cx - v.tx) * (scale / v.scale);
+      const ty = cy - (cy - v.ty) * (scale / v.scale);
+      return clampView(scale, tx, ty);
     });
   };
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -85,38 +130,11 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current) return;
     e.preventDefault();
-    setView((v) => ({
-      ...v,
-      tx: dragRef.current!.tx + (e.clientX - dragRef.current!.startX),
-      ty: dragRef.current!.ty + (e.clientY - dragRef.current!.startY),
-    }));
+    const tx = dragRef.current!.tx + (e.clientX - dragRef.current!.startX);
+    const ty = dragRef.current!.ty + (e.clientY - dragRef.current!.startY);
+    setView((v) => clampView(v.scale, tx, ty));
   };
   const handlePointerUp = () => { dragRef.current = null; };
-
-  // 整理布局：高宽自适应（按比例选其一——宽优先/高优先）
-  const [fitMode, setFitMode] = useState<'width' | 'height'>('width');
-  const fitView = (mode: 'width' | 'height' = fitMode) => {
-    const el = containerRef.current;
-    if (!el) return;
-    const cw = el.clientWidth;
-    const ch = el.clientHeight;
-    if (cw <= 0 || ch <= 0) return;
-    // 宽优先：按容器宽度等比缩放（可能纵向滚动）；高优先：按容器高度等比缩放
-    const scale = mode === 'width'
-      ? cw / size.width
-      : ch / size.height;
-    const applied = Math.max(0.05, Math.min(3, scale));
-    setView({
-      scale: applied,
-      tx: (cw - size.width * applied) / 2,
-      ty: (ch - size.height * applied) / 2,
-    });
-  };
-  const toggleFitMode = () => {
-    const next = fitMode === 'width' ? 'height' : 'width';
-    setFitMode(next);
-    fitView(next);
-  };
 
   useEffect(() => {
     fitView();
@@ -152,25 +170,6 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
           }}
           dangerouslySetInnerHTML={{ __html: svgString.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') }}
         />
-      </div>
-      <div className="shrink-0 flex items-center justify-center gap-3 text-[11px] text-slate-400 py-1" style={{ borderTop: '1px solid var(--border-light)' }}>
-        <button
-          type="button"
-          onClick={() => fitView(fitMode)}
-          className="px-2 py-0.5 rounded border border-slate-300 hover:bg-slate-100"
-          title="按当前模式重新适配画布"
-        >
-          整理布局
-        </button>
-        <button
-          type="button"
-          onClick={toggleFitMode}
-          className="px-2 py-0.5 rounded border border-slate-300 hover:bg-slate-100"
-          title="切换宽优先/高优先"
-        >
-          {fitMode === 'width' ? '宽优先' : '高优先'}
-        </button>
-        <span>滚轮缩放 · 拖拽平移</span>
       </div>
     </div>
   );
