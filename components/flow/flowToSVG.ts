@@ -145,7 +145,10 @@ interface XyLayout {
 }
 
 export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayout {
-  const rows = rowsOf(data), cols = colsOf(data);
+  let rows = rowsOf(data), cols = colsOf(data);
+  // 无泳道：rows/cols 为空，但需要 1 行 1 列占位（大格）
+  if (!rows.length) rows = [{ dict: 'ROOT', idx: 0 }];
+  if (!cols.length) cols = [{ dict: 'ROOT', idx: 0 }];
   const nR = rows.length || 1, nC = cols.length || 1;
   const fs = st.nodeFontSize;
 
