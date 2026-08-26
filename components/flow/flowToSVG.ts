@@ -264,19 +264,28 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     parts.push(`<rect x="${gx}" y="${gy}" width="${gw}" height="${gh}" rx="3" fill="#e0f2fe"/>`);
   }
 
-  // 连线：从节点四周 0.5 连线区中线出发，确定性避障（同行下移→同列右移→都不行扩格）
+  // 连线：从节点四周 0.5 连线区中线出发，确定性避障
+  // 正交折线：水平段走源行中线，垂直段走"源列与目标列之间空隙"（避开节点），目标列中线进
   const nodeXY: Record<string, { x: number; y: number; W: number; H: number }> = {};
   for (const [id, p] of L.nodePos) nodeXY[id] = { x: p.x, y: p.y, W: p.W, H: p.H };
   for (const e of data.edges.filter((x) => !x.parent)) {
     const a = nodeXY[e.from], b = nodeXY[e.to];
     if (!a || !b) continue;
     const label = e.label ? `<text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 - 12}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(e.label)}</text>` : '';
-    // 从右连线区中线出发 → 目标左连线区中线进入
+    // 源右连线区中线 → 目标左连线区中线。x 方向用两者间距，y 方向先横后纵。
     const x1 = a.x + a.W / 2 + L.half / 2; // 右连线区中线
     const y1 = a.y;
     const x2 = b.x - b.W / 2 - L.half / 2; // 左连线区中线
     const y2 = b.y;
-    const d = `M${x1},${y1} L${(x1 + x2) / 2},${y1} L${(x1 + x2) / 2},${y2} L${x2},${y2}`;
+    let d: string;
+    if (Math.abs(y1 - y2) < 1) {
+      // 同行：水平直达
+      d = `M${x1},${y1} L${x2},${y2}`;
+    } else {
+      // 异行：先横到中点列，再纵移，最后横到目标。中点列 = 距源列最近的空隙（这里用两者 x 中点）
+      const mx = (x1 + x2) / 2;
+      d = `M${x1},${y1} L${mx},${y1} L${mx},${y2} L${x2},${y2}`;
+    }
     parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
   }
 
