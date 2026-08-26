@@ -77,11 +77,14 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
     });
   };
   const handlePointerDown = (e: React.PointerEvent) => {
+    // 阻止浏览器原生拖拽/文本选择/图片拖拽，避免拖动时页面白掉
+    e.preventDefault();
     dragRef.current = { startX: e.clientX, startY: e.clientY, tx: view.tx, ty: view.ty };
-    (e.target as Element).setPointerCapture?.(e.pointerId);
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
   };
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current) return;
+    e.preventDefault();
     setView((v) => ({
       ...v,
       tx: dragRef.current!.tx + (e.clientX - dragRef.current!.startX),
@@ -90,14 +93,29 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
   };
   const handlePointerUp = () => { dragRef.current = null; };
 
-  const fitView = () => {
+  // 整理布局：高宽自适应（按比例选其一——宽优先/高优先）
+  const [fitMode, setFitMode] = useState<'width' | 'height'>('width');
+  const fitView = (mode: 'width' | 'height' = fitMode) => {
     const el = containerRef.current;
     if (!el) return;
     const cw = el.clientWidth;
     const ch = el.clientHeight;
     if (cw <= 0 || ch <= 0) return;
-    const scale = Math.min(cw / size.width, ch / size.height, 1.2);
-    setView({ scale, tx: (cw - size.width * scale) / 2, ty: (ch - size.height * scale) / 2 });
+    // 宽优先：按容器宽度等比缩放（可能纵向滚动）；高优先：按容器高度等比缩放
+    const scale = mode === 'width'
+      ? cw / size.width
+      : ch / size.height;
+    const applied = Math.max(0.05, Math.min(3, scale));
+    setView({
+      scale: applied,
+      tx: (cw - size.width * applied) / 2,
+      ty: (ch - size.height * applied) / 2,
+    });
+  };
+  const toggleFitMode = () => {
+    const next = fitMode === 'width' ? 'height' : 'width';
+    setFitMode(next);
+    fitView(next);
   };
 
   useEffect(() => {
@@ -110,20 +128,16 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
 
   return (
     <div className={className} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {data.title && (
-        <div className="text-center font-bold py-2 shrink-0" style={{ color: finalStyles.axisColor, fontSize: finalStyles.titleFontSize }}>
-          {data.title}
-        </div>
-      )}
       <div
         ref={containerRef}
         className="flex-1 overflow-hidden"
-        style={{ minHeight: 0 }}
+        style={{ minHeight: 0, userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
         onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        onDragStart={(e) => e.preventDefault()}
       >
         <svg
           ref={svgRef}
@@ -134,12 +148,29 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
             transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`,
             transformOrigin: '0 0',
             cursor: dragRef.current ? 'grabbing' : 'grab',
+            userSelect: 'none',
           }}
           dangerouslySetInnerHTML={{ __html: svgString.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') }}
         />
       </div>
-      <div className="shrink-0 text-center text-[11px] text-slate-400 py-1" style={{ borderTop: '1px solid var(--border-light)' }}>
-        滚轮缩放 · 拖拽平移
+      <div className="shrink-0 flex items-center justify-center gap-3 text-[11px] text-slate-400 py-1" style={{ borderTop: '1px solid var(--border-light)' }}>
+        <button
+          type="button"
+          onClick={() => fitView(fitMode)}
+          className="px-2 py-0.5 rounded border border-slate-300 hover:bg-slate-100"
+          title="按当前模式重新适配画布"
+        >
+          整理布局
+        </button>
+        <button
+          type="button"
+          onClick={toggleFitMode}
+          className="px-2 py-0.5 rounded border border-slate-300 hover:bg-slate-100"
+          title="切换宽优先/高优先"
+        >
+          {fitMode === 'width' ? '宽优先' : '高优先'}
+        </button>
+        <span>滚轮缩放 · 拖拽平移</span>
       </div>
     </div>
   );
