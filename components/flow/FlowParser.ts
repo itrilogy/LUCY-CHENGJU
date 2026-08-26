@@ -287,11 +287,15 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
 
   // ===== 默认顺序流（声明顺序自动连） =====
   // 非网关、同 parent 域的相邻节点；分支目标抑制默认入边。
-  const orderNodes = nodes.filter((n) => n.type !== 'exclusiveGateway' && n.type !== 'parallelGateway');
+  // 修复：网关可作为"目标"（前一个普通节点 → 网关 应有默认边），
+  //       但网关不作为"源"（网关出口必须用分支行）。
+  const orderNodes = nodes; // 按声明序（含网关）
   for (let j = 0; j < orderNodes.length - 1; j++) {
     const a = orderNodes[j];
     const b = orderNodes[j + 1];
     if (a.parent !== b.parent) continue;
+    // 源是网关：跳过（网关出边用分支行）
+    if (a.type === 'exclusiveGateway' || a.type === 'parallelGateway') continue;
     if (suppressDefaultIn.has(b.id)) continue;
     const dup = edges.find((e) => e.from === a.id && e.to === b.id);
     if (!dup) addEdge(a.id, b.id, null, null, false);

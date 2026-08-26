@@ -149,6 +149,18 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   // 无泳道：rows/cols 为空，但需要 1 行 1 列占位（大格）
   if (!rows.length) rows = [{ dict: 'ROOT', idx: 0 }];
   if (!cols.length) cols = [{ dict: 'ROOT', idx: 0 }];
+  // 单维泳道：节点各自占一格里，需扩展虚拟网格
+  //   仅 H 轴（横向泳道）：行数=泳道数，列数=节点数
+  //   仅 V 轴（纵向泳道）：行数=节点数，列数=泳道数
+  const realRows = rowsOf(data), realCols = colsOf(data);
+  const nodeCount = data.nodes.length;
+  if (realRows.length > 0 && realCols.length === 0) {
+    // 仅 H 轴：cols 原为 ROOT 占位，扩展为 nodeCount 列
+    cols = Array.from({ length: Math.max(1, nodeCount) }, (_, i) => ({ dict: 'ROOT', idx: i }));
+  } else if (realCols.length > 0 && realRows.length === 0) {
+    // 仅 V 轴：rows 原为 ROOT 占位，扩展为 nodeCount 行
+    rows = Array.from({ length: Math.max(1, nodeCount) }, (_, i) => ({ dict: 'ROOT', idx: i }));
+  }
   const nR = rows.length || 1, nC = cols.length || 1;
   const fs = st.nodeFontSize;
 
@@ -163,13 +175,28 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     if (cols[ci].dict === 'ROOT') cellNodeId.set(rowKey, rc);   // 单维横向：cell 只写行键
   }
 
-  // 归类节点到交叉格 (ri,ci)，按声明序；每格内节点链式布局（V/H）求 nx(横)/ny(纵)
+  // 归类节点到交叉格 (ri,ci)
+  // 单维泳道：横向(行泳道)→每个节点独立一列(ci递增)；纵向(列泳道)→每个节点独立一行(ri递增)
+  const isHSingle = realRows.length > 0 && realCols.length === 0; // 只有 H 轴（横向泳道）
+  const isVSingle = realCols.length > 0 && realRows.length === 0; // 只有 V 轴（纵向泳道）
   const group = new Map<string, FlowData['nodes'][0][]>();
   const cellXY = new Map<string, { nx: number; ny: number; items: { n: FlowData['nodes'][0]; gridX: number; gridY: number; m: NodeMetrics }[] }>();
+  // 单维时按声明顺序给每个节点分配独立格子坐标
+  let singleSeq = 0;
   for (const n of data.nodes) {
     const key = cellKeyOf(n.cell);
     let rc = key ? cellNodeId.get(key) : undefined;
-    if (!rc) rc = { ri: 0, ci: 0 };
+    if (isHSingle) {
+      // 单维横向：每个节点独立一列（ci 递增，ri=0）
+      rc = { ri: 0, ci: singleSeq };
+      singleSeq++;
+    } else if (isVSingle) {
+      // 单维纵向：每个节点独立一行（ri 递增，ci=0）
+      rc = { ri: singleSeq, ci: 0 };
+      singleSeq++;
+    } else if (!rc) {
+      rc = { ri: 0, ci: 0 };
+    }
     const gk = `${rc.ri}_${rc.ci}`;
     if (!group.has(gk)) group.set(gk, []);
     group.get(gk)!.push(n);
