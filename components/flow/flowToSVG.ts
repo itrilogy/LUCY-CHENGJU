@@ -268,7 +268,14 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   const colWPx = colNxMax.map((nx, ci) => nx * (cellWself[ci] + 2 * half));
   const rowHPx = rowNyMax.map((ny, ri) => ny * (cellHself[ri] + 2 * half));
 
-  const bandLeft = FLOW_SVG.head;
+  const bandLeft = (() => {
+    // 左表头列宽：按轴标题文字宽度略宽（非 Y 泳道文字宽度）
+    const axisTitles = [data.axes?.x?.title || '', data.axes?.y?.title || ''].filter(Boolean);
+    if (!axisTitles.length) return FLOW_SVG.head;
+    const fs = 12;
+    const maxW = Math.max(...axisTitles.map((t) => textW(t, fs)));
+    return Math.max(48, maxW + 28); // 文字宽 + 边距（略宽），最小 48px
+  })();
   const colX: number[] = []; let acc = bandLeft;
   for (let ci = 0; ci < nC; ci++) { colX.push(acc); acc += colWPx[ci]; }
   const bandTop = (ri: number) => {

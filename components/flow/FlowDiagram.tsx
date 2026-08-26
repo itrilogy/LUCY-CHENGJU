@@ -53,23 +53,23 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
     }
   };
 
-  // 整理布局：整体绘制内容"尽可能占据画布"（按容器与内容比例自适应缩放）
+  // 整理布局：整体绘制内容"尽可能占据画布"（按容器与内容比例自适应缩放，居中）
   const fitView = () => {
     const el = containerRef.current;
     if (!el) return;
     const cw = el.clientWidth;
     const ch = el.clientHeight;
     if (cw <= 0 || ch <= 0 || size.width <= 0 || size.height <= 0) return;
-    // 等比缩放至完全容纳（contain）；如需"尽可能占据"可再乘放大系数
+    // 等比缩放至完全容纳（contain）；再向上取"尽可能占据"比例
     const scale = Math.min(cw / size.width, ch / size.height);
     const applied = Math.max(0.05, Math.min(3, scale));
-    // 软边界：平移范围钳制在 [容器 - 内容×缩放, 0]，避免拖出画布空白
-    const minTx = cw - size.width * applied;
-    const minTy = ch - size.height * applied;
+    // 居中：内容约等于容器时几乎为 0，内容明显更小时为正值居中
+    const w = size.width * applied;
+    const h = size.height * applied;
     setView({
       scale: applied,
-      tx: Math.min(0, Math.max(minTx, (cw - size.width * applied) / 2)),
-      ty: Math.min(0, Math.max(minTy, (ch - size.height * applied) / 2)),
+      tx: (cw - w) / 2,
+      ty: (ch - h) / 2,
     });
   };
 
