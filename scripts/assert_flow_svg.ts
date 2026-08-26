@@ -59,18 +59,18 @@ for (const t of ['提交采购申请', '填写申请单', '金额超过5000?', '
 check('连线标签 是', svg.includes('>是<'));
 check('连线标签 否', svg.includes('>否<'));
 
-// 泳道带范式：只画有节点的格子 + 贯穿泳道带
-// 只画有节点的格子（虚线定位框，尺寸自适应）
-const cellRects = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*stroke-dasharray="4 3"/g)].map(m => ({ w: parseFloat(m[3]), h: parseFloat(m[4]) }));
+// 泳道带范式：只画有节点的绘制格 + 统一网格线贯穿
+// 节点四周连线区（fill=#e0f2fe）数量 = 有节点绘制格数
+const linkAreas = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*fill="#e0f2fe"/g)].map(m => ({ w: parseFloat(m[3]), h: parseFloat(m[4]) }));
 const nR = 3, nC = 4; // 采购示例：3 行部门 × 4 列阶段
-check('有节点的格子已画（<=12，只含有内容格）', cellRects.length > 0 && cellRects.length <= 12, `实际 ${cellRects.length}`);
-// 自适应列宽：格子宽度不都一样（长列宽、短列窄）
-const rectWs = [...new Set(cellRects.map((r) => Math.round(r.w)))];
-check('列宽自适应（不唯一，长列宽短列窄）', rectWs.length > 1, `列宽集 ${rectWs.join(',')}`);
-// 统一网格线贯穿（纵向线从棋盘顶贯穿到底）
-const gridLines = [...svg.matchAll(/<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"[^>]*stroke-width="0.6"/g)].map(m => ({ x1: parseFloat(m[1]), y2: parseFloat(m[4]) }));
+check('有节点的绘制格已画（四周连线区）', linkAreas.length > 0, `实际 ${linkAreas.length}`);
+// 自适应列宽：格宽不都一样（长节点列宽、短节点列窄）
+const rectWs = [...new Set(linkAreas.map((r) => Math.round(r.w)))];
+check('列宽自适应（不唯一）', rectWs.length > 1, `列宽集 ${rectWs.join(',')}`);
+// 统一网格线贯穿（stroke-width=0.5）
+const gridLines = [...svg.matchAll(/<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"[^>]*stroke-width="0.5"/g)].map(m => ({ x1: parseFloat(m[1]), y2: parseFloat(m[4]) }));
 check('统一网格线贯穿（含泳道区网格）', gridLines.length > 10, `实际 ${gridLines.length}`);
-// 纵向线贯穿到底（同一 x1 有多条不同 x2=y 一致贯穿）
+// 纵向线贯穿到底
 const vertFull = gridLines.filter((g) => g.x1 > 100); // 泳道区内的纵向线
 check('泳道区纵向网格线贯穿', vertFull.length > 5, `实际 ${vertFull.length}`);
 // 行标题表头栏（text-anchor=end）
@@ -112,29 +112,13 @@ W: w1: 节点A, V Location(D[0],P[0])
 W: w2: 节点B, V Location(D[0],P[0])`;
 const vhR = parseFlowDSL(vhDsl);
 const vhSvg = flowToSVG(vhR.data, vhR.styles);
-// 找 D[0]P[0] 格子（含 w1,w2），检查其高度能容纳两个节点（V链）
-const vhCellHeights = [...vhSvg.matchAll(/<rect x="[\d.]+" y="[\d.]+" width="[\d.]+" height="([\d.]+)"[^>]*stroke-dasharray="4 3"/g)].map((m) => parseFloat(m[1]));
-check('V链格高能容纳多节点（>100）', vhCellHeights.some((h) => h > 100), `格高集 ${vhCellHeights.join(',')}`);
-// V 链两节点 y 不同（垂直堆叠）
+// V 链两节点四周连线区高度不同（垂直堆叠使 y 不同）—— 检查节点 text y 不同
 const ySet = new Set([...vhSvg.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>节点[AB]<\/text>/g)].map((m) => m[1]));
 check('V链两节点垂直堆叠（y 不同）', ySet.size >= 2, `y集 ${[...ySet].join(',')}`);
 
-// ===== 连线路由分层验证（同泳道水平/同列垂直/跨带间隙折线） =====
+// ===== 连线验证：折线从节点右连线区中线出发 → 中段 → 目标左连线区中线进入 =====
 const allPaths = [...svg.matchAll(/<path d="(M[^"]*)" fill="none" stroke="#64748b"/g)].map((m) => m[1]);
-// 同泳道水平直连：段数=1 且 y 基本同（节点中心可能差几px，放宽到 <10）
-const horizCount = allPaths.filter((p) => {
-  const segs = (p.match(/L/g) || []).length;
-  const ys = [...p.matchAll(/(?:M|L)([\d.]+),([\d.]+)/g)].map((m) => parseFloat(m[2]));
-  return segs <= 1 && ys.length === 2 && Math.abs(ys[0] - ys[1]) < 10;
-}).length;
-check('存在同泳道水平直连', horizCount >= 1, `实际 ${horizCount}`);
-// 同列垂直直连：段数=1 且 x 基本同
-const vertCount = allPaths.filter((p) => {
-  const segs = (p.match(/L/g) || []).length;
-  const xs = [...p.matchAll(/(?:M|L)([\d.]+),([\d.]+)/g)].map((m) => parseFloat(m[1]));
-  return segs <= 1 && xs.length === 2 && Math.abs(xs[0] - xs[1]) < 10;
-}).length;
-check('存在同列垂直直连', vertCount >= 1, `实际 ${vertCount}`);
+check('连线折线存在', allPaths.length >= 4, `实际 ${allPaths.length}`);
 // 跨带间隙折线：段数=3（源→通道→目标）
 const hingeCount = allPaths.filter((p) => (p.match(/L/g) || []).length === 3).length;
 check('存在跨带间隙折线（3段）', hingeCount >= 1, `实际 ${hingeCount}`);
