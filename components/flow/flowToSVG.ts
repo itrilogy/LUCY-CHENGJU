@@ -146,7 +146,7 @@ interface ExcelLayout {
   rows: { dict: string; idx: number }[];
   cols: { dict: string; idx: number }[];
   cells: CellLayout[];
-  nodeXY: Map<string, { x: number; y: number }>;
+  nodeXY: Map<string, { x: number; y: number; ri: number; ci: number }>;
   nodeM: Map<string, NodeMetrics>;
   width: number;
   height: number;
@@ -166,7 +166,7 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): ExcelLa
     cellNodeId.set(`${rows[ri].dict}${rows[ri].idx}${cols[ci].dict}${cols[ci].idx}`, { ri, ci });
   }
   const group = new Map<string, CellContent[]>();
-  const nodeXY = new Map<string, { x: number; y: number }>();
+  const nodeXY = new Map<string, { x: number; y: number; ri: number; ci: number }>();
   const nodeM = new Map<string, NodeMetrics>();
   for (const n of data.nodes) {
     const key = cellKeyOf(n.cell);
@@ -229,7 +229,7 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): ExcelLa
       const contents: CellContent[] = [];
       if (g) for (const it of g.items) {
         contents.push({ node: it.n, cx: x + it.lx, cy: y + it.ly, m: it.m });
-        nodeXY.set(it.n.id, { x: x + it.lx, y: y + it.ly });
+        nodeXY.set(it.n.id, { x: x + it.lx, y: y + it.ly, ri, ci });
       }
       cells.push({ ri, ci, x, y, w, h, key, contents });
     }
@@ -280,7 +280,21 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     }
   }
 
-  // 连线（端点贴节点边界；跨格走间隙通道）
+  // 连线（按行列关系布规整线：同泳道直连，同列垂直，跨带走最近泳道间隙通道）
+  // 计算相邻泳道带之间的间隙通道 y
+  const bandGapY: number[] = [];
+  const nBands = L.rows.length;
+  for (let ri = 0; ri < nBands - 1; ri++) {
+    const top = L.bandTop(ri);
+    const h = L.cells.find((c) => c.ri === ri)?.h ?? 80;
+    bandGapY.push(top + h + FLOW_SVG.gapY / 2);
+  }
+  const nearestGap = (y: number): number => {
+    if (!bandGapY.length) return y - 20;
+    let best = bandGapY[0], bd = Infinity;
+    for (const g of bandGapY) { const d = Math.abs(g - y); if (d < bd) { bd = d; best = g; } }
+    return best;
+  };
   for (const e of data.edges.filter((x) => !x.parent)) {
     const a = L.nodeXY.get(e.from);
     const b = L.nodeXY.get(e.to);
@@ -288,16 +302,23 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     const mb = L.nodeM.get(e.to);
     if (!a || !b || !ma || !mb) continue;
     const label = e.label ? `<text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 - 12}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(e.label)}</text>` : '';
-    const isBack = b.y > a.y + 10 || b.x < a.x - 10;
-    if (isBack) {
-      const chY = Math.min(a.y, b.y) - FLOW_SVG.gapY / 2;
-      const d = `M${a.x},${a.y + ma.halfH + 3} L${a.x},${chY} L${b.x},${chY} L${b.x},${b.y + mb.halfH + 3}`;
-      parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
+    let d: string;
+    if (a.ri === b.ri) {
+      // 同泳道带：水平直连
+      if (b.x >= a.x) { const x1 = a.x + ma.halfW + 3; const x2 = b.x - mb.halfW - 3; d = `M${x1},${a.y} L${x2},${b.y}`; }
+      else { const x1 = a.x - ma.halfW - 3; const x2 = b.x + mb.halfW + 3; d = `M${x1},${a.y} L${x2},${b.y}`; }
+    } else if (a.ci === b.ci) {
+      // 同列跨带：垂直直连
+      if (b.y >= a.y) { const y1 = a.y + ma.halfH + 3; const y2 = b.y - mb.halfH - 3; d = `M${a.x},${y1} L${b.x},${y2}`; }
+      else { const y1 = a.y - ma.halfH - 3; const y2 = b.y + mb.halfH + 3; d = `M${a.x},${y1} L${b.x},${y2}`; }
     } else {
-      const x1 = a.x + ma.halfW + 3, y1 = a.y;
-      const x2 = b.x - mb.halfW - 3, y2 = b.y;
-      parts.push(`<path d="${orthoPath(x1, y1, x2, y2)}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
+      // 跨带不同列：走最近泳道间隙通道
+      const chY = nearestGap(Math.min(a.y, b.y));
+      const aSideY = a.y < chY ? a.y + ma.halfH + 3 : a.y - ma.halfH - 3;
+      const bSideY = b.y < chY ? b.y + mb.halfH + 3 : b.y - mb.halfH - 3;
+      d = `M${a.x},${aSideY} L${a.x},${chY} L${b.x},${chY} L${b.x},${bSideY}`;
     }
+    parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
   }
 
   // 节点

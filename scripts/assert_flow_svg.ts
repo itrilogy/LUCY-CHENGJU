@@ -117,5 +117,25 @@ check('V链格高能容纳多节点（>100）', vhCellHeights.some((h) => h > 10
 const ySet = new Set([...vhSvg.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>节点[AB]<\/text>/g)].map((m) => m[1]));
 check('V链两节点垂直堆叠（y 不同）', ySet.size >= 2, `y集 ${[...ySet].join(',')}`);
 
+// ===== 连线路由分层验证（同泳道水平/同列垂直/跨带间隙折线） =====
+const allPaths = [...svg.matchAll(/<path d="(M[^"]*)" fill="none" stroke="#64748b"/g)].map((m) => m[1]);
+// 同泳道水平直连：段数=1 且 y 基本同（节点中心可能差几px，放宽到 <10）
+const horizCount = allPaths.filter((p) => {
+  const segs = (p.match(/L/g) || []).length;
+  const ys = [...p.matchAll(/(?:M|L)([\d.]+),([\d.]+)/g)].map((m) => parseFloat(m[2]));
+  return segs <= 1 && ys.length === 2 && Math.abs(ys[0] - ys[1]) < 10;
+}).length;
+check('存在同泳道水平直连', horizCount >= 1, `实际 ${horizCount}`);
+// 同列垂直直连：段数=1 且 x 基本同
+const vertCount = allPaths.filter((p) => {
+  const segs = (p.match(/L/g) || []).length;
+  const xs = [...p.matchAll(/(?:M|L)([\d.]+),([\d.]+)/g)].map((m) => parseFloat(m[1]));
+  return segs <= 1 && xs.length === 2 && Math.abs(xs[0] - xs[1]) < 10;
+}).length;
+check('存在同列垂直直连', vertCount >= 1, `实际 ${vertCount}`);
+// 跨带间隙折线：段数=3（源→通道→目标）
+const hingeCount = allPaths.filter((p) => (p.match(/L/g) || []).length === 3).length;
+check('存在跨带间隙折线（3段）', hingeCount >= 1, `实际 ${hingeCount}`);
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);
