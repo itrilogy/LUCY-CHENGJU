@@ -302,8 +302,9 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
     const a = orderNodes[j];
     const b = orderNodes[j + 1];
     if (a.parent !== b.parent) continue;
-    // 源是网关：跳过（网关出边用分支行）
-    if (a.type === 'exclusiveGateway' || a.type === 'parallelGateway') continue;
+    // 源是网关/结束/注解/数据对象：跳过（网关出边用分支行；结束/注解/数据对象不出默认流程）
+    if (a.type === 'exclusiveGateway' || a.type === 'parallelGateway'
+      || a.type === 'end' || a.type === 'annotation' || a.type === 'dataObject') continue;
     if (suppressDefaultIn.has(b.id)) continue;
     const dup = edges.find((e) => e.from === a.id && e.to === b.id);
     if (!dup) addEdge(a.id, b.id, null, null, false);

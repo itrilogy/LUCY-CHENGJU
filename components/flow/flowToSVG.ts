@@ -227,34 +227,98 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
 
   // 归类节点到交叉格 (ri,ci)
   // 单维泳道：横向(H轴)=每行一条泳道，节点沿列依次排；纵向(V轴)=每列一条泳道，节点沿行依次排
-  // BUG-01 修复：泳道索引取节点 cell 中对应字典索引（Location(D[n])/Location(P[n])），
-  //             不再硬编码为 0；同泳道内节点按声明顺序递增另一维。
+  // P0-2 修复：泳道索引取节点 cell 在"泳道列表"中的位置（rows/cols 数组下标），
+  //           而非字典原始下标——避免非连续索引（Lane from D[0,2]）越界（y:NaN）。
+  // P0-3 修复：cell 为空（自动顺序落格）的节点，按声明序填入第一个未占用交叉格，
+  //           避免全部堆叠到 (0,0)。
   const isHSingle = realRows.length > 0 && realCols.length === 0; // 只有 H 轴（横向泳道）
   const isVSingle = realCols.length > 0 && realRows.length === 0; // 只有 V 轴（纵向泳道）
   const group = new Map<string, FlowData['nodes'][0][]>();
   const cellXY = new Map<string, { nx: number; ny: number; items: { n: FlowData['nodes'][0]; gridX: number; gridY: number; m: NodeMetrics }[] }>();
-  const laneSeq = new Map<number, number>(); // 泳道索引 -> 该泳道内已用序列
+  const laneSeq = new Map<number, number>(); // 泳道行/列位置 -> 该泳道内已用序列
+  const usedCell = new Set<string>();        // 已占用的 (ri_ci)，供自动落格避免重叠
+
+  // 泳道列表 -> 位置映射：dict+idx -> 该泳道在 rows/cols 数组中的下标
+  const lanePosOf = (dict: string, idx: number): number => {
+    if (isHSingle) return rows.findIndex((r) => r.dict === dict && r.idx === idx);
+    return cols.findIndex((c) => c.dict === dict && c.idx === idx);
+  };
+
+  // 第一遍：显式 cell 节点归类（含映射后的泳道位置）
+  const autoSeq: FlowData['nodes'][0][] = [];
   for (const n of data.nodes) {
-    const key = cellKeyOf(n.cell);
-    let rc = key ? cellNodeId.get(key) : undefined;
+    if (!n.cell) { autoSeq.push(n); continue; } // 缺省坐标：第二遍自动落格
+    const ck = cellKeyOf(n.cell);
     if (isHSingle) {
-      // 横向泳道：ri = 节点 cell 中 H 泳道字典索引；ci = 该泳道内声明序号
-      const laneIdx = n.cell ? (Object.values(n.cell)[0] ?? 0) : 0;
-      const seq = laneSeq.get(laneIdx) ?? 0;
-      laneSeq.set(laneIdx, seq + 1);
-      rc = { ri: laneIdx, ci: seq };
+      const v = Object.values(n.cell)[0] ?? 0;
+      const dict = Object.keys(n.cell)[0] ?? 'D';
+      const ri = lanePosOf(dict, v);
+      const seq = laneSeq.get(ri) ?? 0;
+      laneSeq.set(ri, seq + 1);
+      const gk = `${ri}_${seq}`;
+      if (!group.has(gk)) group.set(gk, []);
+      group.get(gk)!.push(n);
+      usedCell.add(gk);
     } else if (isVSingle) {
-      // 纵向泳道：ci = 节点 cell 中 V 泳道字典索引；ri = 该泳道内声明序号
-      const laneIdx = n.cell ? (Object.values(n.cell)[0] ?? 0) : 0;
-      const seq = laneSeq.get(laneIdx) ?? 0;
-      laneSeq.set(laneIdx, seq + 1);
-      rc = { ri: seq, ci: laneIdx };
-    } else if (!rc) {
-      rc = { ri: 0, ci: 0 };
+      const v = Object.values(n.cell)[0] ?? 0;
+      const dict = Object.keys(n.cell)[0] ?? 'P';
+      const ci = lanePosOf(dict, v);
+      const seq = laneSeq.get(ci) ?? 0;
+      laneSeq.set(ci, seq + 1);
+      const gk = `${seq}_${ci}`;
+      if (!group.has(gk)) group.set(gk, []);
+      group.get(gk)!.push(n);
+      usedCell.add(gk);
+    } else {
+      // 二维网格：直接 idx 匹配（rows/cols 中 dict+idx 唯一）
+      const rc = ck ? cellNodeId.get(ck) : undefined;
+      if (!rc) { autoSeq.push(n); continue; } // 越界/未知坐标 → 自动落格兜底
+      const gk = `${rc.ri}_${rc.ci}`;
+      if (!group.has(gk)) group.set(gk, []);
+      group.get(gk)!.push(n);
+      usedCell.add(gk);
     }
-    const gk = `${rc.ri}_${rc.ci}`;
-    if (!group.has(gk)) group.set(gk, []);
-    group.get(gk)!.push(n);
+  }
+
+  // 第二遍：缺省/未知坐标节点，按声明序填入第一个未占用交叉格
+  for (const n of autoSeq) {
+    if (isHSingle) {
+      // 无泳道归属 → 放入第一条泳道(位置0)的下一个空位
+      const ri = 0;
+      let ci = laneSeq.get(ri) ?? 0;
+      while (usedCell.has(`${ri}_${ci}`)) ci++;
+      laneSeq.set(ri, ci + 1);
+      const gk = `${ri}_${ci}`;
+      if (!group.has(gk)) group.set(gk, []);
+      group.get(gk)!.push(n);
+      usedCell.add(gk);
+    } else if (isVSingle) {
+      const ci = 0;
+      let ri = laneSeq.get(ci) ?? 0;
+      while (usedCell.has(`${ri}_${ci}`)) ri++;
+      laneSeq.set(ci, ri + 1);
+      const gk = `${ri}_${ci}`;
+      if (!group.has(gk)) group.set(gk, []);
+      group.get(gk)!.push(n);
+      usedCell.add(gk);
+    } else {
+      // 二维：行优先扫描第一个空位（保持整齐的读取顺序）
+      let placed = false;
+      for (let ri = 0; ri < nR && !placed; ri++) {
+        for (let ci = 0; ci < nC && !placed; ci++) {
+          const gk = `${ri}_${ci}`;
+          if (usedCell.has(gk)) continue;
+          if (!group.has(gk)) group.set(gk, []);
+          group.get(gk)!.push(n);
+          usedCell.add(gk);
+          placed = true;
+        }
+      }
+      if (!placed) { // 网格已满，溢出到 (0,0)
+        if (!group.has('0_0')) group.set('0_0', []);
+        group.get('0_0')!.push(n);
+      }
+    }
   }
   for (const [gk, nodes] of group) {
     let nx = 1, ny = 1, gx = 0, gy = 0;
@@ -358,9 +422,27 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   };
 }
 
+// ===== 六属性图例（AttrPanel）高度计算（P0-1 修复：getSvgSize 与 flowToSVG 共用同一套尺寸）=====
+function attrPanelHeight(data: FlowData): number {
+  const activeAttrs = data.attrPanel?.active || [];
+  if (!activeAttrs.length) return 0;
+  const agg = new Map<string, string[]>();
+  for (const key of activeAttrs) agg.set(key, []);
+  for (const n of data.nodes) {
+    for (const [k, v] of Object.entries(n.attrs || {})) {
+      const key = k.toLowerCase();
+      if (agg.has(key) && v && !agg.get(key)!.includes(v)) agg.get(key)!.push(v);
+    }
+  }
+  const entries = activeAttrs.filter((k) => agg.get(k) && agg.get(k)!.length > 0);
+  if (!entries.length) return 0;
+  const pad = 10, rowH = 20, titleH = 18;
+  return titleH + entries.length * rowH + pad * 2 + 12;
+}
+
 export function getSvgSize(data: FlowData, st?: FlowChartStyles): FlowSvgDims {
   const L = computeExcelLayout(data, st ?? ({ nodeFontSize: 13 } as FlowChartStyles));
-  return { width: L.width, height: L.height };
+  return { width: L.width, height: L.height + attrPanelHeight(data) };
 }
 
 export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
@@ -640,10 +722,10 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   // ===== FEAT-01：六属性图例边栏（AttrPanel） =====
   // 依据 data.attrPanel.active 聚合各节点的 attrs（role/sop/lv/time/kpi/m），
   // 在网格下方绘制属性图例卡片。属性值去重、按首次出现顺序排列。
-  let panelH = 0;
+  let panelH = attrPanelHeight(data);
   const panelParts: string[] = [];
   const activeAttrs = data.attrPanel?.active || [];
-  if (activeAttrs.length) {
+  if (activeAttrs.length && panelH > 0) {
     const ATTR_LABEL: Record<string, string> = { role: '岗位', sop: '依据/SOP', lv: '风险度', time: '时效(SLA)', kpi: 'KPI 指标', m: '标记' };
     const agg = new Map<string, string[]>(); // key -> 按首次出现顺序去重后的值
     for (const key of activeAttrs) agg.set(key, []);
@@ -668,7 +750,6 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
         panelParts.push(`<text x="${pad + 90}" y="${y + rowH - 6}" font-size="11" fill="${st.textColor}">${esc(vals.join('、'))}</text>`);
         y += rowH;
       }
-      panelH = titleH + entries.length * rowH + pad * 2 + 12;
     }
   }
 
