@@ -130,10 +130,10 @@ console.log('edges', d4.data.edges.map((e) => ({ id: e.id, from: e.from, to: e.t
 console.log('artifacts', d4.data.artifacts, 'node types', d4.data.nodes.map((n) => n.type));
 const svg4 = flowToSVG(d4.data, d4.styles);
 console.log('has polygon annotation', svg4.includes('<polygon'));
-console.log('has plus for parallel', svg4.includes('>+</') || svg4.includes('>＋<'));
+console.log('has plus for parallel', svg4.includes('data-flow="parallel-plus"'));
 console.log('text-anchor start/end present', svg4.includes('text-anchor="start"') || svg4.includes('text-anchor="end"'));
-const dash8 = svg4.split('stroke-dasharray="8').length - 1;
-console.log('default-flow dash8 count', dash8);
+console.log('default-flow slash', svg4.includes('data-flow="default-slash"'));
+console.log('N/DATA in layout', [...computeExcelLayout(d4.data, d4.styles).nodePos.entries()].filter(([, p]) => p.n.type === 'annotation' || p.n.type === 'dataObject').map(([id, p]) => ({ id, ri: p.ri, ci: p.ci })));
 
 section('dict duplicate custom + Attr invalid');
 const d5 = parseFlowDSL(`Title: t

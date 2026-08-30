@@ -40,7 +40,9 @@ export const NODE_BASE = {
 
 export function nodeMetrics(n: FlowData['nodes'][0], fs: number): NodeMetrics {
   const label = n.label || n.labelRef || n.id;
-  const tw = textW(label, fs);
+  const lines = wrapLabel(label, wrapInnerWidth(n.type), fs);
+  const maxLineW = Math.max(...lines.map((ln) => textW(ln, fs)), 0);
+  const textH = Math.max(1, lines.length) * fs * 1.3;
   switch (n.type) {
     case 'start':
     case 'end': {
@@ -49,19 +51,19 @@ export function nodeMetrics(n: FlowData['nodes'][0], fs: number): NodeMetrics {
     }
     case 'exclusiveGateway':
     case 'parallelGateway': {
-      const dw = Math.max(NODE_BASE.gateway.w, tw + 36);
-      const dh = Math.max(NODE_BASE.gateway.h, fs + 22);
+      const dw = Math.max(NODE_BASE.gateway.w, maxLineW / 0.55 + 16, textH / 0.55);
+      const dh = Math.max(NODE_BASE.gateway.h, textH + 20);
       return { halfW: dw / 2, halfH: dh / 2, shapeType: 'diamond' };
     }
     case 'annotation':
-      return { halfW: Math.max(NODE_BASE.annotation.w / 2, tw / 2 + 12), halfH: NODE_BASE.annotation.h / 2, shapeType: 'rect' };
+      return { halfW: Math.max(NODE_BASE.annotation.w / 2, maxLineW / 2 + 12), halfH: Math.max(NODE_BASE.annotation.h / 2, textH / 2 + 6), shapeType: 'rect' };
     case 'dataObject':
-      return { halfW: Math.max(NODE_BASE.data.w / 2, tw / 2 + 12), halfH: NODE_BASE.data.h / 2, shapeType: 'rect' };
+      return { halfW: Math.max(NODE_BASE.data.w / 2, maxLineW / 2 + 12), halfH: Math.max(NODE_BASE.data.h / 2, textH / 2 + 6), shapeType: 'rect' };
     case 'subprocess':
-      return { halfW: Math.max(NODE_BASE.subprocess.w / 2, tw / 2 + 14), halfH: NODE_BASE.subprocess.h / 2, shapeType: 'rect' };
+      return { halfW: Math.max(NODE_BASE.subprocess.w / 2, maxLineW / 2 + 14), halfH: Math.max(NODE_BASE.subprocess.h / 2, textH / 2 + 12), shapeType: 'rect' };
     case 'task':
     default:
-      return { halfW: Math.max(NODE_BASE.task.w / 2, tw / 2 + 14), halfH: NODE_BASE.task.h / 2, shapeType: 'rect' };
+      return { halfW: Math.max(NODE_BASE.task.w / 2, maxLineW / 2 + 14), halfH: Math.max(NODE_BASE.task.h / 2, textH / 2 + 8), shapeType: 'rect' };
   }
 }
 
@@ -88,19 +90,62 @@ function dictValue(data: FlowData, dict: string, idx: number): string {
   const arr = data.dicts[dict];
   return arr && arr[idx] !== undefined ? arr[idx] : `${dict}[${idx}]`;
 }
+/** 属性值若为 Dict[i] 则展开为字面量（图面不出现 R[0]） */
+function expandRef(data: FlowData, raw: string): string {
+  const m = String(raw).match(/^([A-Za-z_\u4e00-\u9fff][\w\u4e00-\u9fff]*)\[(\d+)\]$/);
+  if (!m) return raw;
+  const arr = data.dicts[m[1]];
+  const idx = parseInt(m[2], 10);
+  if (arr && arr[idx] !== undefined) return arr[idx];
+  return raw;
+}
+/** 主网格节点：子流程内部与修饰类不占交叉格 */
+function isLayoutNode(n: FlowData['nodes'][0]): boolean {
+  if (n.parent) return false;
+  if (n.type === 'annotation' || n.type === 'dataObject') return false;
+  return true;
+}
 function esc(s: string): string {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-/** 文本折行：按最大字符数切分（CJK ~6 字/行，ASCII ~10），返回行数组 */
-function wrapLabel(label: string, maxChars = 6): string[] {
+function wrapInnerWidth(type: string): number {
+  switch (type) {
+    case 'start':
+    case 'end': return 96;
+    case 'exclusiveGateway':
+    case 'parallelGateway': return 72;
+    case 'annotation': return NODE_BASE.annotation.w - 20;
+    case 'dataObject': return NODE_BASE.data.w - 20;
+    case 'subprocess': return NODE_BASE.subprocess.w - 24;
+    default: return NODE_BASE.task.w - 24;
+  }
+}
+
+/** 按字宽折行；[0-9.]+ 视为原子，避免把 5000 切成 50/00 */
+function wrapLabel(label: string, maxWidth: number, fs: number): string[] {
   const s = String(label);
-  if (s.length <= maxChars) return [s];
+  if (!s) return [''];
+  if (textW(s, fs) <= maxWidth) return [s];
   const lines: string[] = [];
   let cur = '';
-  for (const ch of s) {
-    cur += ch;
-    if (cur.length >= maxChars) { lines.push(cur); cur = ''; }
+  let i = 0;
+  while (i < s.length) {
+    let j = i;
+    if (/[0-9.]/.test(s[i])) {
+      while (j < s.length && /[0-9.]/.test(s[j])) j++;
+    } else {
+      j = i + 1;
+    }
+    const piece = s.slice(i, j);
+    const trial = cur + piece;
+    if (cur && textW(trial, fs) > maxWidth) {
+      lines.push(cur);
+      cur = '';
+      continue;
+    }
+    cur = trial;
+    i = j;
   }
   if (cur) lines.push(cur);
   return lines;
@@ -118,59 +163,73 @@ function multilineText(cx: number, cy: number, lines: string[], fs: number, fill
 }
 
 /** 节点形状（中心格内，1W×1H） */
-function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy: number, W: number, H: number): string {
+function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy: number, W: number, H: number, roleText?: string): string {
   const label = n.label || n.labelRef || n.id;
   const fs = st.nodeFontSize;
   const stroke = 'rgba(15,23,42,0.25)';
-  const tw = textW(label, fs);
+  const inner = (n.type === 'exclusiveGateway' || n.type === 'parallelGateway')
+    ? W * 0.55
+    : (n.type === 'start' || n.type === 'end') ? wrapInnerWidth(n.type) : W - 16;
+  const lines = wrapLabel(label, inner, fs);
+  const maxLineW = Math.max(...lines.map((ln) => textW(ln, fs)), 0);
   let shape = '';
-  // 圆形节点（start/end）：字符超出圆形时加"字符底色"底板，超长折行
+  // 圆形节点（start/end）：仅当折行后仍超圆内宽才加底板
   if (n.type === 'start' || n.type === 'end') {
     const r = Math.min(W, H) / 2;
     const fill = n.type === 'start' ? st.startColor : st.endColor;
     const sw = n.type === 'start' ? 1.5 : 3;
-    const lines = wrapLabel(label);
-    const labelPlate = tw > r * 1.6
-      ? `<rect x="${cx - tw / 2 - 6}" y="${cy - (lines.length * fs * 1.3) / 2 - 4}" width="${tw + 12}" height="${lines.length * fs * 1.3 + 8}" rx="4" fill="#64748b" stroke="none" opacity="0.9"/>`
+    const overflow = maxLineW > r * 1.6;
+    const labelPlate = overflow
+      ? `<rect x="${cx - maxLineW / 2 - 6}" y="${cy - (lines.length * fs * 1.3) / 2 - 4}" width="${maxLineW + 12}" height="${lines.length * fs * 1.3 + 8}" rx="4" fill="#64748b" stroke="none" opacity="0.9"/>`
       : '';
-    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>${labelPlate}${multilineText(cx, cy, lines, fs, labelPlate ? '#f8fafc' : '#fff')}`;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>${labelPlate}${multilineText(cx, cy, lines, fs, overflow ? '#f8fafc' : '#fff')}`;
   }
   switch (n.type) {
     case 'exclusiveGateway':
     case 'parallelGateway': {
       const d = `M${cx},${cy - H / 2} L${cx + W / 2},${cy} L${cx},${cy + H / 2} L${cx - W / 2},${cy} Z`;
       shape = `<path d="${d}" fill="${n.type === 'parallelGateway' ? st.parallelColor : st.gatewayColor}" stroke="${stroke}" stroke-width="1.5"/>`;
+      if (n.type === 'parallelGateway') {
+        const py = lines.length ? cy - fs * 0.85 : cy;
+        shape += `<line data-flow="parallel-plus" x1="${cx - 8}" y1="${py}" x2="${cx + 8}" y2="${py}" stroke="#fff" stroke-width="1.8"/>`
+          + `<line data-flow="parallel-plus" x1="${cx}" y1="${py - 8}" x2="${cx}" y2="${py + 8}" stroke="#fff" stroke-width="1.8"/>`;
+      }
       break;
     }
     case 'annotation': {
-      // 折角纸：右上角折角多边形（annotation 标记）
       const w = W, h = H, x0 = cx - w / 2, y0 = cy - h / 2, fold = 12;
       const pts = `${x0},${y0} ${x0 + w - fold},${y0} ${x0 + w},${y0 + fold} ${x0 + w},${y0 + h} ${x0},${y0 + h}`;
       shape = `<polygon points="${pts}" fill="${st.annotationColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
     }
     case 'dataObject': {
-      // 数据对象（纸带）：底部内凹 + 左上角小折
       const w = W, h = H, x0 = cx - w / 2, y0 = cy - h / 2, fold = 14;
       const d = `M${x0},${y0} L${x0 + w - fold},${y0} L${x0 + w},${y0 + fold} L${x0 + w},${y0 + h} L${x0 + fold},${y0 + h} L${x0},${y0 + h - fold} Z`;
       shape = `<path d="${d}" fill="${st.dataColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
     }
-    case 'subprocess':
+    case 'subprocess': {
       shape = `<rect x="${cx - W / 2}" y="${cy - H / 2}" width="${W}" height="${H}" rx="6" fill="${st.subprocessColor}" stroke="${stroke}" stroke-width="1.5"/>`;
+      const pw = 10, ph = 10, px = cx - pw / 2, py = cy + H / 2 - ph - 4;
+      shape += `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="none" stroke="#fff" stroke-width="1.2"/>`
+        + `<line x1="${cx - 3}" y1="${py + ph / 2}" x2="${cx + 3}" y2="${py + ph / 2}" stroke="#fff" stroke-width="1.2"/>`
+        + `<line x1="${cx}" y1="${py + 2}" x2="${cx}" y2="${py + ph - 2}" stroke="#fff" stroke-width="1.2"/>`;
       break;
+    }
     default:
       shape = `<rect x="${cx - W / 2}" y="${cy - H / 2}" width="${W}" height="${H}" rx="6" fill="${st.taskColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
   }
-  const tw2 = textW(label, fs);
-  const lines = wrapLabel(label);
-  const overflow = tw2 > W - 8 || lines.length > 1;
-  // 矩形等其它节点：文字超宽/多行时也给底色（与形状色差异），字体色差异
+  const overflow = maxLineW > inner + 0.5;
   const plate = overflow
-    ? `<rect x="${cx - tw2 / 2 - 6}" y="${cy - (lines.length * fs * 1.3) / 2 - 4}" width="${tw2 + 12}" height="${lines.length * fs * 1.3 + 8}" rx="4" fill="#475569" opacity="0.9"/>`
+    ? `<rect x="${cx - maxLineW / 2 - 6}" y="${cy - (lines.length * fs * 1.3) / 2 - 4}" width="${maxLineW + 12}" height="${lines.length * fs * 1.3 + 8}" rx="4" fill="#475569" opacity="0.9"/>`
     : '';
-  return shape + plate + multilineText(cx, cy, lines, fs, overflow ? '#f8fafc' : '#fff');
+  const textCy = (n.type === 'parallelGateway' && lines.length) ? cy + fs * 0.55 : cy;
+  let out = shape + plate + multilineText(cx, textCy, lines, fs, overflow ? '#f8fafc' : '#fff');
+  if (roleText) {
+    out += `<text x="${cx + W / 2 - 2}" y="${cy + H / 2 + 11}" text-anchor="end" fill="#64748b" font-size="9">${esc(roleText)}</text>`;
+  }
+  return out;
 }
 
 function arrowMarker(id: string, color: string): string {
@@ -199,31 +258,26 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   // 无泳道：rows/cols 为空，但需要 1 行 1 列占位（大格）
   if (!rows.length) rows = [{ dict: 'ROOT', idx: 0 }];
   if (!cols.length) cols = [{ dict: 'ROOT', idx: 0 }];
-  // 单维泳道：节点各自占一格里，需扩展虚拟网格
-  //   仅 H 轴（横向泳道）：行数=泳道数，列数=节点数
-  //   仅 V 轴（纵向泳道）：行数=节点数，列数=泳道数
+  // 单维泳道：先按真实泳道占位，分类后再按「各泳道最大节点数」扩虚拟轴（ALIGN-1）
   const realRows = rowsOf(data), realCols = colsOf(data);
-  const nodeCount = data.nodes.length;
-  if (realRows.length > 0 && realCols.length === 0) {
-    // 仅 H 轴：cols 原为 ROOT 占位，扩展为 nodeCount 列
-    cols = Array.from({ length: Math.max(1, nodeCount) }, (_, i) => ({ dict: 'ROOT', idx: i }));
-  } else if (realCols.length > 0 && realRows.length === 0) {
-    // 仅 V 轴：rows 原为 ROOT 占位，扩展为 nodeCount 行
-    rows = Array.from({ length: Math.max(1, nodeCount) }, (_, i) => ({ dict: 'ROOT', idx: i }));
-  }
-  const nR = rows.length || 1, nC = cols.length || 1;
+  const isHSingle = realRows.length > 0 && realCols.length === 0;
+  const isVSingle = realCols.length > 0 && realRows.length === 0;
+  let nR = rows.length || 1, nC = cols.length || 1;
   const fs = st.nodeFontSize;
 
   const cellNodeId = new Map<string, { ri: number; ci: number }>();
-  for (let ri = 0; ri < nR; ri++) for (let ci = 0; ci < nC; ci++) {
-    const rowKey = `${rows[ri].dict}${rows[ri].idx}`;
-    const colKey = `${cols[ci].dict}${cols[ci].idx}`;
-    const rc = { ri, ci };
-    cellNodeId.set(rowKey + colKey, rc);
-    // 单维泳道兼容：节点 cell 只有一维时，缺失维度由 ROOT 侧匹配
-    if (rows[ri].dict === 'ROOT') cellNodeId.set(colKey, rc);   // 单维纵向：cell 只写列键
-    if (cols[ci].dict === 'ROOT') cellNodeId.set(rowKey, rc);   // 单维横向：cell 只写行键
-  }
+  const rebuildCellIndex = () => {
+    cellNodeId.clear();
+    for (let ri = 0; ri < nR; ri++) for (let ci = 0; ci < nC; ci++) {
+      const rowKey = `${rows[ri].dict}${rows[ri].idx}`;
+      const colKey = `${cols[ci].dict}${cols[ci].idx}`;
+      const rc = { ri, ci };
+      cellNodeId.set(rowKey + colKey, rc);
+      if (rows[ri].dict === 'ROOT') cellNodeId.set(colKey, rc);
+      if (cols[ci].dict === 'ROOT') cellNodeId.set(rowKey, rc);
+    }
+  };
+  rebuildCellIndex();
 
   // 归类节点到交叉格 (ri,ci)
   // 单维泳道：横向(H轴)=每行一条泳道，节点沿列依次排；纵向(V轴)=每列一条泳道，节点沿行依次排
@@ -231,12 +285,11 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   //           而非字典原始下标——避免非连续索引（Lane from D[0,2]）越界（y:NaN）。
   // P0-3 修复：cell 为空（自动顺序落格）的节点，按声明序填入第一个未占用交叉格，
   //           避免全部堆叠到 (0,0)。
-  const isHSingle = realRows.length > 0 && realCols.length === 0; // 只有 H 轴（横向泳道）
-  const isVSingle = realCols.length > 0 && realRows.length === 0; // 只有 V 轴（纵向泳道）
   const group = new Map<string, FlowData['nodes'][0][]>();
   const cellXY = new Map<string, { nx: number; ny: number; items: { n: FlowData['nodes'][0]; gridX: number; gridY: number; m: NodeMetrics }[] }>();
   const laneSeq = new Map<number, number>(); // 泳道行/列位置 -> 该泳道内已用序列
   const usedCell = new Set<string>();        // 已占用的 (ri_ci)，供自动落格避免重叠
+  const artifacts: FlowData['nodes'][0][] = [];
 
   // 泳道列表 -> 位置映射：dict+idx -> 该泳道在 rows/cols 数组中的下标
   const lanePosOf = (dict: string, idx: number): number => {
@@ -244,15 +297,20 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     return cols.findIndex((c) => c.dict === dict && c.idx === idx);
   };
 
-  // 第一遍：显式 cell 节点归类（含映射后的泳道位置）
+  // 第一遍：显式 cell 的主网格节点归类（ALIGN-2/3：内部节点与 N/DATA 不进主网格）
   const autoSeq: FlowData['nodes'][0][] = [];
   for (const n of data.nodes) {
+    if (!isLayoutNode(n)) {
+      if (!n.parent && (n.type === 'annotation' || n.type === 'dataObject')) artifacts.push(n);
+      continue;
+    }
     if (!n.cell) { autoSeq.push(n); continue; } // 缺省坐标：第二遍自动落格
     const ck = cellKeyOf(n.cell);
     if (isHSingle) {
       const v = Object.values(n.cell)[0] ?? 0;
       const dict = Object.keys(n.cell)[0] ?? 'D';
       const ri = lanePosOf(dict, v);
+      if (ri < 0) { autoSeq.push(n); continue; }
       const seq = laneSeq.get(ri) ?? 0;
       laneSeq.set(ri, seq + 1);
       const gk = `${ri}_${seq}`;
@@ -263,6 +321,7 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
       const v = Object.values(n.cell)[0] ?? 0;
       const dict = Object.keys(n.cell)[0] ?? 'P';
       const ci = lanePosOf(dict, v);
+      if (ci < 0) { autoSeq.push(n); continue; }
       const seq = laneSeq.get(ci) ?? 0;
       laneSeq.set(ci, seq + 1);
       const gk = `${seq}_${ci}`;
@@ -320,6 +379,23 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
       }
     }
   }
+  // ALIGN-1：单维虚拟轴长度 = 各泳道已占用最大序号 + 1（不再用全图节点数）
+  if (isHSingle || isVSingle) {
+    let maxRi = 0, maxCi = 0;
+    for (const gk of group.keys()) {
+      const [ri, ci] = gk.split('_').map(Number);
+      if (Number.isFinite(ri)) maxRi = Math.max(maxRi, ri);
+      if (Number.isFinite(ci)) maxCi = Math.max(maxCi, ci);
+    }
+    if (isHSingle) {
+      nC = Math.max(1, maxCi + 1);
+      cols = Array.from({ length: nC }, (_, i) => ({ dict: 'ROOT', idx: i }));
+    } else {
+      nR = Math.max(1, maxRi + 1);
+      rows = Array.from({ length: nR }, (_, i) => ({ dict: 'ROOT', idx: i }));
+    }
+    rebuildCellIndex();
+  }
   for (const [gk, nodes] of group) {
     let nx = 1, ny = 1, gx = 0, gy = 0;
     const items: { n: FlowData['nodes'][0]; gridX: number; gridY: number; m: NodeMetrics }[] = [];
@@ -346,6 +422,7 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   const cellHself: number[] = new Array(nR).fill(0);
   for (const [gk, cell] of cellXY) {
     const [ri, ci] = gk.split('_').map(Number);
+    if (ri < 0 || ri >= nR || ci < 0 || ci >= nC) continue;
     for (const it of cell.items) {
       cellWself[ci] = Math.max(cellWself[ci], it.m.halfW * 2);
       cellHself[ri] = Math.max(cellHself[ri], it.m.halfH * 2);
@@ -397,6 +474,7 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   const nodePos = new Map<string, NodePos>();
   for (const [gk, cell] of cellXY) {
     const [ri, ci] = gk.split('_').map(Number);
+    if (ri < 0 || ri >= nR || ci < 0 || ci >= nC) continue;
     // 整列/整行统一：绘制格宽=列宽/该列最大nx；绘制格高=行高/该行最大ny
     const pw = colWPx[ci] / colNxMax[ci], ph = rowHPx[ri] / rowNyMax[ri];
     for (const it of cell.items) {
@@ -411,11 +489,41 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     }
   }
 
-  const width = colX[nC - 1] + colWPx[nC - 1] + 5;
-  const height = bandTop(nR - 1) + rowHPx[nR - 1] + 5;
-  // 网格右/下边界（与最末列/行格子完全对齐，无出血缺口）
+  // ALIGN-3：修饰类不占格，依附声明序前驱，落在其右上走廊
+  const artStack = new Map<string, number>();
+  for (const art of artifacts) {
+    const idx = data.nodes.indexOf(art);
+    let predId: string | undefined;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (isLayoutNode(data.nodes[i]) && nodePos.has(data.nodes[i].id)) {
+        predId = data.nodes[i].id;
+        break;
+      }
+    }
+    if (!predId) {
+      const first = [...nodePos.values()][0];
+      predId = first?.n.id;
+    }
+    if (!predId) continue;
+    const pp = nodePos.get(predId);
+    if (!pp) continue;
+    const m = nodeMetrics(art, fs);
+    const stack = artStack.get(predId) ?? 0;
+    artStack.set(predId, stack + 1);
+    const cx = pp.x + pp.W / 2 + m.halfW + 8;
+    const cy = pp.y - pp.H / 2 - 6 - stack * (m.halfH * 2 + 6);
+    nodePos.set(art.id, { x: cx, y: cy, ri: pp.ri, ci: pp.ci, W: m.halfW * 2, H: m.halfH * 2, n: art });
+  }
+
   const gridRight = colX[nC - 1] + colWPx[nC - 1];
   const gridBottom = bandTop(nR - 1) + rowHPx[nR - 1];
+  // 网格边界保持泳道对齐；画布可因走廊上的修饰类略微外扩
+  let width = gridRight + 5;
+  let height = gridBottom + 5;
+  for (const p of nodePos.values()) {
+    width = Math.max(width, p.x + p.W / 2 + 8);
+    height = Math.max(height, p.y + p.H / 2 + 16);
+  }
   return {
     rows, cols, nodePos, colX, rowY: [], colWpx: colWPx, rowHpx: rowHPx,
     width, height, half, bandLeft, bandTop, gridRight, gridBottom, titleBandW,
@@ -526,8 +634,9 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   }
 
   // 连线：最小最短原则 + 进出口端口不重复（最短距离优先）
-  const nodeXY: Record<string, { x: number; y: number; W: number; H: number; usedIn: Set<string>; usedOut: Set<string> }> = {};
-  for (const [id, p] of L.nodePos) nodeXY[id] = { x: p.x, y: p.y, W: p.W, H: p.H, usedIn: new Set(), usedOut: new Set() };
+  type XYN = { x: number; y: number; W: number; H: number; ri: number; ci: number; usedIn: Set<string>; usedOut: Set<string> };
+  const nodeXY: Record<string, XYN> = {};
+  for (const [id, p] of L.nodePos) nodeXY[id] = { x: p.x, y: p.y, W: p.W, H: p.H, ri: p.ri, ci: p.ci, usedIn: new Set(), usedOut: new Set() };
 
   // 端口方向定义（从节点中心向外，走 0.5 连线区中线）
   type Port = 'R' | 'L' | 'T' | 'B';
@@ -539,16 +648,35 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       case 'B': return { x: n.x, y: n.y + n.H / 2 + L.half / 2 };
     }
   }
-  // 源端口候选：按朝向目标的方向优先（右>左>下>上 / 下>上>右>左）
-  function sourceCandidates(a: { x: number; y: number }, b: { x: number; y: number }): Port[] {
+  function snapTo(v: number, marks: number[]): number {
+    if (!marks.length) return v;
+    let best = marks[0], bd = Math.abs(v - marks[0]);
+    for (const m of marks) {
+      const d = Math.abs(v - m);
+      if (d < bd) { bd = d; best = m; }
+    }
+    return best;
+  }
+  const xMarks: number[] = [];
+  for (let ci = 0; ci < nC; ci++) { xMarks.push(L.colX[ci], L.colX[ci] + L.colWpx[ci]); }
+  const yMarks: number[] = [];
+  for (let ri = 0; ri < nR; ri++) { yMarks.push(L.bandTop(ri), L.bandTop(ri) + L.rowHpx[ri]); }
+
+  // 源端口候选：同行强制左右、同列强制上下（ALIGN-5 格子通道）
+  function sourceCandidates(a: XYN, b: XYN): Port[] {
+    if (a.ri === b.ri && a.ci !== b.ci) {
+      return b.x >= a.x ? ['R', 'L', 'B', 'T'] : ['L', 'R', 'B', 'T'];
+    }
+    if (a.ci === b.ci && a.ri !== b.ri) {
+      return b.y >= a.y ? ['B', 'T', 'R', 'L'] : ['T', 'B', 'R', 'L'];
+    }
     const dx = b.x - a.x, dy = b.y - a.y;
     if (Math.abs(dx) >= Math.abs(dy)) {
       return dx >= 0 ? ['R', 'B', 'T', 'L'] : ['L', 'B', 'T', 'R'];
     }
     return dy >= 0 ? ['B', 'R', 'L', 'T'] : ['T', 'R', 'L', 'B'];
   }
-  function targetCandidates(b: { x: number; y: number }, a: { x: number; y: number }): Port[] {
-    // 目标端口朝向源（与源候选相反方向优先）
+  function targetCandidates(b: XYN, a: XYN): Port[] {
     return sourceCandidates(b, a);
   }
   // 进出分开记录：出口/入口各自独立可选，重复（与相反向共用一侧）可接受
@@ -630,12 +758,12 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       if (Math.abs(s.x - t.x) < 1 && Math.abs(s.y - t.y) < 1) {
         pts = [{ x: s.x, y: s.y }, { x: t.x, y: t.y }];
       } else if (horiz1 && horiz2) {
-        // 源水平出 + 目标水平入：横-竖-横（竖段在 midX）
-        const mx = midX ?? (s.x + t.x) / 2;
+        // 源水平出 + 目标水平入：横-竖-横（竖段吸到列边界）
+        const mx = snapTo(midX ?? (s.x + t.x) / 2, xMarks);
         pts = [{ x: s.x, y: s.y }, { x: mx, y: s.y }, { x: mx, y: t.y }, { x: t.x, y: t.y }];
       } else if (!horiz1 && !horiz2) {
-        // 源竖直出 + 目标竖直入：竖-横-竖（横段在 midY）
-        const my = midY ?? (s.y + t.y) / 2;
+        // 源竖直出 + 目标竖直入：竖-横-竖（横段吸到行边界）
+        const my = snapTo(midY ?? (s.y + t.y) / 2, yMarks);
         pts = [{ x: s.x, y: s.y }, { x: s.x, y: my }, { x: t.x, y: my }, { x: t.x, y: t.y }];
       } else {
         // 一横一竖：L 型一次拐弯
@@ -663,6 +791,13 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     }
 
     let pts = buildRoute(null, null);
+    if (routeHits(pts, e.from, e.to)) {
+      // L 型穿过节点时改走格子边界 Z 通道（ALIGN-5）
+      const gutter = horiz1
+        ? buildRoute(snapTo((s.x + t.x) / 2, xMarks), null)
+        : buildRoute(null, snapTo((s.y + t.y) / 2, yMarks));
+      if (!routeHits(gutter, e.from, e.to)) pts = gutter;
+    }
     let round = 0;
     const MAX_ROUND = 3;
     const dw = L.half; // 走廊步长 = 0.5 连线区宽
@@ -711,12 +846,23 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       label = `<text x="${lx + dx}" y="${ly + dy}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(e.label)}</text>`;
     }
     const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
-    parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${label}`);
+    let slash = '';
+    if (e.default && pts.length >= 2) {
+      const p0 = pts[0], p1 = pts[1];
+      const vx = p1.x - p0.x, vy = p1.y - p0.y;
+      const len = Math.hypot(vx, vy) || 1;
+      const ux = vx / len, uy = vy / len;
+      const mx = p0.x + ux * 10, my = p0.y + uy * 10;
+      slash = `<line data-flow="default-slash" x1="${mx - uy * 6}" y1="${my + ux * 6}" x2="${mx + uy * 6}" y2="${my - ux * 6}" stroke="${st.lineColor}" stroke-width="${st.lineWidth}"/>`;
+    }
+    parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${slash}${label}`);
   }
 
   // 节点
   for (const [, p] of L.nodePos) {
-    parts.push(nodeShape(p.n, st, p.x, p.y, p.W, p.H));
+    const roleRaw = p.n.attrs?.role;
+    const roleText = roleRaw ? expandRef(data, roleRaw) : undefined;
+    parts.push(nodeShape(p.n, st, p.x, p.y, p.W, p.H, roleText));
   }
 
   // ===== FEAT-01：六属性图例边栏（AttrPanel） =====
@@ -732,7 +878,8 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     for (const n of data.nodes) {
       for (const [k, v] of Object.entries(n.attrs || {})) {
         const key = k.toLowerCase();
-        if (agg.has(key) && v && !agg.get(key)!.includes(v)) agg.get(key)!.push(v);
+        const shown = expandRef(data, v);
+        if (agg.has(key) && shown && !agg.get(key)!.includes(shown)) agg.get(key)!.push(shown);
       }
     }
     const entries = activeAttrs.filter((k) => agg.get(k) && agg.get(k)!.length > 0);

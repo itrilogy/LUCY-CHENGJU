@@ -3,7 +3,7 @@
  * 运行: node --experimental-strip-types scripts/assert_flow_svg.ts
  * 验证 flowToSVG 输出的结构正确性（节点落格中心、格子铺开、标签/连线存在）。
  */
-import { flowToSVG, getSvgSize, FLOW_SVG } from '../components/flow/flowToSVG.ts';
+import { flowToSVG, getSvgSize, FLOW_SVG, computeExcelLayout } from '../components/flow/flowToSVG.ts';
 import { parseFlowDSL } from '../components/flow/FlowParser.ts';
 
 let pass = 0, fail = 0;
@@ -51,15 +51,16 @@ check('行标签 信息中心', svg.includes('信息中心'));
 check('行标签 综合计划科', svg.includes('综合计划科'));
 check('列标签 申请阶段', svg.includes('申请阶段'));
 check('列标签 归档阶段', svg.includes('归档阶段'));
-// 节点文本（超长节点文本现在会多行折行，检查折行片段）
-for (const t of ['提交采购申请', '填写申请单', '部门经理审批', '直接执行', '财务付款', '归档', '金额超过50', '00?']) {
+// 节点文本（折行按字宽、数字不拆：允许整串或「金额超过」+「5000?」）
+for (const t of ['提交采购申请', '填写申请单', '部门经理审批', '直接执行', '财务付款', '归档']) {
   check(`节点文本 ${t}`, svg.includes(t));
 }
-// 折行验证：长文本 "金额超过5000?" 被拆分为多行 tspan
-check('长文本多行折行(tspan)', svg.includes('<tspan') && svg.includes('金额超过50') && svg.includes('00?'));
+check('网关全文或按词折行 金额超过5000?', svg.includes('金额超过5000?') || (svg.includes('金额超过') && svg.includes('5000?')));
+check('折行不切断数字 5000', !svg.includes('金额超过50</') && !svg.includes('>00?'));
 // 连线标签
 check('连线标签 是', svg.includes('>是<'));
 check('连线标签 否', svg.includes('>否<'));
+check('岗位字典展开为 申请员', svg.includes('申请员'));
 
 // 泳道带范式：只画有节点的绘制格（不填充连线区色）
 // 绘制格分布：每个交叉格（含空格）画真实列宽/行高矩形（fill=none stroke=#94a3b8）
@@ -120,6 +121,53 @@ const orthoCount = allPaths.filter((p) => {
   return segs >= 1 && segs <= 3;
 }).length;
 check('存在正交最短折线', orthoCount >= 4, `实际 ${orthoCount}`);
+
+// ===== ALIGN：单维按最大链长扩格、子流程内部不进主网格 =====
+{
+  const single = parseFlowDSL(`Title: t
+Dict: D[甲,乙,丙]
+Lane from D[0,2] Layout H
+W: w1: 开始 Type[S] Location(D[0])
+W: w2: 中 Type[T] Location(D[2])
+W: w3: 结束 Type[E] Location(D[2])`);
+  const Ls = getSvgSize(single.data, single.styles);
+  const lay = computeExcelLayout(single.data, single.styles);
+  check('单维列数=最大链长(2) 而非节点数(3)', lay.cols.length === 2, `cols=${lay.cols.length}`);
+  const pos = [...lay.nodePos.values()];
+  check('单维节点 y 均有限（无 NaN）', pos.every((p) => Number.isFinite(p.y)));
+  check('单维画布尺寸为正', Ls.width > 0 && Ls.height > 0);
+}
+{
+  const sub = parseFlowDSL(`Title: 来料
+Layout: V
+Dict: D[质检科,采购科,生产车间]
+Dict: worker[来料检验,检验结果?,合格入库,不合格评审,复检,可接收?,记录归档]
+Lane from D[0,1,2] Layout V
+W: w1: worker[0] Location(D[0])
+W: q1: worker[1] Type[?] Location(D[0])
+   合格 → #w2
+   不合格 → #q2
+   End
+W: w2: worker[2] Type[E] Location(D[1])
+W: q2: worker[3] Type[SUB] Location(D[0])
+   W: s1: worker[4] Type[S]
+   W: s2: worker[5] Type[?]
+      可接收 → #s3
+      不可接收 → #s4
+      End
+   W: s3: worker[2]
+   W: s4: worker[6] Type[E]
+   End
+W: w3: worker[6] Type[E] Location(D[2])
+q2 → #w3`);
+  const lay = computeExcelLayout(sub.data, sub.styles);
+  const inner = [...lay.nodePos.keys()].filter((id) => ['s1', 's2', 's3', 's4'].includes(id));
+  check('子流程内部节点不进主网格', inner.length === 0, `意外 ${inner.join(',')}`);
+  const maxRi = Math.max(...[...lay.nodePos.values()].map((p) => p.ri));
+  check('子流程不额外增行（max ri < 内部 3..6）', maxRi <= 2, `maxRi=${maxRi} rows=${lay.rows.length}`);
+  const subSvg = flowToSVG(sub.data, sub.styles);
+  check('子流程绘 BPMN 展开＋盒', subSvg.includes('width="10" height="10"'));
+}
 
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);

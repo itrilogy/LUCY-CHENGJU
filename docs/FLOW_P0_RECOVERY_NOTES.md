@@ -135,7 +135,7 @@ if (a.type === 'exclusiveGateway' || a.type === 'parallelGateway'
 - **P2**: 字典重复定义覆盖无警告；`Attr active` 非法键被接受；孤立节点为 warning 非 error（部分条目已在 P0-4 改善）；flowToDsl 往返丢条件/出口名。
 - **P3**: 连线仍是端口几何正交（Liang-Barsky 避节点盒），非沿泳道/格子通道走线；折行按字符计数（会切断数字）；单维按全图节点数扩列（空列过多）。
 
-> 后续建议从 P1 的「AttrPanel 语义聚合（计数/评分/关键路径）」与「子流程内嵌」做起。
+> 对齐/工整续修见 `docs/FLOW_ALIGN_RECOVERY_NOTES.md`（2026-08-31）：单维按最大链长扩格、子流程内部退出主网格、N/DATA 不占格、按字宽折行、连线拐点吸附格子通道。
 
 ---
 

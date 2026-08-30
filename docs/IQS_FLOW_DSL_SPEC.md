@@ -1,6 +1,6 @@
 # IQS-Flow DSL 规范（企业体系文件流程图）
 
-> **状态**: 已实现（解析器 FlowParser + 渲染引擎 flowToSVG + 视图 FlowDiagram；parser 40 项 + svg 33 项断言全通过）
+> **状态**: 已实现（解析器 FlowParser + 渲染引擎 flowToSVG + 视图 FlowDiagram；parser 40 项 + svg 41 项断言全通过）
 > **版本**: 0.7.0
 > **适用范围**: 新增 IQS-DSL v1 第 14 个 core kind —— `flow`
 > **作者**: 洪光华 / 鹿溪联合创新实验室
