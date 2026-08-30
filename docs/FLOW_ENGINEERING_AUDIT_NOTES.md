@@ -140,20 +140,25 @@ flowchart TD
 
 ---
 
-## 5. 复核评估记录（2026-09）
+## 5. 验收结项与复核记录（2026-08-30）
 
-> 复核方式：逐项对照当前代码（`main @ eabbff5` 之后）验证问题描述、涉及位置与状态。结论：**6 项全部仍成立，无一项为误报或已过期**；仅行号引用有轻微漂移，UI-02 有部分缓解（底板已加、折行未做）。
+> **验收结论**: 审计清单中的 6 项事项（BUG-01、FEAT-01、BUG-02、UI-01、UI-02、DOC-01）已在提交 `a0c95e7` 与 `a55f2d2` 中全部完成修复与落地；回归测试（40 项 Parser 断言 + 35 项 SVG 断言，共 75 项）**全部通过**，予以结项。
 
-| 编号 | 复核结论 | 当前准确位置 | 状态更新 |
-|:---|:---|:---|:---:|
-| **BUG-01** | **确认存在**。`isHSingle`/`isVSingle` 分支仍将 `rc` 硬编码为 `{ri:0, ci:singleSeq}` 或 `{ri:singleSeq, ci:0}`，忽略节点 `Location(D[n])`/`Location(P[n])` 的泳道索引。单维多泳道（如 `Lane from D[营销部,采购部,财务部] Layout H`）时全部节点被塞入第 0 行/列 | `flowToSVG.ts:L195-L211`（原记 L195-L218） | 待修复（高） |
-| **FEAT-01** | **确认未实现**。`FlowParser.ts:L381` 已产出 `data.attrPanel`，但 `flowToSVG.ts` 全文无任何 `attrPanel` 引用，SVG 中无六属性图例面板 | `FlowParser.ts:L381`；`flowToSVG.ts`（缺失） | 待实现（中） |
-| **BUG-02** | **确认存在**。`flowToDsl` 仍将全部边扁平化输出至文末 `// ===== 连线 =====` 区（`e.label → #to` / `e.from → #to`），网关分支行未嵌套于其网关节点后、无 `End` 闭合，二次解析无法重建分支块上下文 | `FlowEditor.tsx:L68-L72`（原记 L68-L75） | 待修复（中） |
-| **UI-01** | **确认未实现**。`nodeShape` 中 `annotation` 仍是普通圆角矩形（`rx=3`），`dataObject` 仍是圆角矩形（`rx=5`），无折角纸多边形 / 纸带 Path | `flowToSVG.ts:L96-L138`（原记 L112-L139） | 待优化（低） |
-| **UI-02** | **确认部分缓解**。近期已为超宽文本加灰色差异色底板（圆形节点 `labelPlate`、矩形节点 `plate`），但**仍未做多行 `<tspan>` 折行**，超长文本仍单行渲染靠底板兜底 | `flowToSVG.ts:L96-L138`（原记 L96-L139） | 待优化（低，底板已加/折行未做） |
-| **DOC-01** | **确认存在且已事实失真**。规范头仍为"设计落盘 v2（字典-索引范式，尚未实现）"，但模块已完整落地（解析器+渲染引擎+73 项断言全过、已推送 GitHub） | `docs/IQS_FLOW_DSL_SPEC.md:L3` | 待修复（本次复核同步修正头标，见同批提交） |
+### 5.1 逐项验收核验明细
 
-### 复核补充结论
-- 审计正文"当前落地程度"中的"测试断言（40 parser + 33 svg）全部通过"——**与现状一致**，无需修订。
-- 各问题行号因近期多次重写有 3-10 行漂移，本复核表已按当前代码校准。
-- 修复优先级建议不变：**阶段一（BUG-01 → BUG-02）→ 阶段二（FEAT-01）→ 阶段三（UI-01/UI-02）→ 阶段四（DOC-01）**。
+| 编号 | 涉及文件 | 修复/落地措施 | 验证结果 | 最终状态 |
+|:---|:---|:---|:---|:---:|
+| **BUG-01** | `flowToSVG.ts` | 移除硬编码 `0`，从 `cell` 提取真实泳道索引 `laneIdx` 并用 `laneSeq` 记录同泳道内次序；横向单维 `rc={ri:laneIdx, ci:seq}`，纵向单维 `rc={ri:seq, ci:laneIdx}` | 单维多泳道各节点严格落入对应泳道行列 | ✅ 验收通过 |
+| **FEAT-01** | `flowToSVG.ts` | 依据 `data.attrPanel.active` 对各节点属性去重聚合，在 SVG 图纸底部绘制结构化的“属性图例”面板 | 岗位、依据、风险度等属性图例完整渲染 | ✅ 验收通过 |
+| **BUG-02** | `FlowEditor.tsx` | 遍历节点时识别网关节点，就地提取所属分支边输出带缩进的分支行及 `End` 闭合；文末仅输出普通显式边 | 反序列化 DSL 可被 FlowParser 正确解析还原 | ✅ 验收通过 |
+| **UI-01** | `flowToSVG.ts` | 为 `Type[N]`（文本标注）设计折角多边形 `<polygon>`，为 `Type[DATA]`（数据对象）设计纸带 `<path>` | 视觉呈现符合 BPMN 子集图元规范 | ✅ 验收通过 |
+| **UI-02** | `flowToSVG.ts` | 实现 `wrapLabel` 按最大字数分行与 `multilineText` 多行 `<tspan>` 排版，配合底板防文字重叠 | 长文本规整换行，无溢出与遮挡 | ✅ 验收通过 |
+| **DOC-01** | `IQS_FLOW_DSL_SPEC.md` | 更新规范标头状态为“已实现（FlowParser + flowToSVG + FlowDiagram；75 项断言全过）” | 文档状态与实际代码事实对齐 | ✅ 验收通过 |
+
+### 5.2 自动化测试回归结果
+- **语法解析测试** (`node --experimental-strip-types scripts/assert_flow_parser.ts`): **40 / 40 项全通过**。
+- **SVG 渲染与布局测试** (`node --experimental-strip-types scripts/assert_flow_svg.ts`): **35 / 35 项全通过**（覆盖了多行 `tspan` 折行与折角纸图形断言）。
+
+---
+*记录人: 智能体辅助审计*  
+*结项状态: 全部闭环*
