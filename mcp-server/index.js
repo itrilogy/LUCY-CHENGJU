@@ -185,165 +185,179 @@ function createServer() {
     }
   );
 
-  newServer.setRequestHandler(ListResourcesRequestSchema, async () => {
-    return {
-      resources: [
-        {
-          uri: "protocol://governance",
-          name: "IQS Protocol Governance (全局治理规则)",
-          mimeType: "text/markdown",
-          description: "详述了 IQS 系统中的权威性等级协议 (Hierarchy of Authority) 及冲突处理准则。"
-        },
-        {
-          uri: "protocol://segments",
-          name: "IQS Component Knowledge Index (图表切片库索引)",
-          mimeType: "text/markdown",
-          description: "包含所有核心组件的独立专家逻辑与语法说明。"
-        }
-      ]
-    };
-  });
+  const MCP_TOOLS_PATH = path.join(__dirname, "mcp_tools.json");
 
-  newServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    const { uri } = request.params;
-    const governance = getProtocolFile("governance.md");
-
-    if (uri === "protocol://governance") {
-      return { contents: [{ uri, text: governance }] };
+  function getMCPTools() {
+    try {
+      return JSON.parse(fs.readFileSync(MCP_TOOLS_PATH, "utf-8"));
+    } catch (e) {
+      console.error(`Error reading mcp_tools.json:`, e);
+      return [];
     }
-
-    if (uri === "protocol://segments") {
-      const files = fs.readdirSync(SEGMENTS_DIR);
-      let allContent = "# IQS Protocol Segments Index\n\n";
-      files.forEach(file => {
-        if (file.endsWith(".md")) {
-          allContent += `- [${file.replace('.md', '')}](protocol://segments/${file.replace('.md', '')})\n`;
-        }
-      });
-      return { contents: [{ uri, text: allContent }] };
-    }
-
-    if (uri.startsWith("protocol://segments/")) {
-      const key = uri.replace("protocol://segments/", "");
-      const segment = getProtocolFile(`segments/${key}.md`);
-      if (!segment) throw new Error(`Segment [${key}] not found`);
-      
-      const combined = [
-        `# IQS Segment Knowledge: ${key}`,
-        `\n> [!IMPORTANT]\n> 此文档由全局治理协议与专项切片逻辑动态组装而成。`,
-        `\n## 1. 全局治理规则 (Governance)\n${governance}`,
-        `\n## 2. 专项说明与语法 (Segment Logic)\n${segment}`
-      ].join('\n\n');
-      
-      return { contents: [{ uri, text: combined }] };
-    }
-
-    throw new Error(`Resource not found: ${uri}`);
-  });
-
-const MCP_TOOLS_PATH = path.join(__dirname, "mcp_tools.json");
-
-function getMCPTools() {
-  try {
-    return JSON.parse(fs.readFileSync(MCP_TOOLS_PATH, "utf-8"));
-  } catch (e) {
-    console.error(`Error reading mcp_tools.json:`, e);
-    return [];
   }
-}
 
-// Helper: 构建瘦身版工具描述 (ILDR 2.0: 资源引导型描述)
-function buildThinDescription(tool) {
-  const parts = [
-    `### ${tool.display_name}`,
-    `【适用领域】：${tool.expertise || '通用图表'}`,
-    `【捕获意图】：${(tool.intent_trigger || []).join(', ')}`,
-    `【功能描述】：${tool.description}`,
-    `\n🔴 物理约束：生成前【必须】阅读资源 [protocol://segments/${tool.parent_type}/${tool.sub_type}]。`,
-    `🔴 核心禁令：该工具【不接受】JSON 对象作为输入。必须传导纯文本 DSL。`
-  ];
-  return parts.join('\n');
-}
+  /** ILDR thin catalog — minimize list_tools tokens; full grammar via resources */
+  function buildThinDescription(tool) {
+    const tier = tool.tier || (tool.parent_type === 'iqs_native' ? 'core' : 'relief');
+    const tierLabel = tier === 'core' ? 'CORE' : 'RELIEF';
+    const intents = (tool.intent_trigger || []).slice(0, 6).join(', ');
+    return [
+      `[${tierLabel}] ${tool.display_name}`,
+      tool.description,
+      intents ? `intents: ${intents}` : '',
+      `read: protocol://segments/${tool.parent_type}/${tool.sub_type}`,
+      tier === 'core' ? 'dsl: IQS-DSL v1 pure text (not JSON)' : 'dsl: dialect text (not bare JSON object)'
+    ].filter(Boolean).join(' | ');
+  }
 
+  // --- Resources (single registration; governance + dsl + kind segments) ---
   newServer.setRequestHandler(ListResourcesRequestSchema, async () => {
     const allTools = getMCPTools();
-    const resources = [];
-
-    // 为每个非 master 的工具发布一个对应的聚合资源 URL
-    allTools.filter(t => t.sub_type !== 'master').forEach(tool => {
-      resources.push({
-        uri: `protocol://segments/${tool.parent_type}/${tool.sub_type}`,
-        name: `${tool.display_name} 完整规范 (Master + Subtype)`,
+    const resources = [
+      {
+        uri: "protocol://governance",
+        name: "IQS Protocol Governance",
         mimeType: "text/markdown",
-        description: `包含 ${tool.display_name} 的专家逻辑、语法规则及标准 DSL 范式示例。`
+        description: "Authority hierarchy, core vs relief tiers, conflict rules."
+      },
+      {
+        uri: "protocol://dsl/v1",
+        name: "IQS-DSL v1 Language Spec (summary)",
+        mimeType: "text/markdown",
+        description: "Unified IQS-DSL v1 shell/body rules for core kinds."
+      },
+      {
+        uri: "protocol://segments",
+        name: "IQS Segment Index",
+        mimeType: "text/markdown",
+        description: "Index of protocol segment files and kind URIs."
+      }
+    ];
+
+    allTools
+      .filter((t) => t.sub_type !== "master")
+      .forEach((tool) => {
+        resources.push({
+          uri: `protocol://segments/${tool.parent_type}/${tool.sub_type}`,
+          name: `${tool.display_name} (Master + Kind)`,
+          mimeType: "text/markdown",
+          description: `Grammar + example for ${tool.display_name}`
+        });
       });
-    });
 
     return { resources };
   });
 
   newServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const uri = request.params.uri;
-    const match = uri.match(/^protocol:\/\/segments\/([^/]+)\/([^/]+)$/);
-    
-    if (match) {
-      const [, parent, sub] = match;
-      const allTools = getMCPTools();
-      const master = allTools.find(t => t.parent_type === parent && t.sub_type === 'master');
-      const tool = allTools.find(t => t.parent_type === parent && t.sub_type === sub);
+    const governance = getProtocolFile("governance.md");
+    const dslV1 = getProtocolFile("DSL_V1.md");
 
-      if (!tool) {
-        throw new Error(`Resource not found: ${uri}`);
-      }
-
-      // 动态拼接：Master 总告 + 子类专家逻辑 + 子类语法规则 + 范式示例
-      const content = [
-        `# ${tool.display_name} 权威协议规范 (Spliced Protocol)`,
-        master ? `\n## 1. 全局治理准则 (Master Protocol)\n${master.expert_logic}\n${master.syntax_rules}` : '',
-        `\n## 2. 专项专家逻辑 (Expert Logic)\n${tool.expert_logic}`,
-        `\n## 3. 语法约束 (Syntax Rules)\n${tool.syntax_rules}`,
-        `\n## 4. 标准 DSL 范式示例 (Official Example)\n\`\`\`dsl\n${tool.official_example}\n\`\`\``,
-        `\n## 5. 输出控制与自检 (Output Controls & Check)\n1. **自问自答 (CoT)**: 在生成最终输出前，请先核对上述红线约束，确保 nodeKey 与层级结构完全符合示例。\n2. **格式红线**: 仅返回纯文本内容，严禁包裹 Markdown 代码块 (\`\`\`) 或输出任何解释性描述。`
-      ].join('\n');
-
-      return {
-        contents: [{
-          uri,
-          mimeType: "text/markdown",
-          text: content
-        }]
-      };
+    if (uri === "protocol://governance") {
+      return { contents: [{ uri, mimeType: "text/markdown", text: governance }] };
     }
+
+    if (uri === "protocol://dsl/v1") {
+      const text = [
+        dslV1 || "# IQS-DSL v1",
+        "\n---\n",
+        "Full document path in repo: docs/IQS_DSL_V1_SPEC.md",
+        "Kind registry: dsl/kinds.json"
+      ].join("\n");
+      return { contents: [{ uri, mimeType: "text/markdown", text }] };
+    }
+
+    if (uri === "protocol://segments") {
+      const files = fs.existsSync(SEGMENTS_DIR) ? fs.readdirSync(SEGMENTS_DIR) : [];
+      const allTools = getMCPTools();
+      let allContent = "# IQS Protocol Segments Index\n\n## File segments\n\n";
+      files.forEach((file) => {
+        if (file.endsWith(".md")) {
+          allContent += `- [${file.replace(".md", "")}](protocol://segments/${file.replace(".md", "")})\n`;
+        }
+      });
+      allContent += "\n## Kind resources (prefer these for generation)\n\n";
+      allTools
+        .filter((t) => t.sub_type !== "master")
+        .forEach((t) => {
+          allContent += `- [${t.name}](protocol://segments/${t.parent_type}/${t.sub_type}) tier=${t.tier || "?"}\n`;
+        });
+      return { contents: [{ uri, mimeType: "text/markdown", text: allContent }] };
+    }
+
+    // Kind-spliced resource: protocol://segments/{parent}/{sub}
+    const kindMatch = uri.match(/^protocol:\/\/segments\/([^/]+)\/([^/]+)$/);
+    if (kindMatch) {
+      const [, parent, sub] = kindMatch;
+      const allTools = getMCPTools();
+      const master = allTools.find((t) => t.parent_type === parent && t.sub_type === "master");
+      const tool = allTools.find((t) => t.parent_type === parent && t.sub_type === sub);
+      if (!tool) throw new Error(`Resource not found: ${uri}`);
+
+      const content = [
+        `# ${tool.display_name} (Spliced Protocol)`,
+        `tier: ${tool.tier || (parent === "iqs_native" ? "core" : "relief")}`,
+        master
+          ? `\n## 1. Master Protocol\n${master.expert_logic}\n\n${master.syntax_rules}`
+          : "",
+        `\n## 2. Expert Logic\n${tool.expert_logic || ""}`,
+        `\n## 3. Syntax Rules\n${tool.syntax_rules || ""}`,
+        `\n## 4. Official Example\n\`\`\`dsl\n${tool.official_example || ""}\n\`\`\``,
+        `\n## 5. Output Controls\n1. CoT self-check against syntax before emit.\n2. Pure text only — no markdown fences, no prose.`,
+        parent === "iqs_native"
+          ? `\n## 6. Language\nFollow IQS-DSL v1 (protocol://dsl/v1).`
+          : `\n## 6. Language\nRelief dialect — do not use for core QC SPC/Pareto final reports when native tools exist.`
+      ].join("\n");
+
+      return { contents: [{ uri, mimeType: "text/markdown", text: content }] };
+    }
+
+    // Legacy single-segment file: protocol://segments/{key}
+    if (uri.startsWith("protocol://segments/")) {
+      const key = uri.replace("protocol://segments/", "");
+      if (key.includes("/")) throw new Error(`Resource not found: ${uri}`);
+      const segment = getProtocolFile(`segments/${key}.md`);
+      if (!segment) throw new Error(`Segment [${key}] not found`);
+      const combined = [
+        `# IQS Segment Knowledge: ${key}`,
+        `\n## 1. Governance\n${governance}`,
+        `\n## 2. Segment\n${segment}`
+      ].join("\n");
+      return { contents: [{ uri, mimeType: "text/markdown", text: combined }] };
+    }
+
     throw new Error(`Unknown resource: ${uri}`);
   });
 
   newServer.setRequestHandler(ListToolsRequestSchema, async () => {
     const allTools = getMCPTools();
-    const publishedTools = [];
-
-    allTools.forEach(tool => {
-      // 瘦身方案：不发布 master 工具作为功能项
-      if (tool.sub_type === 'master') return;
-
-      publishedTools.push({
+    // Core tools first (routing priority for agents), then relief
+    const published = allTools
+      .filter((t) => t.sub_type !== "master")
+      .sort((a, b) => {
+        const ta = a.tier === "relief" ? 1 : 0;
+        const tb = b.tier === "relief" ? 1 : 0;
+        if (ta !== tb) return ta - tb;
+        return (a.name || "").localeCompare(b.name || "");
+      })
+      .map((tool) => ({
         name: tool.name,
         description: buildThinDescription(tool),
         inputSchema: {
           type: "object",
           properties: {
-            dsl: { 
-              type: "string", 
-              description: `针对 ${tool.display_name} 的标准 DSL 文本。🔴 核心禁令：该字段【非 JSON】。必须是纯文本（如 Title: xxx\\nSpec: { ... }）。严禁传任何 JSON 对象。` 
+            dsl: {
+              type: "string",
+              description: "Pure-text DSL string (not a JSON object). See tool resource for grammar."
             },
             width: { type: "number", default: 1200 },
             height: { type: "number", default: 800 }
           },
           required: ["dsl"]
         }
-      });
-    });
+      }));
 
-    return { tools: publishedTools };
+    return { tools: published };
   });
 
   newServer.setRequestHandler(CallToolRequestSchema, async (request) => {

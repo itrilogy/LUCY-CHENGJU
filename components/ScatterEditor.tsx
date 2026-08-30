@@ -37,7 +37,8 @@ export const parseScatterDSL = (content: string, baseStyles: ScatterChartStyles 
 
     lines.forEach(line => {
         const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) return;
+        // IQS-DSL v1: // canonical comment; # legacy comment (non-Tree kinds)
+        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) return;
 
         // Computed Properties
         if (trimmed.includes(':') && !trimmed.startsWith('-')) {
@@ -52,7 +53,8 @@ export const parseScatterDSL = (content: string, baseStyles: ScatterChartStyles 
                 case 'Color[Point]': newStyles.pointColor = val; break;
                 case 'Color[Trend]': newStyles.trendColor = val; break;
                 case 'ShowTrend': newStyles.showTrend = val.toLowerCase() === 'true'; break;
-                case '3D': newStyles.is3D = val.toLowerCase() === 'true'; break;
+                case '3D':
+                case 'Show3D': newStyles.is3D = val.toLowerCase() === 'true'; break;
                 case 'Size[Base]': newStyles.baseSize = parseFloat(val); break;
                 case 'Opacity': newStyles.opacity = parseFloat(val); break;
                 case 'ShowValues': newStyles.showValues = val.toLowerCase() === 'true'; break;
@@ -128,7 +130,7 @@ const ScatterEditor: React.FC<ScatterEditorProps> = ({ data, styles, onDataChang
         if (currentStyles.pointColor) lines.push(`Color[Point]: ${currentStyles.pointColor}`);
         if (currentStyles.trendColor) lines.push(`Color[Trend]: ${currentStyles.trendColor}`);
         if (currentStyles.showTrend !== undefined) lines.push(`ShowTrend: ${currentStyles.showTrend}`);
-        if (currentStyles.is3D !== undefined) lines.push(`3D: ${currentStyles.is3D}`);
+        if (currentStyles.is3D !== undefined) lines.push(`Show3D: ${currentStyles.is3D}`);
         lines.push(`ShowValues: ${currentStyles.showValues || false}`);
 
         lines.push('');

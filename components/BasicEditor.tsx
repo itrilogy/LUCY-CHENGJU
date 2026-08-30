@@ -64,7 +64,7 @@ export const parseBasicDSL = (content: string, baseStyles: BasicChartStyles = DE
                 newStyles.showValues = val.toLowerCase() === 'true';
             } else if (key === 'ShowLegend') {
                 newStyles.showLegend = val.toLowerCase() !== 'false';
-            } else if (key === 'Grid') {
+            } else if (key === 'Grid' || key === 'ShowGrid') {
                 newStyles.grid = val.toLowerCase() !== 'false';
             } else if (key.startsWith('Color[')) {
                 const subKey = key.match(/Color\[(.*?)\]/)?.[1];

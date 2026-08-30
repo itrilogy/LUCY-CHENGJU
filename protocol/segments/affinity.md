@@ -33,11 +33,15 @@
 - `Color[Line]`: #HEX 连线颜色 (Tree 模式)。
 - `Color[Border]`: #HEX 边框颜色。
 
-### 数据项录入语法
+### 数据项录入语法（ItemTree — 强制）
 格式为 `Item: [ID], [Label], [ParentID]`
 - `ID`: 节点唯一标识。
 - `Label`: 显示文字。
 - `ParentID`: 父级节点 ID (顶级项目指向 `root` 或 `null`)。
+
+> [!CAUTION]
+> **禁止**用 `# / ## / ###` 建亲和图树（那是鱼骨图 TreeBody）。  
+> 解析器只认 `Item:`。行注释使用 `//`。详见 [IQS-DSL v1](../../docs/IQS_DSL_V1_SPEC.md)。
 
 ---
 

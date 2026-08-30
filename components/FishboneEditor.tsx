@@ -40,7 +40,8 @@ export const parseFishboneDSL = (content: string, baseStyles: FishboneChartStyle
 
     lines.forEach((line) => {
         const trimmed = line.trim();
-        if (!trimmed) return;
+        // IQS-DSL v1: // comments; # headers are Tree structure (do not skip)
+        if (!trimmed || trimmed.startsWith('//')) return;
 
         // Parse Colors
         const colorMatch = trimmed.match(/Color\[(Root|RootText|Main|MainText|Bone|Line|Text|End)\]:\s*(#[0-9a-fA-F]+)/i);

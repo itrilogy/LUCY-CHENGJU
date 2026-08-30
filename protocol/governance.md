@@ -1,34 +1,53 @@
 # IQS 协议全局治理规则 (IQS Protocol Governance)
 
 ## 1. 核心目标 (Objective)
-建立一套分布式、颗粒化、具备机器可读性的知识管理体系。通过物理隔离不同组件的协议片段，确保系统逻辑的极度严密性与热同步的高效性。
 
-## 2. 权威性等级协议 (Hierarchy of Authority)
-当系统内的多份文档或知识源出现内容冲突或严重偏差时，AI 代理与 MCP 内核必须严格遵循以下**权威性递减顺序**进行判读与执行：
+建立分布式、可机器消费的知识体系：核心 QC 语言严格、救济通道受控、声明层 token 最小化。
 
-1. **Level 1: SSoT (最高权威)**
-   - **载体**: `public/chart_spec.json`
-   - **内容**: 定义物理规格、键名 (Key)、Few-shot 范式及基础触发词。
-   - **冲突处理**: 任何与 Spec 不符的数据格式或参数定义均被视为无效。
+## 2. 产品分层 (Core vs Relief)
 
-2. **Level 2: Grammar (语法权威)**
-   - **载体**: `protocol/segments/${id}.md` 中的 `### 指令表`
-   - **内容**: 定义参数词典、详细指令说明及默认值。
-   - **冲突处理**: 指令命名必须以 Spec 为基准，功能描述以手册为准。
+| 层级 | parent_type | 语言 | 用途 |
+|:---|:---|:---|:---|
+| **CORE** | `iqs_native` | **IQS-DSL v1** | 成果报告、专业 QC 图、可审计 |
+| **RELIEF** | `mermaid`, `vchart` | 各方言 | 类型外制图；不得替代核心统计终稿 |
 
-3. **Level 3: Soul (专家权威)**
-   - **载体**: `protocol/segments/${id}.md` 中的 `### 专家逻辑`
-   - **内容**: 定义业务分析策略、QC 深度规范及专家提示。
+**选用红线**
 
-4. **Level 4: Seed (溯源参考)**
-   - **载体**: `docs/` 目录下的原始手册 (`USER_MANUAL_*.md`) 与历史笔记。
-   - **内容**: 提供原始知识背景。
+1. 能映射标准 QC 工具 → 必须使用 CORE（`render_control` / `render_pareto` 等）。
+2. 仅当类型表外 → 使用 RELIEF。
+3. 存在 Native 散点/雷达时，禁止默认走 `render_vchart_scatter` / `render_vchart_radar` 充当 QC 终稿。
 
-## 3. 分布式切片管理原则
-- **物理独立**: 每一个组件 ID 对应一个独立的 `.md` 文件，存于 `protocol/segments/`。
-- **锚点全量**: 修订必须是全量且无损的，严禁在切片中使用占位符。
-- **命名一致性**: 文件名必须与 `chart_spec.json` 中的 `chart_grammars` 键值完全匹配。
+完整语法：**[IQS-DSL v1](../docs/IQS_DSL_V1_SPEC.md)** · 资源 `protocol://dsl/v1`
+
+## 3. 权威性等级 (Hierarchy of Authority)
+
+冲突时按以下顺序裁决（高 → 低）：
+
+1. **Level 0: Language Spec** — `docs/IQS_DSL_V1_SPEC.md` + `dsl/kinds.json`
+2. **Level 1: Runtime Parser** — `components/*Editor` 中 `parse*DSL`（与 Spec 应对齐；漂移时修解析器或升版 Spec）
+3. **Level 2: MCP Kind Resource** — `protocol://segments/{parent}/{sub}`（由 mcp_tools 动态拼接）
+4. **Level 3: Segment Files** — `protocol/segments/*.md`
+5. **Level 4: Seed Docs** — `docs/USER_MANUAL_*.md` 等说明性文档
+
+## 4. MCP 声明策略 (Token)
+
+- `list_tools` 仅发布瘦描述（tier + 一句话 + intents + resource URI）。
+- 完整 Soul/Grammar/Example **仅**通过 `ReadResource` 按需获取。
+- Master 工具不作为可调用 tool 发布，仅用于拼接。
+- 校验失败时用短错误 + skeleton 回执，不在 description 堆防呆长文。
+
+## 5. 切片管理原则
+
+- 物理独立：组件可有 `protocol/segments/{id}.md`。
+- Kind 资源优先：`protocol://segments/{parent_type}/{sub_type}`。
+- 命名：`sub_type` 与 `dsl/kinds.json` 的 `id`、前端 kind 对齐。
+- 变更语法：先改 Spec 版本 → registry → parser → mcp example → `npm run validate:dsl`。
+
+## 6. 输出全局红线
+
+1. 纯文本 DSL，禁止 Markdown 代码围栏。
+2. 禁止把 `dsl` 参数设为 JSON 对象（VChart 亦须 `Title` + `Spec:` 文本外壳）。
+3. 禁止解释性前后缀。
 
 ---
-*IQS Protocol Council - 2026.03*
- Riverside,
+*IQS Protocol Council — 2026.08 (aligned with DSL v1)*

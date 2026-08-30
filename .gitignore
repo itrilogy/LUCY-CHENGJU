@@ -28,3 +28,6 @@ dist-ssr
 
 # MCP Server Renders
 mcp-server/renders/*.png
+
+# Local agent / IDE session metadata
+.reasonix/

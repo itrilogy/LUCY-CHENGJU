@@ -1,4 +1,5 @@
 import { QCToolType } from "../types";
+import { QC_TOOL_TO_KIND } from "../dsl/registry";
 
 interface AIProfile {
     name: string;
@@ -187,24 +188,8 @@ export const generateLogicDSL = async (prompt: string, toolType: QCToolType, sub
                            toolType === QCToolType.MERMAID ? 'mermaid' : 
                            'iqs_native';
 
-        // 2. Dynamic Tooling Lookup (Master + SubType)
-        const subTypeMap: Record<any, string> = {
-            [QCToolType.FISHBONE]: 'fishbone',
-            [QCToolType.PARETO]: 'pareto',
-            [QCToolType.HISTOGRAM]: 'histogram',
-            [QCToolType.CONTROL]: 'control',
-            [QCToolType.SCATTER]: 'scatter',
-            [QCToolType.RELATION]: 'relation',
-            [QCToolType.AFFINITY]: 'affinity',
-            [QCToolType.MATRIX]: 'matrix',
-            [QCToolType.MATRIX_PLOT]: 'matrixPlot',
-            [QCToolType.ARROW]: 'arrow',
-            [QCToolType.RADAR]: 'radar',
-            [QCToolType.PDPC]: 'pdpc',
-            [QCToolType.BASIC]: 'basic'
-        };
-
-        let finalSubType = subType || subTypeMap[toolType];
+        // 2. Dynamic Tooling Lookup (Master + SubType) — IQS-DSL v1 registry
+        let finalSubType = subType || QC_TOOL_TO_KIND[toolType];
 
         // 2. Stage 1: Intent Discovery (if subType is unknown)
         if (!finalSubType && (parentType === 'vchart' || parentType === 'mermaid')) {
@@ -236,21 +221,21 @@ export const generateLogicDSL = async (prompt: string, toolType: QCToolType, sub
  * Generates DSL for Pareto Chart
  */
 export const generateParetoDSL = async (prompt: string) => {
-    return generateLogicDSL(prompt, QCToolType.BASIC, "pareto");
+    return generateLogicDSL(prompt, QCToolType.PARETO, "pareto");
 };
 
 /**
  * Generates DSL for Histogram
  */
 export const generateHistogramDSL = async (prompt: string) => {
-    return generateLogicDSL(prompt, QCToolType.BASIC, "histogram");
+    return generateLogicDSL(prompt, QCToolType.HISTOGRAM, "histogram");
 };
 
 /**
  * Generates DSL for Control Chart
  */
 export const generateControlDSL = async (prompt: string) => {
-    return generateLogicDSL(prompt, QCToolType.BASIC, "control");
+    return generateLogicDSL(prompt, QCToolType.CONTROL, "control");
 };
 
 /**

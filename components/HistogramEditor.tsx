@@ -33,7 +33,8 @@ export const parseHistogramDSL = (content: string, baseStyles: HistogramChartSty
 
     lines.forEach(line => {
         const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) return;
+        // IQS-DSL v1: // canonical; # legacy comment outside TreeBody
+        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) return;
 
         const titleMatch = trimmed.match(/^Title:\s*(.+)/);
         if (titleMatch) { newStyles.title = titleMatch[1].trim(); return; }

@@ -38,6 +38,10 @@
   - `ValueList` 格式为 `[v1, v2, ...]`。
   - `Color` 可为 HEX 或 `null`。
 
+### 注释与权威
+- 行注释：`//`；`#` 行在本 kind 中丢弃（非 Tree）。
+- 完整规范见 [IQS-DSL v1](../../docs/IQS_DSL_V1_SPEC.md) · kind=`radar`（CORE Native，优先于 `render_vchart_radar`）。
+
 ---
 
 ## 3. 官方示例 (The Seed)

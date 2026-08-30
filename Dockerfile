@@ -1,7 +1,29 @@
-# Multi-service Production Stage
+# ============================================================
+# Stage 1: Build — compile the frontend with all dev dependencies
+# ============================================================
+FROM node:20-slim AS builder
+
+WORKDIR /app
+
+# Copy dependency manifests first (layer caching)
+COPY package*.json ./
+COPY mcp-server/package*.json ./mcp-server/
+
+# Install ALL dependencies (including devDeps for building)
+RUN npm install
+
+# Copy all source files
+COPY . .
+
+# Build the frontend (Vite)
+RUN npm run build
+
+# ============================================================
+# Stage 2: Production — minimal runtime image
+# ============================================================
 FROM node:20-slim AS production
 
-# Install Chromium for Puppeteer
+# Install Chromium for Puppeteer (headless rendering)
 RUN apt-get update && apt-get install -y \
     chromium \
     fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-freefont-ttf libxss1 \
@@ -10,30 +32,37 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy package files from local root and mcp-server
+# Copy dependency manifests
 COPY package*.json ./
 COPY mcp-server/package*.json ./mcp-server/
 
-# Install dependencies (including production deps for both)
-RUN npm install --omit=dev
+# Install production dependencies for root project
+# (vite is needed at runtime for `vite preview` to serve the built frontend)
+RUN npm install
+
+# Install production-only dependencies for MCP Server
 RUN cd mcp-server && npm install --omit=dev
 
-# Copy project files
-COPY . .
+# Copy built frontend from builder stage
+COPY --from=builder /app/dist ./dist
 
-# Build the Frontend
-RUN npm run build
+# Copy runtime source files
+COPY mcp-server/index.js ./mcp-server/
+COPY mcp-server/mcp_tools.json ./mcp-server/
+COPY protocol ./protocol
+COPY public ./public
+COPY docker-entrypoint.sh .
 
-# Expose ports: 
-# 5173 for Frontend (internal/external)
-# 3000 for MCP Server (SSE)
+# Expose ports:
+#   5173 — Frontend (Vite preview)
+#   3000 — MCP Server (SSE)
 EXPOSE 5173 3000
 
-# Environment variables
+# Runtime environment
 ENV NODE_ENV=production
 ENV IQS_BASE_URL=http://localhost:5173
 ENV PORT=3000
 
-# Entrypoint script to start both services
 RUN chmod +x docker-entrypoint.sh
+
 ENTRYPOINT ["./docker-entrypoint.sh"]

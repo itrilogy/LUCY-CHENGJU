@@ -36,7 +36,8 @@ export const parseParetoDSL = (content: string, baseStyles: ParetoChartStyles = 
 
     lines.forEach(line => {
         const trimmed = line.trim();
-        if (!trimmed) return;
+        // IQS-DSL v1 comments
+        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) return;
 
         const titleMatch = trimmed.match(/^Title:\s*(.+)/);
         if (titleMatch) { newStyles.title = titleMatch[1]; return; }

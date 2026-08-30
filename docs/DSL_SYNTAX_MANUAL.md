@@ -1,8 +1,14 @@
-# Smart QC Studio DSL 权威指南 (V2.0)
+# Smart QC Studio DSL 权威指南 (V2.0) — 历史文档
 
-> 本文档旨在为质量管理工程师、系统分析师及 AI 开发者提供 Smart QC Studio DSL (Domain Specific Language) 的全景式参考。通过这一套简洁的文本语言，您可以直接跨越绘图工具的繁琐操作，实现“描述即图表”。
+> ⚠️ **现行完整语法以 IQS-DSL v1.1 为准：**  
+> - **细粒度手册**：[IQS_DSL_V1_MANUAL.md](./IQS_DSL_V1_MANUAL.md)  
+> - **架构规范**：[IQS_DSL_V1_SPEC.md](./IQS_DSL_V1_SPEC.md)  
+> - **注册表**：`../dsl/kinds.json`  
+>
+> 下文为历史 V2.0 整合稿，仅供对照；**冲突时忽略本节以下内容**。
 
 ---
+
 
 ## 1. 绪论 (Introduction)
 

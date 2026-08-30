@@ -36,7 +36,11 @@
 ### 功能开关
 - `ShowTrend`: true/false (显示回归趋势线)
 - `ShowValues`: true/false (显示数据标记)
-- `3D`: true/false (启用 3D 视图模式)
+- `Show3D`: true/false (启用 3D 视图；兼容旧键 `3D:`)
+
+### 注释与层级
+- 行注释：`//`（规范）；`#` 在本 kind 中仅作兼容注释，**不是**结构语法。
+- 完整规范见 [IQS-DSL v1](../../docs/IQS_DSL_V1_SPEC.md) · kind=`scatter`（CORE，非 VChart 救济）。
 
 ### 数据项录入
 使用 `- ` 开头定义数据点，格式为 `X, Y, [Z]`
