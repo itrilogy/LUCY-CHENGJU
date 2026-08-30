@@ -757,6 +757,14 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       let pts: { x: number; y: number }[] = [];
       if (Math.abs(s.x - t.x) < 1 && Math.abs(s.y - t.y) < 1) {
         pts = [{ x: s.x, y: s.y }, { x: t.x, y: t.y }];
+      } else if (Math.abs(s.x - t.x) < 1) {
+        // 【修复】同竖直轴：源 B 与目标 T 同列相邻，直接竖直连接。
+        // 若走 "竖-横-竖" 分支，snapTo 会把横段吸附到错误的行网格线（如上一行边界），
+        // 形成"上折 → 回穿源节点"的绕路（正是"提交采购申请""部门经理审批"被贯穿的根因）。
+        pts = [{ x: s.x, y: s.y }, { x: t.x, y: t.y }];
+      } else if (Math.abs(s.y - t.y) < 1) {
+        // 【修复】同水平轴：源 R 与目标 L 同行相邻，直接水平连接（避免 snap 到错误列边界绕路）。
+        pts = [{ x: s.x, y: s.y }, { x: t.x, y: t.y }];
       } else if (horiz1 && horiz2) {
         // 源水平出 + 目标水平入：横-竖-横（竖段吸到列边界）
         const mx = snapTo(midX ?? (s.x + t.x) / 2, xMarks);
