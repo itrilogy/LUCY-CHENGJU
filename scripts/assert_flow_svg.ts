@@ -51,10 +51,12 @@ check('行标签 信息中心', svg.includes('信息中心'));
 check('行标签 综合计划科', svg.includes('综合计划科'));
 check('列标签 申请阶段', svg.includes('申请阶段'));
 check('列标签 归档阶段', svg.includes('归档阶段'));
-// 节点文本
-for (const t of ['提交采购申请', '填写申请单', '金额超过5000?', '部门经理审批', '直接执行', '财务付款', '归档']) {
+// 节点文本（超长节点文本现在会多行折行，检查折行片段）
+for (const t of ['提交采购申请', '填写申请单', '部门经理审批', '直接执行', '财务付款', '归档', '金额超过50', '00?']) {
   check(`节点文本 ${t}`, svg.includes(t));
 }
+// 折行验证：长文本 "金额超过5000?" 被拆分为多行 tspan
+check('长文本多行折行(tspan)', svg.includes('<tspan') && svg.includes('金额超过50') && svg.includes('00?'));
 // 连线标签
 check('连线标签 是', svg.includes('>是<'));
 check('连线标签 否', svg.includes('>否<'));

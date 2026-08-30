@@ -55,23 +55,32 @@ export function flowToDsl(data: FlowData): string {
   // attr
   if (data.attrPanel?.active?.length) lines.push(`Attr active [${data.attrPanel.active.map((a) => a.toUpperCase()).join(',')}]`);
   lines.push('');
-  // nodes + branch + edges (简化：节点按序列出，分支目标绘制在标签后)
+  // nodes + 网关分支块（分支出口紧随网关节点，End 闭合）+ 普通显式边置文末
   lines.push('// ===== 节点 =====');
+  const gatewayNodes = new Set(data.nodes.filter((n) => n.type === 'exclusiveGateway' || n.type === 'parallelGateway').map((n) => n.id));
   for (const n of data.nodes) {
     const typeTag = n.type !== 'task' ? ` Type[${TYPEMAP[n.type] || 'T'}]` : '';
     const loc = n.cell ? ` Location(${Object.entries(n.cell).map(([k, v]) => `${k}[${v}]`).join(',')})` : '';
     const attrs = Object.entries(n.attrs).map(([k, v]) => `${k.toUpperCase()}(${v})`).join(' ');
     lines.push(`W: ${n.id}: ${n.labelRef || n.label}${typeTag}${loc}${attrs ? ' ' + attrs : ''}`);
+    // BUG-02 修复：网关出边就地输出为缩进分支行 + End，保留块级上下文
+    if (gatewayNodes.has(n.id)) {
+      const branches = data.edges.filter((e) => e.from === n.id && !e.parent);
+      for (const e of branches) {
+        const tag = e.label || e.condition || '';
+        lines.push(`   ${tag} → #${e.to}`);
+      }
+      lines.push('   End');
+    }
   }
   lines.push('');
-  // edges：分支（label）与显式边
+  // 普通显式边（非网关出边）置文末
   lines.push('// ===== 连线 =====');
-  const simple = data.edges.filter((e) => !e.label && !e.condition);
   for (const e of data.edges) {
-    if (e.label) lines.push(`  ${e.label}${e.condition ? ` [${e.condition}]` : ''} → #${e.to}`);
-    else lines.push(`${e.from} → #${e.to}`);
+    if (e.parent) continue;
+    if (gatewayNodes.has(e.from)) continue; // 已在网关块内输出
+    lines.push(`${e.from} → #${e.to}`);
   }
-  void simple;
   return lines.join('\n');
 }
 

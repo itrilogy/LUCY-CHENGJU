@@ -92,6 +92,31 @@ function esc(s: string): string {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/** 文本折行：按最大字符数切分（CJK ~6 字/行，ASCII ~10），返回行数组 */
+function wrapLabel(label: string, maxChars = 6): string[] {
+  const s = String(label);
+  if (s.length <= maxChars) return [s];
+  const lines: string[] = [];
+  let cur = '';
+  for (const ch of s) {
+    cur += ch;
+    if (cur.length >= maxChars) { lines.push(cur); cur = ''; }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+/** 渲染多行文本：返回 <text> 内含 <tspan>，按行高 fs*1.3 递增 */
+function multilineText(cx: number, cy: number, lines: string[], fs: number, fill: string): string {
+  if (lines.length <= 1) {
+    return `<text x="${cx}" y="${cy + fs * 0.36}" text-anchor="middle" fill="${fill}" font-size="${fs}" font-weight="500">${esc(lines[0] || '')}</text>`;
+  }
+  const lh = fs * 1.3;
+  const firstY = cy - ((lines.length - 1) * lh) / 2 + fs * 0.36;
+  const tspans = lines.map((ln, i) => `<tspan x="${cx}" y="${firstY + i * lh}">${esc(ln)}</tspan>`).join('');
+  return `<text x="${cx}" y="${cy}" text-anchor="middle" fill="${fill}" font-size="${fs}" font-weight="500">${tspans}</text>`;
+}
+
 /** 节点形状（中心格内，1W×1H） */
 function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy: number, W: number, H: number): string {
   const label = n.label || n.labelRef || n.id;
@@ -99,15 +124,16 @@ function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy:
   const stroke = 'rgba(15,23,42,0.25)';
   const tw = textW(label, fs);
   let shape = '';
-  // 圆形节点（start/end）：字符超出圆形时加"字符底色"底板（与节点色、字体色均差异的灰色）
+  // 圆形节点（start/end）：字符超出圆形时加"字符底色"底板，超长折行
   if (n.type === 'start' || n.type === 'end') {
     const r = Math.min(W, H) / 2;
     const fill = n.type === 'start' ? st.startColor : st.endColor;
     const sw = n.type === 'start' ? 1.5 : 3;
+    const lines = wrapLabel(label);
     const labelPlate = tw > r * 1.6
-      ? `<rect x="${cx - tw / 2 - 6}" y="${cy - fs / 2 - 4}" width="${tw + 12}" height="${fs + 8}" rx="4" fill="#64748b" stroke="none" opacity="0.9"/>`
+      ? `<rect x="${cx - tw / 2 - 6}" y="${cy - (lines.length * fs * 1.3) / 2 - 4}" width="${tw + 12}" height="${lines.length * fs * 1.3 + 8}" rx="4" fill="#64748b" stroke="none" opacity="0.9"/>`
       : '';
-    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>${labelPlate}<text x="${cx}" y="${cy + fs * 0.36}" text-anchor="middle" fill="${labelPlate ? '#f8fafc' : '#fff'}" font-size="${fs}" font-weight="500">${esc(label)}</text>`;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>${labelPlate}${multilineText(cx, cy, lines, fs, labelPlate ? '#f8fafc' : '#fff')}`;
   }
   switch (n.type) {
     case 'exclusiveGateway':
@@ -116,12 +142,20 @@ function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy:
       shape = `<path d="${d}" fill="${n.type === 'parallelGateway' ? st.parallelColor : st.gatewayColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
     }
-    case 'annotation':
-      shape = `<rect x="${cx - W / 2}" y="${cy - H / 2}" width="${W}" height="${H}" rx="3" fill="${st.annotationColor}" stroke="${stroke}" stroke-width="1.5"/>`;
+    case 'annotation': {
+      // 折角纸：右上角折角多边形（annotation 标记）
+      const w = W, h = H, x0 = cx - w / 2, y0 = cy - h / 2, fold = 12;
+      const pts = `${x0},${y0} ${x0 + w - fold},${y0} ${x0 + w},${y0 + fold} ${x0 + w},${y0 + h} ${x0},${y0 + h}`;
+      shape = `<polygon points="${pts}" fill="${st.annotationColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
-    case 'dataObject':
-      shape = `<rect x="${cx - W / 2}" y="${cy - H / 2}" width="${W}" height="${H}" rx="5" fill="${st.dataColor}" stroke="${stroke}" stroke-width="1.5"/>`;
+    }
+    case 'dataObject': {
+      // 数据对象（纸带）：底部内凹 + 左上角小折
+      const w = W, h = H, x0 = cx - w / 2, y0 = cy - h / 2, fold = 14;
+      const d = `M${x0},${y0} L${x0 + w - fold},${y0} L${x0 + w},${y0 + fold} L${x0 + w},${y0 + h} L${x0 + fold},${y0 + h} L${x0},${y0 + h - fold} Z`;
+      shape = `<path d="${d}" fill="${st.dataColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
+    }
     case 'subprocess':
       shape = `<rect x="${cx - W / 2}" y="${cy - H / 2}" width="${W}" height="${H}" rx="6" fill="${st.subprocessColor}" stroke="${stroke}" stroke-width="1.5"/>`;
       break;
@@ -130,12 +164,13 @@ function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy:
       break;
   }
   const tw2 = textW(label, fs);
-  const overflow = tw2 > W - 8;
-  // 矩形等其它节点：文字超宽时也给底色（与形状色差异），字体色差异
+  const lines = wrapLabel(label);
+  const overflow = tw2 > W - 8 || lines.length > 1;
+  // 矩形等其它节点：文字超宽/多行时也给底色（与形状色差异），字体色差异
   const plate = overflow
-    ? `<rect x="${cx - tw2 / 2 - 6}" y="${cy - fs / 2 - 4}" width="${tw2 + 12}" height="${fs + 8}" rx="4" fill="#475569" opacity="0.9"/>`
+    ? `<rect x="${cx - tw2 / 2 - 6}" y="${cy - (lines.length * fs * 1.3) / 2 - 4}" width="${tw2 + 12}" height="${lines.length * fs * 1.3 + 8}" rx="4" fill="#475569" opacity="0.9"/>`
     : '';
-  return shape + plate + `<text x="${cx}" y="${cy + fs * 0.36}" text-anchor="middle" fill="${overflow ? '#f8fafc' : '#fff'}" font-size="${fs}" font-weight="500">${esc(label)}</text>`;
+  return shape + plate + multilineText(cx, cy, lines, fs, overflow ? '#f8fafc' : '#fff');
 }
 
 function arrowMarker(id: string, color: string): string {
@@ -191,24 +226,29 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   }
 
   // 归类节点到交叉格 (ri,ci)
-  // 单维泳道：横向(行泳道)→每个节点独立一列(ci递增)；纵向(列泳道)→每个节点独立一行(ri递增)
+  // 单维泳道：横向(H轴)=每行一条泳道，节点沿列依次排；纵向(V轴)=每列一条泳道，节点沿行依次排
+  // BUG-01 修复：泳道索引取节点 cell 中对应字典索引（Location(D[n])/Location(P[n])），
+  //             不再硬编码为 0；同泳道内节点按声明顺序递增另一维。
   const isHSingle = realRows.length > 0 && realCols.length === 0; // 只有 H 轴（横向泳道）
   const isVSingle = realCols.length > 0 && realRows.length === 0; // 只有 V 轴（纵向泳道）
   const group = new Map<string, FlowData['nodes'][0][]>();
   const cellXY = new Map<string, { nx: number; ny: number; items: { n: FlowData['nodes'][0]; gridX: number; gridY: number; m: NodeMetrics }[] }>();
-  // 单维时按声明顺序给每个节点分配独立格子坐标
-  let singleSeq = 0;
+  const laneSeq = new Map<number, number>(); // 泳道索引 -> 该泳道内已用序列
   for (const n of data.nodes) {
     const key = cellKeyOf(n.cell);
     let rc = key ? cellNodeId.get(key) : undefined;
     if (isHSingle) {
-      // 单维横向：每个节点独立一列（ci 递增，ri=0）
-      rc = { ri: 0, ci: singleSeq };
-      singleSeq++;
+      // 横向泳道：ri = 节点 cell 中 H 泳道字典索引；ci = 该泳道内声明序号
+      const laneIdx = n.cell ? (Object.values(n.cell)[0] ?? 0) : 0;
+      const seq = laneSeq.get(laneIdx) ?? 0;
+      laneSeq.set(laneIdx, seq + 1);
+      rc = { ri: laneIdx, ci: seq };
     } else if (isVSingle) {
-      // 单维纵向：每个节点独立一行（ri 递增，ci=0）
-      rc = { ri: singleSeq, ci: 0 };
-      singleSeq++;
+      // 纵向泳道：ci = 节点 cell 中 V 泳道字典索引；ri = 该泳道内声明序号
+      const laneIdx = n.cell ? (Object.values(n.cell)[0] ?? 0) : 0;
+      const seq = laneSeq.get(laneIdx) ?? 0;
+      laneSeq.set(laneIdx, seq + 1);
+      rc = { ri: seq, ci: laneIdx };
     } else if (!rc) {
       rc = { ri: 0, ci: 0 };
     }
@@ -597,5 +637,41 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     parts.push(nodeShape(p.n, st, p.x, p.y, p.W, p.H));
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${parts.join('')}</svg>`;
+  // ===== FEAT-01：六属性图例边栏（AttrPanel） =====
+  // 依据 data.attrPanel.active 聚合各节点的 attrs（role/sop/lv/time/kpi/m），
+  // 在网格下方绘制属性图例卡片。属性值去重、按首次出现顺序排列。
+  let panelH = 0;
+  const panelParts: string[] = [];
+  const activeAttrs = data.attrPanel?.active || [];
+  if (activeAttrs.length) {
+    const ATTR_LABEL: Record<string, string> = { role: '岗位', sop: '依据/SOP', lv: '风险度', time: '时效(SLA)', kpi: 'KPI 指标', m: '标记' };
+    const agg = new Map<string, string[]>(); // key -> 按首次出现顺序去重后的值
+    for (const key of activeAttrs) agg.set(key, []);
+    for (const n of data.nodes) {
+      for (const [k, v] of Object.entries(n.attrs || {})) {
+        const key = k.toLowerCase();
+        if (agg.has(key) && v && !agg.get(key)!.includes(v)) agg.get(key)!.push(v);
+      }
+    }
+    const entries = activeAttrs.filter((k) => agg.get(k) && agg.get(k)!.length > 0);
+    if (entries.length) {
+      const pad = 10, rowH = 20, titleH = 18;
+      const panelW = Math.max(200, L.gridRight - 0);
+      // 每条属性一行：标签 + 去重值（逗号连接）
+      let y = L.gridBottom + 12;
+      panelParts.push(`<rect x="0" y="${y}" width="${panelW}" height="${titleH + entries.length * rowH + pad * 2}" fill="#f8fafc" stroke="#94a3b8" stroke-width="1"/>`);
+      panelParts.push(`<text x="${pad}" y="${y + 14}" font-size="11" font-weight="bold" fill="${st.axisColor}">属性图例</text>`);
+      y += titleH + 4;
+      for (const key of entries) {
+        const vals = agg.get(key)!;
+        panelParts.push(`<text x="${pad}" y="${y + rowH - 6}" font-size="11" fill="${st.axisColor}">${esc(ATTR_LABEL[key] || key)}</text>`);
+        panelParts.push(`<text x="${pad + 90}" y="${y + rowH - 6}" font-size="11" fill="${st.textColor}">${esc(vals.join('、'))}</text>`);
+        y += rowH;
+      }
+      panelH = titleH + entries.length * rowH + pad * 2 + 12;
+    }
+  }
+
+  const outHeight = height + panelH;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${outHeight}" viewBox="0 0 ${width} ${outHeight}">${parts.join('')}${panelParts.join('')}</svg>`;
 }
