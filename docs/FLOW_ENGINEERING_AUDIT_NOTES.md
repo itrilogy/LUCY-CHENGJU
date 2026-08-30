@@ -29,12 +29,12 @@
 
 | 编号 | 严重级 | 问题分类 | 涉及文件与位置 | 简述 | 状态 |
 |:---|:---:|:---|:---|:---|:---:|
-| **BUG-01** | 高 | 逻辑缺陷 | `components/flow/flowToSVG.ts:L195-L218` | 单维泳道下节点行列索引被硬编码覆盖为 0，导致多泳道分类失效 | 待修复 |
-| **FEAT-01**| 中 | 功能未闭环 | `components/flow/flowToSVG.ts`、`FlowParser.ts:L381` | `Attr active` 提取的六属性面板数据未在 SVG 画面中绘制边栏图例 | 待实现 |
-| **BUG-02** | 中 | 格式还原缺陷 | `components/flow/FlowEditor.tsx:L68-L75` | `flowToDsl` 反序列化将分支边扁平化至文末，丢失网关块级上下文 | 待修复 |
-| **UI-01**   | 低 | 视觉规范对齐 | `components/flow/flowToSVG.ts:L112-L139` | `Type[N]` 折角纸与 `Type[DATA]` 纸带图形未做特定 SVG Path 渲染 | 待优化 |
-| **UI-02**   | 低 | 文字排版 | `components/flow/flowToSVG.ts:L96-L139` | 超长节点文本仅加底板未做多行 `<tspan>` 折行 | 待优化 |
-| **DOC-01**  | 低 | 文档滞后 | `docs/IQS_FLOW_DSL_SPEC.md:L3` | 规范文档状态标头仍显示“尚未实现” | 待更新 |
+| **BUG-01** | 高 | 逻辑缺陷 | `components/flow/flowToSVG.ts` | 单维泳道下节点行列索引被硬编码覆盖为 0，导致多泳道分类失效 | ✅ 已修复 (`a0c95e7`) |
+| **FEAT-01**| 中 | 功能未闭环 | `components/flow/flowToSVG.ts`、`FlowParser.ts` | `Attr active` 提取的六属性面板数据未在 SVG 画面中绘制边栏图例 | ✅ 已实现 (`a0c95e7`) |
+| **BUG-02** | 中 | 格式还原缺陷 | `components/flow/FlowEditor.tsx` | `flowToDsl` 反序列化将分支边扁平化至文末，丢失网关块级上下文 | ✅ 已修复 (`a0c95e7`) |
+| **UI-01**   | 低 | 视觉规范对齐 | `components/flow/flowToSVG.ts` | `Type[N]` 折角纸与 `Type[DATA]` 纸带图形未做特定 SVG Path 渲染 | ✅ 已优化 (`a0c95e7`) |
+| **UI-02**   | 低 | 文字排版 | `components/flow/flowToSVG.ts` | 超长节点文本仅加底板未做多行 `<tspan>` 折行 | ✅ 已优化 (`a0c95e7`) |
+| **DOC-01**  | 低 | 文档滞后 | `docs/IQS_FLOW_DSL_SPEC.md` | 规范文档状态标头仍显示“尚未实现” | ✅ 已更新 (`a55f2d2`) |
 
 ---
 
