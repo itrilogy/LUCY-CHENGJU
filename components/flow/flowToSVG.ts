@@ -322,6 +322,12 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   const realRows = rowsOf(data), realCols = colsOf(data);
   const isHSingle = realRows.length > 0 && realCols.length === 0;
   const isVSingle = realCols.length > 0 && realRows.length === 0;
+  // DOC 虚拟泳道：当出现顶层 N/DATA（annotation/dataObject）时，最右侧追加一列 DOC（文档信息泳道），
+  // N/DATA 与其他主流程节点一起参与布局（落格、纵向避让、推动列宽/行高），与依附节点行对齐。
+  const hasTopNData = data.nodes.some((n) => !n.parent && (n.type === 'annotation' || n.type === 'dataObject'));
+  if (hasTopNData && !cols.some((c) => c.dict === 'DOC')) {
+    cols = [...cols, { dict: 'DOC', idx: 0 }];
+  }
   let nR = rows.length || 1, nC = cols.length || 1;
   const fs = st.nodeFontSize;
 
@@ -357,11 +363,34 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     return cols.findIndex((c) => c.dict === dict && c.idx === idx);
   };
 
+  // 计算 N/DATA 依附主节点所在的行（对齐优先）：attach 目标的主网格行，无则 -1
+  const attachRowOf = (n: FlowData['nodes'][0]): number => {
+    const tid = n.attach;
+    if (!tid) return -1;
+    const t = data.nodes.find((x) => x.id === tid);
+    if (!t || !t.cell) return -1;
+    for (let ri = 0; ri < rows.length; ri++) {
+      const r = rows[ri];
+      if (t.cell[r.dict] === r.idx) return ri;
+    }
+    return -1;
+  };
+
   // 第一遍：显式 cell 的主网格节点归类（ALIGN-2/3：内部节点与 N/DATA 不进主网格）
   const autoSeq: FlowData['nodes'][0][] = [];
   for (const n of data.nodes) {
     if (!isLayoutNode(n)) {
-      if (!n.parent && (n.type === 'annotation' || n.type === 'dataObject')) artifacts.push(n);
+      // N/DATA（annotation/dataObject）：纳入 DOC 虚拟泳道列，行 = 依附主节点的行（对齐优先）
+      if (!n.parent && (n.type === 'annotation' || n.type === 'dataObject')) {
+        const docCi = cols.findIndex((c) => c.dict === 'DOC');
+        const attachRi = attachRowOf(n);
+        const ri = attachRi >= 0 ? attachRi : 0;
+        const ci = docCi >= 0 ? docCi : cols.length - 1;
+        const gk = `${ri}_${ci}`;
+        if (!group.has(gk)) group.set(gk, []);
+        group.get(gk)!.push(n);
+        usedCell.add(gk);
+      }
       continue;
     }
     if (!n.cell) { autoSeq.push(n); continue; } // 缺省坐标：第二遍自动落格
@@ -816,6 +845,12 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
 
   // ===== 两趟端口分配：先"入口"（几何指向约束强），后"出口"（避开已占入口） =====
   const edgeList = data.edges.filter((x) => !x.parent);
+  // 为 N/DATA（annotation/dataObject）注入"依附虚边"：走与普通边同一种连线逻辑，仅渲染 dasharray 虚线。
+  for (const n of data.nodes) {
+    if (!n.parent && (n.type === 'annotation' || n.type === 'dataObject') && n.attach) {
+      edgeList.push({ id: `doc_${n.id}`, from: n.id, to: n.attach, type: 'sequence', label: null, condition: '__doc__', default: false });
+    }
+  }
   // R1 走线精细：跨边共享"已用走廊"（横段用 y、竖段用 x，四舍五入到像素避免浮点重复），
   // 使同走廊多条边错开不同的分数通道位置而非全部叠回同一中线。
   const usedCorrX = new Set<number>();
@@ -996,7 +1031,8 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       const mx = p0.x + ux * 10, my = p0.y + uy * 10;
       slash = `<line data-flow="default-slash" x1="${mx - uy * 6}" y1="${my + ux * 6}" x2="${mx + uy * 6}" y2="${my - ux * 6}" stroke="${st.lineColor}" stroke-width="${st.lineWidth}"/>`;
     }
-    parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}" marker-end="url(#flowArrow)"/>${slash}${label}`);
+    const dash = e.condition === '__doc__' ? ' stroke-dasharray="6 4"' : '';
+    parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}"${dash} marker-end="url(#flowArrow)"/>${slash}${label}`);
   }
 
   // 节点
