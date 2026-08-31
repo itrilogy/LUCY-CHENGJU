@@ -169,5 +169,35 @@ q2 → #w3`);
   check('子流程绘 BPMN 展开＋盒', subSvg.includes('width="10" height="10"'));
 }
 
+// ===== 阶段三：Axis 整图标题 Align L/R/C + Color[Panel] 配色 =====
+{
+  // Align L：整图标题左对齐（text-anchor=start）
+  const a = parseFlowDSL(`Title: 左对齐
+Axis: 整图标题左对齐 AxisX Align L
+W: w1: 开始 Type[S]
+W: w2: 结束 Type[E]`);
+  const aSvg = flowToSVG(a.data, a.styles);
+  check('align-L: 整图标题 text-anchor=start', aSvg.includes('text-anchor="start"') && aSvg.includes('左对齐'), a.errors.join());
+  check('align-L: 无错误', a.errors.length === 0, a.errors.join());
+
+  // Align R：整图标题右对齐（text-anchor=end）
+  const b = parseFlowDSL(`Title: t
+Axis: 整图标题右对齐 AxisX Align R
+W: w1: 开始 Type[S]
+W: w2: 结束 Type[E]`);
+  const bSvg = flowToSVG(b.data, b.styles);
+  check('align-R: 整图标题 text-anchor=end', bSvg.includes('text-anchor="end"') && bSvg.includes('整图标题右对齐'), b.errors.join());
+
+  // Color[Panel]：图例边栏背景色可定制
+  const c = parseFlowDSL(`Title: t
+Attr active [Role]
+Color[Panel]: #ff0000
+W: w1: 开始 Type[S]
+W: w2: 处理 Role(R[0])
+W: w3: 结束 Type[E]`);
+  const cSvg = flowToSVG(c.data, c.styles);
+  check('color-panel: 面板背景用 Color[Panel]', cSvg.includes('#ff0000'));
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);

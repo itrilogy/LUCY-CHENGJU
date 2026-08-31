@@ -931,6 +931,7 @@ export interface FlowChartStyles {
   axisColor: string;
   lineColor: string;
   textColor: string;
+  panelColor: string;
   labelFontSize: number;
   nodeFontSize: number;
   lineWidth: number;
@@ -952,6 +953,7 @@ export const DEFAULT_FLOW_STYLES: FlowChartStyles = {
   axisColor: '#334155',
   lineColor: '#64748b',
   textColor: '#1e293b',
+  panelColor: '#f8fafc',
   labelFontSize: 14,
   nodeFontSize: 13,
   lineWidth: 2

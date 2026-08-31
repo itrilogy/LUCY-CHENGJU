@@ -564,7 +564,7 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   const placeY = data.axes?.page?.place === 'AxisY';
 
   // 泳道区背景
-  parts.push(`<rect x="${x0}" y="${y0}" width="${L.gridRight - x0}" height="${L.gridBottom - y0}" fill="#f8fafc"/>`);
+  parts.push(`<rect x="${x0}" y="${y0}" width="${L.gridRight - x0}" height="${L.gridBottom - y0}" fill="${st.panelColor || '#f8fafc'}"/>`);
   // 绘制格分布：每个交叉格（含空格）画真实列宽/行高的矩形，行列对齐直接可见
   for (let ri = 0; ri < nR; ri++) {
     for (let ci = 0; ci < nC; ci++) {
@@ -585,6 +585,9 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
 
   // ===== 流程图标题：AxisX=顶部通栏 / AxisY=左侧竖向标题带（不横排超宽） =====
   const titleText = data.title || st.title || '流程图';
+  // Align L/R/C：整图标题按 axis.page.align 对齐（默认居中 C）
+  const pageAlign = data.axes?.page?.align || 'C';
+  const titleAnchor = pageAlign === 'L' ? 'start' : pageAlign === 'R' ? 'end' : 'middle';
   if (placeY) {
     // AxisY：左侧竖向标题带，宽度 titleBandW，旋转 -90°（文字竖向，宽度合理不横排）
     // 高度：从 colLabelH 顶部（titleH）到 gridBottom，与 X 轴泳道区（列头+网格）齐平；
@@ -594,27 +597,35 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     const bandH = L.gridBottom - bandTopY;
     const bandMidY = bandTopY + bandH / 2;
     parts.push(`<rect x="0" y="${bandTopY}" width="${tbw}" height="${bandH}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
-    parts.push(`<text x="${tbw / 2}" y="${bandMidY}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${tbw / 2} ${bandMidY})" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
+    // 竖向带内 Align（旋转文字：L/R 沿带内 x 略偏，保持旋转居中不受水平错位影响）
+    const tiltX = pageAlign === 'L' ? 10 : pageAlign === 'R' ? tbw - 10 : tbw / 2;
+    parts.push(`<text x="${tiltX}" y="${bandMidY}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${tiltX} ${bandMidY})" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
   } else {
     parts.push(`<rect x="0" y="0" width="${L.gridRight}" height="${FLOW_SVG.titleH}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
-    parts.push(`<text x="${L.gridRight / 2}" y="${FLOW_SVG.titleH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
+    const titleX = pageAlign === 'L' ? 12 : pageAlign === 'R' ? L.gridRight - 12 : L.gridRight / 2;
+    parts.push(`<text x="${titleX}" y="${FLOW_SVG.titleH / 2}" text-anchor="${titleAnchor}" dominant-baseline="middle" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
   }
 
   // ===== 轴坐标标题 + 泳道标签：左/上表头，格子化，默认居中 =====
   const axisXT = data.axes?.x?.title || '';
   const axisYT = data.axes?.y?.title || '';
   const cornerW = L.bandLeft, cornerH = FLOW_SVG.colLabelH;
-  // 左上角格：axis-x（顶部表头，水平居中）+ axis-y（左上角格水平，与axis-x分两行）
+  // 左上角格：axis-x（顶部表头，按 axes.x.align 对齐）+ axis-y（左上角格水平，按 axes.y.align）
   // 左表头整体向右偏移 titleBandW（AxisY 标题带在最左）
   const hx = L.titleBandW;
   if (axisXT || axisYT) {
     parts.push(`<rect x="${hx}" y="${FLOW_SVG.titleH}" width="${cornerW}" height="${cornerH}" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>`);
+    // Align：坐标轴标题沿角落格 x 轴对齐（L=start 靠左, R=end 靠右, C=中间）
+    const padX = 6;
+    const anchorFor = (al: string | undefined) => al === 'L' ? 'start' : al === 'R' ? 'end' : 'middle';
+    const xFor = (al: string | undefined) => al === 'L' ? hx + padX : al === 'R' ? hx + cornerW - padX : hx + cornerW / 2;
     if (axisXT && axisYT) {
-      parts.push(`<text x="${hx + cornerW / 2}" y="${FLOW_SVG.titleH + 11}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="11" font-weight="bold">${esc(axisXT)}</text>`);
-      parts.push(`<text x="${hx + cornerW / 2}" y="${FLOW_SVG.titleH + 24}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="10">${esc(axisYT)}</text>`);
+      parts.push(`<text x="${xFor(data.axes?.x?.align)}" y="${FLOW_SVG.titleH + 11}" text-anchor="${anchorFor(data.axes?.x?.align)}" dominant-baseline="middle" fill="${st.axisColor}" font-size="11" font-weight="bold">${esc(axisXT)}</text>`);
+      parts.push(`<text x="${xFor(data.axes?.y?.align)}" y="${FLOW_SVG.titleH + 24}" text-anchor="${anchorFor(data.axes?.y?.align)}" dominant-baseline="middle" fill="${st.axisColor}" font-size="10">${esc(axisYT)}</text>`);
     } else {
       const axisLabel = axisXT || axisYT;
-      parts.push(`<text x="${hx + cornerW / 2}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(axisLabel)}</text>`);
+      const al = axisXT ? data.axes?.x?.align : data.axes?.y?.align;
+      parts.push(`<text x="${xFor(al)}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="${anchorFor(al)}" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(axisLabel)}</text>`);
     }
   }
   // 列标签格（顶部表头，每列一格，居中）
@@ -896,7 +907,7 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       const panelW = Math.max(200, L.gridRight - 0);
       // 每条属性一行：标签 + 去重值（逗号连接）
       let y = L.gridBottom + 12;
-      panelParts.push(`<rect x="0" y="${y}" width="${panelW}" height="${titleH + entries.length * rowH + pad * 2}" fill="#f8fafc" stroke="#94a3b8" stroke-width="1"/>`);
+      panelParts.push(`<rect x="0" y="${y}" width="${panelW}" height="${titleH + entries.length * rowH + pad * 2}" fill="${st.panelColor || '#f8fafc'}" stroke="#94a3b8" stroke-width="1"/>`);
       panelParts.push(`<text x="${pad}" y="${y + 14}" font-size="11" font-weight="bold" fill="${st.axisColor}">属性图例</text>`);
       y += titleH + 4;
       for (const key of entries) {

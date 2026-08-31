@@ -33,6 +33,7 @@ const DEFAULT_FLOW_STYLES: FlowChartStyles = {
   axisColor: '#334155',
   lineColor: '#64748b',
   textColor: '#1e293b',
+  panelColor: '#f8fafc',
   labelFontSize: 14,
   nodeFontSize: 13,
   lineWidth: 2
@@ -625,7 +626,7 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
       'Parallel': 'parallelColor', 'Subprocess': 'subprocessColor',
       'Annotation': 'annotationColor', 'Data': 'dataColor',
       'Lane': 'laneColor', 'Axis': 'axisColor',
-      'Line': 'lineColor', 'Text': 'textColor',
+      'Line': 'lineColor', 'Text': 'textColor', 'Panel': 'panelColor',
       'Label': 'labelFontSize', 'Node': 'nodeFontSize'
     };
     return map[slot] || undefined;
