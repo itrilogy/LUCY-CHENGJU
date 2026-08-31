@@ -966,74 +966,62 @@ Series: 保守型组合, [6, 8, 95, 1.2, 5], #10b981, 0.2`;
 
 // ===== Flow (流程图 / BPMN 子集) =====
 
-export const INITIAL_FLOW_DSL = `Title: 供应商准入评审流程
+export const INITIAL_FLOW_DSL = `Title: 汽车零部件新产品开发与量产质量控制全流程 (APQP/PPAP)
 Layout: H
 
-// ===== 数据层：字典（D/P/R 保留字 + 自定义 worker 供 labelRef 演示） =====
-Dict: D[采购部,质量部,技术部,财务部]
-Dict: P[资质初审,技术评审,商务谈判,现场审核,综合定级]
-Dict: R[采购员,质量工程师,技术专家,财务专员,评审委员会]
-Dict: worker[受理申请,资质补齐,初审是否通过,技术评审,技术是否合格,技术评审退回,商务谈判,商务条件达成,商务谈判搁置,现场审核,现场是否通过,现场整改,整改复验,综合评定,是否批准,不合格退回,终审归档]
+Dict: D[市场部,研发中心,质量保证部,生产制造部]
+Dict: P[立项评估,设计开发,过程试产,量产放行,项目结项]
+Dict: R[产品经理,系统工程师,质量总监,制造部长]
 
-// ===== 结构层：横向部门泳道 + 纵向阶段泳道 =====
 Lane from D[0,1,2,3] Layout H
 Lane from P[0,1,2,3,4] Layout V
 
-// ===== 轴标题（Align 对齐） =====
-AxisX: 参与部门 Align C
-AxisY: 阶段 Align C
-Axis: 供应商准入评审总流程 AxisX
+AxisX: 职能部门 Align C
+AxisY: 阶段周期 Align C
+Axis: 汽车零部件新产品开发与量产质量控制全流程 AxisX
 
-// ===== 六属性图例边栏 =====
 Attr active [Role,SOP,Lv,Time,KPI]
 
-// ===== 节点：字面量 label（唯一清晰）、分散到 4 部门×5 阶段泳道矩阵 =====
-W: w1: 受理申请 Type[S] Location(D[0],P[0]) Role(R[0]) Lv(常规)
-W: w2: 资质资料初审 Location(D[0],P[0]) SOP(XZ-01) Role(R[0])
+W: w1: 客户需求收集 Type[S] Location(D[0],P[0]) Role(R[0]) Lv(重点) Time(5D)
+W: w2: 立项可行性评审 Location(D[0],P[0]) Role(R[0]) SOP(QP-001)
 w1 → #w2
-W: q1: 初审是否通过? Type[?] Location(D[0],P[1])
-   通过 → #w4
-   否则 → #w3
+
+W: q1: 立项评审通过? Type[?] Location(D[0],P[0]) Role(R[0])
+   通过 → #w3
+   驳回 → #w1
    End
-W: w3: 资质补齐 Location(D[1],P[0]) Role(R[0])
-w3 → #w2
-W: w4: 技术评审 Location(D[2],P[0]) Role(R[1]) Time(7D)
-W: q2: 技术是否合格? Type[?] Location(D[2],P[1])
-   合格 → #w6
-   不合格 [整改说明] → #w5
+w2 → #q1
+
+W: w3: 方案架构与DFMEA设计 Location(D[1],P[1]) Role(R[1]) SOP(QP-008) KPI(DFMEA覆盖率100%) Time(15D)
+w3 → #w4
+
+W: w4: 试制样件制造 Location(D[3],P[2]) Role(R[3]) Time(10D)
+w4 → #w5
+
+W: w5: 首件质检与试产验证 Location(D[2],P[2]) Role(R[2]) SOP(SOP-012)
+w5 → #q2
+
+W: q2: CPK与全尺寸检验达标? Type[?] Location(D[2],P[2]) Role(R[2]) KPI(CPK≥1.67)
+   达标 → #w6
+   不达标 → #w3
    End
-W: w5: 技术评审退回 Location(D[0],P[1]) Role(R[2])
-w5 → #w4
-W: w6: 商务谈判 Location(D[3],P[1]) Role(R[3]) KPI(≤3%)
-W: q3: 商务条件达成? Type[?] Location(D[0],P[2])
-   达成 → #w8
-   否则 → #w7
+
+W: w6: PPAP批准与量产准备 Location(D[2],P[3]) Role(R[2]) SOP(QP-020) Time(7D)
+w6 → #w7
+
+W: w7: 批量试运行与产线爬坡 Location(D[3],P[3]) Role(R[3]) KPI(良率≥99.5%) Time(10D)
+w7 → #q3
+
+W: q3: 终审签发放行? Type[?] Location(D[2],P[3]) Role(R[2])
+   放行 → #w8
+   整改 → #w6
    End
-W: w7: 商务谈判搁置 Location(D[1],P[2]) Role(R[3])
-w7 → #w6
-W: w8: 现场审核 Location(D[0],P[3]) Role(R[1]) Time(10D)
-W: q4: 现场是否通过? Type[?] Location(D[1],P[3])
-   通过 → #w10
-   否则 → #w9
-   End
-W: w9: 现场整改 Location(D[2],P[3]) Role(R[1])
-W: w12: 整改复验 Type[+] Location(D[3],P[3])
-   复验合格 → #w10
-   复验不通过 → #w9
-   End
-w9 → #w12
-W: w10: 综合评定 Type[SUB] Location(D[3],P[4]) Role(R[4]) Time(15D)
-   W: s1: 复评启动 Type[S]
-   W: s2: 是否批准? Type[?]
-      批准 → #s3
-      不批 → #s4
-      End
-   W: s3: 批准生效 Type[E]
-   W: s4: 退回整改 Type[E]
-   End
-W: n1: 风险提示 Type[N] Location(D[2],P[4]) Attach(#w10) Lv(高)
-W: d1: 供应商档案 Type[DATA] Location(D[1],P[4]) Attach(#w10)
-W: w13: 终审归档 Type[E] Location(D[0],P[4])
-w10 → #w13`;
+
+W: w8: 量产移交与项目总结 Type[E] Location(D[0],P[4]) Role(R[0]) Time(3D)
+
+W: n1: 客户技术规范CTS Type[N] Location(D[1],P[1]) Attach(#w3) Lv(重点)
+W: n2: 控制计划CP与PFMEA Type[N] Location(D[3],P[2]) Attach(#w4) Lv(重点)
+W: n3: PPAP提交报告包 Type[N] Location(D[2],P[3]) Attach(#w6)`;
 
 export const INITIAL_FLOW_DATA: FlowData = parseFlowDSL(INITIAL_FLOW_DSL).data;
+

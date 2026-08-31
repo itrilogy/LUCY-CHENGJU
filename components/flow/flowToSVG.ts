@@ -9,6 +9,16 @@
  * ⑦ 全页面绘制区(fitView一页展现)
  */
 import type { FlowData, FlowChartStyles, FlowEdge } from '../../types';
+import {
+  solveAlgebraicPorts,
+  solveAlgebraicRoute,
+  computeGridChannels,
+  type NodeGeometry,
+  type EdgeSpec,
+  type Box,
+  type Port,
+  type Point,
+} from './AlgebraicFlowRouter.ts';
 
 export interface FlowSvgDims { width: number; height: number; }
 
@@ -47,7 +57,9 @@ export function nodeMetrics(n: FlowData['nodes'][0], fs: number): NodeMetrics {
     case 'start':
     case 'end': {
       const r = Math.max(NODE_BASE.startEnd.w / 2, NODE_BASE.startEnd.h / 2, 22);
-      return { halfW: r, halfH: r, shapeType: 'circle' };
+      const effectiveHalfW = Math.max(r, maxLineW / 2 + 8);
+      const effectiveHalfH = Math.max(r, textH / 2 + 6);
+      return { halfW: effectiveHalfW, halfH: effectiveHalfH, shapeType: 'circle' };
     }
     case 'exclusiveGateway':
     case 'parallelGateway': {
@@ -530,6 +542,66 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     cellXY.set(gk, { nx, ny, items });
   }
 
+  // ===== 扩展格代数视线避让与槽位优化 (Sightline Clearance via Grid Slot Shift) =====
+  // 核心代数权重全序公理：
+  // 0 弯直线 (Cost=0) + 扩展格单次位移 (Cost=150) = 150 < 2 弯走廊 (Cost=250) < 3/4 弯复杂避障折线 (Cost=450~1000)
+  // 当资料节点与依附主节点横向对齐时，中间列同高度阻挡节点自动下移进入扩展格槽位 (gy -> gy + 1)，让出纯净水平走廊
+  for (const n of data.nodes) {
+    if (!n.parent && (n.type === 'annotation' || n.type === 'dataObject') && n.attach) {
+      const target = data.nodes.find((x) => x.id === n.attach);
+      if (!target) continue;
+      // 查找 target 所在单元格与槽位
+      let targetRi = -1, targetCi = -1, targetGy = 0;
+      for (const [gk, cell] of cellXY) {
+        const item = cell.items.find((it) => it.n.id === target.id);
+        if (item) {
+          const [r, c] = gk.split('_').map(Number);
+          targetRi = r;
+          targetCi = c;
+          targetGy = item.gridY;
+          break;
+        }
+      }
+      if (targetRi < 0) continue;
+
+      // 查找 doc 节点所在单元格
+      let docCi = -1;
+      for (const [gk, cell] of cellXY) {
+        const item = cell.items.find((it) => it.n.id === n.id);
+        if (item) {
+          const [, c] = gk.split('_').map(Number);
+          docCi = c;
+          // 确保 doc 节点的 gridY 与 target 严格水平一致
+          item.gridY = targetGy;
+          break;
+        }
+      }
+      if (docCi < 0 || targetCi === docCi) continue;
+
+      const minC = Math.min(targetCi, docCi);
+      const maxC = Math.max(targetCi, docCi);
+
+      // 扫描中间所有列 (minC + 1 .. maxC - 1)，检查是否有节点挡在 targetGy
+      for (let c = minC + 1; c < maxC; c++) {
+        const midGk = `${targetRi}_${c}`;
+        const midCell = cellXY.get(midGk);
+        if (!midCell) continue;
+
+        // 检查中间格内是否有节点的 gridY === targetGy
+        const blocker = midCell.items.find((it) => it.gridY === targetGy);
+        if (blocker) {
+          // 触发扩展格位移：将该格内受阻挡及更下方的节点全部下移 1 个槽位
+          for (const it of midCell.items) {
+            if (it.gridY >= targetGy) {
+              it.gridY += 1;
+            }
+          }
+          midCell.ny = Math.max(...midCell.items.map((it) => it.gridY + 1), 1);
+        }
+      }
+    }
+  }
+
   // ④ W列最大宽 / H行最大高（由该列/行中心节点最大宽/高确定）
   const cellWself: number[] = new Array(nC).fill(0);
   const cellHself: number[] = new Array(nR).fill(0);
@@ -560,8 +632,8 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     if (ci >= 0 && ci < nC) colNxMax[ci] = Math.max(colNxMax[ci], cell.nx);
     if (ri >= 0 && ri < nR) rowNyMax[ri] = Math.max(rowNyMax[ri], cell.ny);
   }
-  const colWPx = colNxMax.map((nx, ci) => nx * (cellWself[ci] + 2 * half));
-  const rowHPx = rowNyMax.map((ny, ri) => ny * (cellHself[ri] + 2 * half));
+  const colWPx = colNxMax.map((nx, ci) => Math.max(nx * (cellWself[ci] + 2 * half), 140));
+  const rowHPx = rowNyMax.map((ny, ri) => Math.max(ny * (cellHself[ri] + 2 * half + (ny > 1 ? 24 : 0)), 120));
 
   const bandLeft = (() => {
     // 左表头列宽：按轴标题文字宽度略宽（非 Y 泳道文字宽度）
@@ -757,91 +829,38 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     if (show) parts.push(`<text x="${rcx}" y="${rcy}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${rcx} ${rcy})" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(rl)}</text>`);
   }
 
-  // 连线：最小最短原则 + 进出口端口不重复（最短距离优先）
-  type XYN = { x: number; y: number; W: number; H: number; ri: number; ci: number; usedIn: Set<string>; usedOut: Set<string> };
-  const nodeXY: Record<string, XYN> = {};
-  for (const [id, p] of L.nodePos) nodeXY[id] = { x: p.x, y: p.y, W: p.W, H: p.H, ri: p.ri, ci: p.ci, usedIn: new Set(), usedOut: new Set() };
-
-  // 端口方向定义（从节点中心向外，走 0.5 连线区中线）
+  // ===== 连线与端口引擎：全局协同 WSAD 硬性互斥 + 几何中点对齐原则 =====
   type Port = 'R' | 'L' | 'T' | 'B';
-  function portXY(n: { x: number; y: number; W: number; H: number }, dir: Port): { x: number; y: number } {
-    // 端口端点 = 连线区(走廊)中线深处的"短直线外端"：节点边中点沿法向走 half/2，
-    // 箭头作为这段短直线的末端，因此连线端点天然带箭头（先划线，箭头在端点）。
-    switch (dir) {
-      case 'R': return { x: n.x + n.W / 2 + L.half / 2, y: n.y };
-      case 'L': return { x: n.x - n.W / 2 - L.half / 2, y: n.y };
-      case 'T': return { x: n.x, y: n.y - n.H / 2 - L.half / 2 };
-      case 'B': return { x: n.x, y: n.y + n.H / 2 + L.half / 2 };
-    }
-  }
-  function snapTo(v: number, marks: number[]): number {
-    if (!marks.length) return v;
-    let best = marks[0], bd = Math.abs(v - marks[0]);
-    for (const m of marks) {
-      const d = Math.abs(v - m);
-      if (d < bd) { bd = d; best = m; }
-    }
-    return best;
-  }
-  const xMarks: number[] = [];
-  for (let ci = 0; ci < nC; ci++) { xMarks.push(L.colX[ci], L.colX[ci] + L.colWpx[ci]); }
-  const yMarks: number[] = [];
-  for (let ri = 0; ri < nR; ri++) { yMarks.push(L.bandTop(ri), L.bandTop(ri) + L.rowHpx[ri]); }
-
-  // 源端口候选：同行强制左右、同列强制上下（ALIGN-5 格子通道）
-  function sourceCandidates(a: XYN, b: XYN): Port[] {
-    if (a.ri === b.ri && a.ci !== b.ci) {
-      return b.x >= a.x ? ['R', 'L', 'B', 'T'] : ['L', 'R', 'B', 'T'];
-    }
-    if (a.ci === b.ci && a.ri !== b.ri) {
-      return b.y >= a.y ? ['B', 'T', 'R', 'L'] : ['T', 'B', 'R', 'L'];
-    }
-    const dx = b.x - a.x, dy = b.y - a.y;
-    // 运输模型出口方向：按坐标相对位置，取"90度象限内对应边"（同向→上下向→反向）
-    // 目标在右上方 → 候选 R、T（同向正交边）；反向 L、B 排最后；主导轴优先
-    const horizDominant = Math.abs(dx) >= Math.abs(dy);
-    const sx = dx >= 0 ? 'R' : 'L';      // 水平同向边
-    const sy = dy >= 0 ? 'B' : 'T';      // 垂直同向边
-    const ox = sx === 'R' ? 'L' : 'R';   // 反向水平
-    const oy = sy === 'B' ? 'T' : 'B';   // 反向垂直
-    if (horizDominant) {
-      return [sx, sy, oy, ox]; // 同向水平 → 同向垂直 → 反向垂直 → 反向水平
-    }
-    return [sy, sx, ox, oy];   // 同向垂直 → 同向水平 → 反向水平 → 反向垂直
-  }
-  // 目标端口候选：target(b) 应"面向源(a)"的一侧（同行：b 朝 a 走 L/R；同列：b 朝 a 走 T/B）
-  function targetCandidates(b: XYN, a: XYN): Port[] {
-    // 目标端口朝向源 a 的一侧（同列 b 在下→b 顶部入；同行 b 在右→b 左侧入），避免同列/同行背向导致同侧出入口
-    if (b.ri === a.ri && b.ci !== a.ci) {
-      return a.x <= b.x ? ['L', 'R', 'T', 'B'] : ['R', 'L', 'T', 'B']; // b 在 a 右 → 面左(L)
-    }
-    if (b.ci === a.ci && b.ri !== a.ri) {
-      return a.y <= b.y ? ['T', 'B', 'L', 'R'] : ['B', 'T', 'L', 'R']; // b 在 a 下 → 面上(T)
-    }
-    const dx = a.x - b.x, dy = a.y - b.y;
-    if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? ['R', 'T', 'B', 'L'] : ['L', 'T', 'B', 'R'];
-    return dy > 0 ? ['B', 'L', 'R', 'T'] : ['T', 'L', 'R', 'B'];
-  }
-  // 进出分开记录：出口/入口各自独立可选，重复（与相反向共用一侧）可接受
-  function pickPort(
-    n: { x: number; y: number; W: number; H: number; usedIn: Set<string>; usedOut: Set<string> },
-    cands: Port[], isOut: boolean,
-  ): Port {
-    const usedSet = isOut ? n.usedOut : n.usedIn;
-    for (const c of cands) if (!usedSet.has(c)) return c;
-    return cands[0]; // 该朝向全占用 → 复用最短朝向端口（允许重复）
-  }
-
-  // ===== 避障数据结构：所有节点形状包围盒（本边进出节点除外） =====
   type Box = { x0: number; y0: number; x1: number; y1: number };
   const nodeBoxes: Record<string, Box> = {};
   for (const [id, p] of L.nodePos) {
     nodeBoxes[id] = { x0: p.x - p.W / 2, y0: p.y - p.H / 2, x1: p.x + p.W / 2, y1: p.y + p.H / 2 };
   }
+
+  // 严格边中点端口坐标（代数与几何美学中点对齐）
+  function getMidpointPort(pos: { x: number; y: number; W: number; H: number }, dir: Port): { x: number; y: number } {
+    switch (dir) {
+      case 'R': return { x: pos.x + pos.W / 2, y: pos.y };
+      case 'L': return { x: pos.x - pos.W / 2, y: pos.y };
+      case 'T': return { x: pos.x, y: pos.y - pos.H / 2 };
+      case 'B': return { x: pos.x, y: pos.y + pos.H / 2 };
+    }
+  }
+
+  // 法向走廊外端点（从中点沿法向延伸 half/2 走廊中线）
+  function getCorridorPort(pos: { x: number; y: number; W: number; H: number }, dir: Port, half: number): { x: number; y: number } {
+    const mid = getMidpointPort(pos, dir);
+    switch (dir) {
+      case 'R': return { x: mid.x + half / 2, y: mid.y };
+      case 'L': return { x: mid.x - half / 2, y: mid.y };
+      case 'T': return { x: mid.x, y: mid.y - half / 2 };
+      case 'B': return { x: mid.x, y: mid.y + half / 2 };
+    }
+  }
+
+  // 参数化相交裁剪检测（Liang-Barsky 算法）
   function segIntersectsBox(ax: number, ay: number, bx: number, by: number, r: Box): boolean {
-    // 标准线段-矩形相交（含端点在内；端点恰好接触不算穿过——留给调用方跳过源/目标）
     const dx = bx - ax, dy = by - ay;
-    // 用参数化裁剪（Liang-Barsky）
     let tmin = 0, tmax = 1;
     const p = [-dx, dx, -dy, dy];
     const q = [ax - r.x0, r.x1 - ax, ay - r.y0, r.y1 - ay];
@@ -856,6 +875,8 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     }
     return tmin <= tmax;
   }
+
+  // 全图避障检测（跳过源与宿节点自身）
   function routeHits(pathPts: { x: number; y: number }[], skipA: string, skipB: string): boolean {
     for (const [id, bx] of Object.entries(nodeBoxes)) {
       if (id === skipA || id === skipB) continue;
@@ -866,211 +887,87 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     return false;
   }
 
-  // ===== 两趟端口分配：先"入口"（几何指向约束强），后"出口"（避开已占入口） =====
+  // 检测端口引出时是否紧邻障碍物
+  function isPortBlocked(nodeId: string, dir: Port): boolean {
+    const pos = L.nodePos.get(nodeId);
+    if (!pos) return false;
+    const p0 = getMidpointPort(pos, dir);
+    const p1 = getCorridorPort(pos, dir, L.half);
+    for (const [id, bx] of Object.entries(nodeBoxes)) {
+      if (id === nodeId) continue;
+      if (segIntersectsBox(p0.x, p0.y, p1.x, p1.y, bx)) return true;
+    }
+    return false;
+  }
+
+  // 提取顶层边列表（含 N/DATA 虚边）
   const edgeList = data.edges.filter((x) => !x.parent);
-  // 箭头独立渲染层：先划线，再按 IN 属性(目标端口)在目标节点边中点独立渲染箭头(与边垂直,指向节点入口)
   const arrowParts: string[] = [];
-  // 为 N/DATA（annotation/dataObject）注入"依附虚边"：走与普通边同一种连线逻辑，仅渲染 dasharray 虚线。
   for (const n of data.nodes) {
     if (!n.parent && (n.type === 'annotation' || n.type === 'dataObject') && n.attach) {
       edgeList.push({ id: `doc_${n.id}`, from: n.id, to: n.attach, type: 'sequence', label: null, condition: '__doc__', default: false });
     }
   }
-  // R1 走线精细：跨边共享"已用走廊"（横段用 y、竖段用 x，四舍五入到像素避免浮点重复），
-  // 使同走廊多条边错开不同的分数通道位置而非全部叠回同一中线。
-  const usedCorrX = new Set<number>();
-  const usedCorrY = new Set<number>();
-  const round2 = (v: number) => Math.round(v * 10) / 10;
-  const targetPortOf = new Map<string, Port>(); // edge id -> target port (入口)
-  // 第一趟：入口端口
-  for (const e of edgeList) {
-    const a = nodeXY[e.from], b = nodeXY[e.to];
-    if (!a || !b) continue;
-    const tp = pickPort(b, targetCandidates(b, a), false);
-    b.usedIn.add(tp);
-    targetPortOf.set(e.id, tp);
+
+  // ===== 纯代数流形势能极小化连线与避障系统 (Algebraic Flow Routing System) =====
+  const nodesGeo: NodeGeometry[] = [];
+  for (const [id, p] of L.nodePos) {
+    nodesGeo.push({ id, ri: p.ri, ci: p.ci, x: p.x, y: p.y, W: p.W, H: p.H });
   }
-  // 第二趟：出口端口（避免与已占入口同侧；候选内优先未占）
+
+  const edgeSpecs: EdgeSpec[] = edgeList.map((e) => ({
+    id: e.id,
+    from: e.from,
+    to: e.to,
+    label: e.label,
+    condition: e.condition,
+    isDoc: e.condition === '__doc__',
+  }));
+
+  const { sourcePorts: sourcePortOf, targetPorts: targetPortOf } = solveAlgebraicPorts(nodesGeo, edgeSpecs);
+
+  const { xChannels, yChannels } = computeGridChannels({
+    colX: L.colX,
+    colWpx: L.colWpx,
+    bandTop: (ri) => L.bandTop(ri),
+    rowHpx: L.rowHpx,
+    nC,
+    nR,
+    gridLeft: L.bandLeft,
+    gridRight: L.gridRight,
+    gridTop: FLOW_SVG.titleH,
+    gridBottom: L.gridBottom,
+    half: L.half,
+  }, nodesGeo);
+
+  const allBoxes: Record<string, Box> = {};
+  for (const n of nodesGeo) {
+    allBoxes[n.id] = { x0: n.x - n.W / 2, y0: n.y - n.H / 2, x1: n.x + n.W / 2, y1: n.y + n.H / 2 };
+  }
+
+  const nodeGeoMap = new Map(nodesGeo.map((n) => [n.id, n]));
+
+  // 计算每条边的代数无碰撞正交路径
+  const edgeRoutes = new Map<string, Point[]>();
   for (const e of edgeList) {
-    const a = nodeXY[e.from], b = nodeXY[e.to];
+    const u = nodeGeoMap.get(e.from), v = nodeGeoMap.get(e.to);
+    if (!u || !v) continue;
+    const sp = sourcePortOf.get(e.id) ?? 'R', tp = targetPortOf.get(e.id) ?? 'T';
+    const path = solveAlgebraicRoute(u, v, sp, tp, xChannels, yChannels, allBoxes, L.half);
+    edgeRoutes.set(e.id, path);
+  }
+
+  // 阶段 2：独立单箭头层与路径渲染
+  const drawnInArrows = new Set<string>(); // 避免同一 IN 端口重复绘制箭头
+
+  for (const e of edgeList) {
+    const a = L.nodePos.get(e.from), b = L.nodePos.get(e.to);
     if (!a || !b) continue;
-    const cands = sourceCandidates(a, b);
     const tp = targetPortOf.get(e.id) ?? 'T';
-    // 运输模型②目的优先：在"未占(WSAD)"的出口端口中，选"折线最少+距离最短"者
-    const availS = cands.filter((c) => !a.usedOut.has(c) && !a.usedIn.has(c));
-    const tryS = availS.length ? availS : cands.filter((c) => !a.usedOut.has(c));
-    let bestS = (tryS[0] ?? cands[0]);
-    let bestCost = Infinity;
-    let bestBend = Infinity, bestDist = Infinity;
-    for (const c of tryS) {
-      const ps = portXY(a, c), pt = portXY(b, tp);
-      // 折线数估算：由 sp/tp 方向组合决定（L型=1弯，同轴直线=0弯，U/Z=2~3弯）
-      const h1 = (c === 'R' || c === 'L'), h2 = (tp === 'R' || tp === 'L');
-      const sameX = Math.abs(ps.x - pt.x) < 1, sameY = Math.abs(ps.y - pt.y) < 1;
-      let bends = 0;
-      if (!sameX && !sameY) bends = h1 === h2 ? (h1 ? 2 : 2) : 1; // 一横一竖=L型1弯；同相=2弯
-      const dist = Math.abs(ps.x - pt.x) + Math.abs(ps.y - pt.y);
-      const cost = bends * 3 + dist * 0.1;
-      if (cost < bestCost) { bestCost = cost; bestS = c; bestBend = bends; bestDist = dist; }
-    }
-    const sp = bestS;
-    a.usedOut.add(sp);
+    const pts = edgeRoutes.get(e.id) ?? [];
+    if (pts.length < 2) continue;
 
-    const s = portXY(a, sp), t = portXY(b, tp);
-    // 正交走线：首段垂直于源节点该边（R/L→先横，T/B→先竖），末段垂直于目标节点该边
-    const horiz1 = (sp === 'R' || sp === 'L');
-    const horiz2 = (tp === 'R' || tp === 'L');
-
-    // 构建正交路径：应保持最简 L 型（1 次拐弯），不产生 U/n 形
-    function buildRoute(midX: number | null, midY: number | null): { x: number; y: number }[] {
-      let pts: { x: number; y: number }[] = [];
-      if (Math.abs(s.x - t.x) < 1 && Math.abs(s.y - t.y) < 1) {
-        pts = [{ x: s.x, y: s.y }, { x: t.x, y: t.y }];
-      } else if (Math.abs(s.x - t.x) < 1) {
-        // 【修复】同竖直轴：源 B 与目标 T 同列相邻，直接竖直连接。
-        // 若走 "竖-横-竖" 分支，snapTo 会把横段吸附到错误的行网格线（如上一行边界），
-        // 形成"上折 → 回穿源节点"的绕路（正是"提交采购申请""部门经理审批"被贯穿的根因）。
-        pts = [{ x: s.x, y: s.y }, { x: t.x, y: t.y }];
-      } else if (Math.abs(s.y - t.y) < 1) {
-        // 【修复】同水平轴：源 R 与目标 L 同行相邻，直接水平连接（避免 snap 到错误列边界绕路）。
-        pts = [{ x: s.x, y: s.y }, { x: t.x, y: t.y }];
-      } else if (horiz1 && horiz2) {
-        // 源水平出 + 目标水平入：横-竖-横（竖段吸到列边界）
-        const mx = snapTo(midX ?? (s.x + t.x) / 2, xMarks);
-        pts = [{ x: s.x, y: s.y }, { x: mx, y: s.y }, { x: mx, y: t.y }, { x: t.x, y: t.y }];
-      } else if (!horiz1 && !horiz2) {
-        // 源竖直出 + 目标竖直入：竖-横-竖（横段吸到行边界）
-        const my = snapTo(midY ?? (s.y + t.y) / 2, yMarks);
-        pts = [{ x: s.x, y: s.y }, { x: s.x, y: my }, { x: t.x, y: my }, { x: t.x, y: t.y }];
-      } else {
-        // 一横一竖：L 型一次拐弯
-        const mx = horiz1 ? t.x : s.x;
-        const my = horiz1 ? s.y : t.y;
-        pts = [{ x: s.x, y: s.y }, { x: mx, y: my }, { x: t.x, y: t.y }];
-      }
-      // clamp 到网格内（纵/横段不贴左表头、不越右缘、不进标题带）——初次 buildRoute 也生效
-      const xLo = x0 + L.half, xHi = L.gridRight - L.half;
-      const yLo = FLOW_SVG.titleH + L.half, yHi = L.gridBottom - L.half;
-      pts = pts.map((p) => ({ x: Math.max(xLo, Math.min(xHi, p.x)), y: Math.max(yLo, Math.min(yHi, p.y)) }));
-      // 去除零长段与共线中间点（避免多余点造成重复/回折，也使得标签落于真正的最长段）
-      const clean = [pts[0]];
-      for (let i = 1; i < pts.length; i++) {
-        const a = clean[clean.length - 1], b = pts[i];
-        if (Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5) continue; // 零长
-        // 若与上一段共线（同向），用 b 替换 a（合并共线点）
-        const prev = clean[clean.length - 2];
-        if (prev) {
-          const v1x = a.x - prev.x, v1y = a.y - prev.y;
-          const v2x = b.x - a.x, v2y = b.y - a.y;
-          const cross = v1x * v2y - v1y * v2x;
-          const dot = v1x * v2x + v1y * v2y;
-          if (Math.abs(cross) < 0.5 && dot >= 0) { clean[clean.length - 1] = b; continue; }
-        }
-        clean.push(b);
-      }
-      return clean;
-    }
-
-    let pts = buildRoute(null, null);
-    if (routeHits(pts, e.from, e.to)) {
-      // L 型穿过节点时改走格子边界 Z 通道（ALIGN-5）
-      const gutter = horiz1
-        ? buildRoute(snapTo((s.x + t.x) / 2, xMarks), null)
-        : buildRoute(null, snapTo((s.y + t.y) / 2, yMarks));
-      if (!routeHits(gutter, e.from, e.to)) pts = gutter;
-    }
-    let round = 0;
-    const MAX_ROUND = 3;
-    const dw = L.half; // 走廊步长 = 0.5 连线区宽
-    while (routeHits(pts, e.from, e.to) && round < MAX_ROUND) {
-      round++;
-      // R1 确定性避障 + 走廊分数错位：横/竖段按螺旋分数偏移（0.5/1.5/-0.5...），
-      // 避开已占走廊（usedCorrX/Y），使同走廊多条边不叠回同一中线
-      const FRACS = [0.5, 1.5, -0.5, -1.5, 1, -1, 0.25, -0.25, 0.75, 2, -2, 3];
-      const tryOrder: { mX: number | null; mY: number | null }[] = [];
-      if (horiz1 && horiz2) {
-        const baseX = (s.x + t.x) / 2;
-        for (const f of FRACS) tryOrder.push({ mX: baseX + dw * f, mY: null });
-      } else if (!horiz1 && !horiz2) {
-        const baseY = (s.y + t.y) / 2;
-        for (const f of FRACS) tryOrder.push({ mX: null, mY: baseY + dw * f });
-      } else {
-        // L 型：拐点固定，绕行优先朝"目标所在侧"（避免绕到对侧画布边缘）
-        const my = horiz1 ? s.y : t.y;
-        const mx = horiz1 ? t.x : s.x;
-        // 目标相对源的方向：决定 mX/mY 先朝哪一侧试
-        const dir = Math.sign(t.x - s.x) || 1;   // 目标在源右侧→+1，左侧→-1
-        const dirV = Math.sign(t.y - s.y) || 1;  // 目标在源下方→+1，上方→-1
-        for (const f of FRACS) {
-          // 绕行量取绝对值，符号按目标侧；优先级=朝目标侧的近档先
-          const a = Math.abs(f);
-          const fh = dir * a, fv = dirV * a;
-          tryOrder.push(
-            { mX: mx + dw * fh, mY: horiz1 ? my + dw * fv : my },
-            { mX: horiz1 ? mx : mx + dw * fh, mY: my + dw * fv },
-          );
-        }
-        // 补充：也朝反向试（若目标侧被堵），但放在后
-        const tryOrderLen = tryOrder.length;
-        void tryOrderLen;
-      }
-      let found = false;
-      for (const c of tryOrder) {
-        // 走廊过滤 + clamp 到网格内（纵段不贴左表头/不越右缘）：下限 x0+half 避开 Y 轴标题带贴边
-        const cx = c.mX !== null ? Math.max(x0 + L.half, Math.min(L.gridRight - L.half, c.mX)) : null;
-        const cy = c.mY !== null ? Math.max(FLOW_SVG.titleH + L.half, Math.min(L.gridBottom - L.half, c.mY)) : null;
-        if (cx !== null && usedCorrX.has(round2(cx))) continue;
-        if (cy !== null && usedCorrY.has(round2(cy))) continue;
-        const candidate = buildRoute(cx, cy);
-        if (!routeHits(candidate, e.from, e.to)) { pts = candidate; found = true; break; }
-      }
-      if (!found) break;
-    }
-    // 登记本边最终所用走廊（便于后续边错位）
-    for (let k = 1; k < pts.length - 1; k++) {
-      const a = pts[k - 1], b = pts[k], cc = pts[k + 1];
-      // 中间转折点所在走廊：竖段记录 x，横段记录 y
-      if (Math.abs(a.x - b.x) < 0.5 && Math.abs(cc.x - b.x) < 0.5) usedCorrX.add(round2(b.x));
-      if (Math.abs(a.y - b.y) < 0.5 && Math.abs(cc.y - b.y) < 0.5) usedCorrY.add(round2(b.y));
-    }
-    // ===== P3 外侧走廊回退：MAX_ROUND 内仍穿节点时，绕画布外侧走廊走（跨多格长回边） =====
-    if (routeHits(pts, e.from, e.to)) {
-      const corridorX = Math.max(x0 + L.half, L.bandLeft + L.half); // 左走廊（避开左表头/Y轴标题带贴边）
-      const corridorXr = L.gridRight + L.half; // 右走廊（网格右缘留 0.5 走廊）
-      const corridorY = FLOW_SVG.titleH;       // 顶走廊（标题带下沿，已避开格子）
-      const corridorYb = L.gridBottom + L.half;// 底走廊
-      // 多种外绕候选：按"目标所在侧"优先（目标在左→左走廊优先；在下→底优先），避免绕到对侧画布边缘
-      const targetSideX = t.x >= s.x ? 'R' : 'L';
-      const targetSideY = t.y >= s.y ? 'B' : 'T';
-      const ops: { x: number; y: number; tag: string }[] = [
-        { x: s.x, y: corridorYb, tag: 'B' }, { x: t.x, y: corridorYb, tag: 'B' },   // 底部
-        { x: s.x, y: corridorY, tag: 'T' }, { x: t.x, y: corridorY, tag: 'T' },     // 顶部
-        { x: corridorX, y: s.y, tag: 'L' }, { x: corridorX, y: t.y, tag: 'L' },     // 左
-        { x: corridorXr, y: s.y, tag: 'R' }, { x: corridorXr, y: t.y, tag: 'R' },   // 右
-      ];
-      // 目标在下方→底优先；在左→左优先（重排使目标侧在前）
-      const preferTags = targetSideY === 'B' ? ['B', 'T'] : ['T', 'B'];
-      const preferX = targetSideX === 'L' ? ['L', 'R'] : ['R', 'L'];
-      const rank = (tag: string) => {
-        const ry = preferTags.indexOf(tag);
-        const rx = preferX.indexOf(tag);
-        return (ry >= 0 ? ry : 10) + (rx >= 0 ? rx : 10) * 0.001;
-      };
-      ops.sort((a, b) => rank(a.tag) - rank(b.tag));
-      // 逐候选：h-x-x-h
-      for (let i = 0; i < ops.length; i += 2) {
-        const p1 = ops[i], p2 = ops[i + 1];
-        const cand = [{ x: s.x, y: s.y }, p1, p2, { x: t.x, y: t.y }];
-        const cleanC = [cand[0]];
-        for (let k = 1; k < cand.length; k++) {
-          const a = cleanC[cleanC.length - 1], b = cand[k];
-          if (Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5) continue;
-          cleanC.push(b);
-        }
-        if (!routeHits(cleanC, e.from, e.to) && cleanC.length >= 2) { pts = cleanC; break; }
-      }
-    }
-    // ===== 标签：放在折线"最长线段"的中点（条件分支文本），非矩形中心 =====
+    // ===== 标签：放在折线最长线段的中点 =====
     let label = '';
     if (e.label) {
       let li = 0, maxLen = 0;
@@ -1081,11 +978,11 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       const lx = (pts[li].x + pts[li + 1].x) / 2;
       const ly = (pts[li].y + pts[li + 1].y) / 2;
       const horizontal = Math.abs(pts[li + 1].y - pts[li].y) < Math.abs(pts[li + 1].x - pts[li].x);
-      // 水平段标签放线上方，垂直段放线右侧
       const dx = horizontal ? 0 : 10;
       const dy = horizontal ? -10 : 0;
       label = `<text x="${lx + dx}" y="${ly + dy}" text-anchor="middle" fill="${st.textColor}" font-size="11" paint-order="stroke" stroke="#fff" stroke-width="4">${esc(e.label)}</text>`;
     }
+
     const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
     let slash = '';
     if (e.default && pts.length >= 2) {
@@ -1098,17 +995,19 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     }
     const dash = e.condition === '__doc__' ? ' stroke-dasharray="6 4"' : '';
     parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}"${dash}/>${slash}${label}`);
-    // 独立箭头层 = 节点连线区的一条"短直线 + 箭头"：尖端抵节点边(入口)，短线沿法向到走廊中线(连线端点)。
-    // 连线端点=portXY(走廊中线)，短线从节点边接过来，因此每个 IN 端点天然带箭头。
-    // 独立箭头层 = 节点连线区的"短直线 + 箭头头"：尖端抵节点边(入口)，梯形翅膀在走廊中线(连线端点)。
-    // 连线端点=portXY(走廊中线)，箭头尖端在节点边，因此每个 IN 端点天然带箭头(先划线,箭头在端点)。
-    const hl = L.half / 2, aw = 4.5;
-    let tri = '';
-    if (tp === 'T') tri = `${b.x},${b.y - b.H / 2} ${b.x - aw},${b.y - b.H / 2 - hl} ${b.x + aw},${b.y - b.H / 2 - hl}`;
-    else if (tp === 'B') tri = `${b.x},${b.y + b.H / 2} ${b.x - aw},${b.y + b.H / 2 + hl} ${b.x + aw},${b.y + b.H / 2 + hl}`;
-    else if (tp === 'L') tri = `${b.x - b.W / 2},${b.y} ${b.x - b.W / 2 - hl},${b.y - aw} ${b.x - b.W / 2 - hl},${b.y + aw}`;
-    else tri = `${b.x + b.W / 2},${b.y} ${b.x + b.W / 2 + hl},${b.y - aw} ${b.x + b.W / 2 + hl},${b.y + aw}`;
-    arrowParts.push(`<polygon points="${tri}" fill="${st.lineColor}"/>`);
+
+    // IN 端口独立单箭头层（城门口接待员，单点唯一定位，尖端 0.00px 贴合目标边中点）
+    const arrowKey = `${e.to}_${tp}`;
+    if (!drawnInArrows.has(arrowKey)) {
+      drawnInArrows.add(arrowKey);
+      const al = 11, aw = 5;
+      let tri = '';
+      if (tp === 'T') tri = `${b.x},${b.y - b.H / 2} ${b.x - aw},${b.y - b.H / 2 - al} ${b.x + aw},${b.y - b.H / 2 - al}`;
+      else if (tp === 'B') tri = `${b.x},${b.y + b.H / 2} ${b.x - aw},${b.y + b.H / 2 + al} ${b.x + aw},${b.y + b.H / 2 + al}`;
+      else if (tp === 'L') tri = `${b.x - b.W / 2},${b.y} ${b.x - b.W / 2 - al},${b.y - aw} ${b.x - b.W / 2 - al},${b.y + aw}`;
+      else tri = `${b.x + b.W / 2},${b.y} ${b.x + b.W / 2 + al},${b.y - aw} ${b.x + b.W / 2 + al},${b.y + aw}`;
+      arrowParts.push(`<polygon points="${tri}" fill="${st.lineColor}" stroke="${st.lineColor}" stroke-width="1"/>`);
+    }
   }
 
   // 节点
