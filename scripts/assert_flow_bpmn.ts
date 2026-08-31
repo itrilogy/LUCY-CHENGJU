@@ -45,5 +45,12 @@ check('含 laneSet', xml.includes('<bpmn:laneSet'));
 check('laneSet 含 flowNodeRef', xml.includes('<bpmn:flowNodeRef>'));
 check('节点属性含 id= 前缀', /<bpmn:(startEvent|task|exclusiveGateway)\s+id="/.test(xml));
 
+// ===== 遗留规划 M2（R2）：BPMN DI 图形坐标导出 =====
+check('di: 含 BPMNDiagram', xml.includes('<bpmndi:BPMNDiagram'));
+check('di: 含 BPMNShape', xml.includes('<bpmndi:BPMNShape'));
+check('di: shape 数与主节点数一致(≥3)', (xml.match(/<bpmndi:BPMNShape/g) || []).length >= 3);
+check('di: 含 dc:Bounds 坐标', xml.includes('<dc:Bounds'));
+check('di: 含 BPMNEdge waypoint', xml.includes('<bpmndi:BPMNEdge') && xml.includes('<di:waypoint'));
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);
