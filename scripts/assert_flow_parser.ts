@@ -252,5 +252,29 @@ W: w2: 结束 Type[E]`);
   check('m3-r6: 子流程深度>1 报错', ee.errors.some((e) => e.includes('嵌套深度')), ee.errors.join());
 }
 
+// ===== 审计修复：环路须含判断节点（Tarjan SCC，消除误报）=====
+{
+  // 纯任务回路（无网关）→ warn
+  const a = parseFlowDSL(`Title: t
+W: w1: 开始 Type[S]
+W: w2: A
+W: w3: B
+W: w4: 结束 Type[E]
+w3 → #w2`);
+  check('cycle: 纯任务回路 warn', a.warnings.some((w) => w.includes('不含判断节点')), a.warnings.join());
+
+  // 含网关回路（经 ?）→ 不 warn
+  const b = parseFlowDSL(`Title: t
+W: w1: 开始 Type[S]
+W: w2: A
+W: q1: 判断 Type[?]
+   X → #w4
+   End
+W: w4: 结束 Type[E]
+w2 → #q1
+q1 → #w2`);
+  check('cycle: 含网关回路不误报', !b.warnings.some((w) => w.includes('不含判断节点')), b.warnings.join());
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);
