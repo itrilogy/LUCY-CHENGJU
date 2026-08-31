@@ -907,6 +907,32 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       }
       if (!found) break;
     }
+    // ===== P3 外侧走廊回退：MAX_ROUND 内仍穿节点时，绕画布外侧走廊走（跨多格长回边） =====
+    if (routeHits(pts, e.from, e.to)) {
+      const corridorX = x0 - L.half;           // 左走廊（左表头右边缘留 0.5 走廊）
+      const corridorXr = L.gridRight + L.half; // 右走廊（网格右缘留 0.5 走廊）
+      const corridorY = FLOW_SVG.titleH;       // 顶走廊（标题带下沿，已避开格子）
+      const corridorYb = L.gridBottom + L.half;// 底走廊
+      // 多种外绕候选：顶部、底部、左侧、右侧，取第一个不穿节点的
+      const ops: { x: number; y: number }[] = [
+        { x: s.x, y: corridorY }, { x: t.x, y: corridorY },      // 顶部走廊（竖向进/出）
+        { x: s.x, y: corridorYb }, { x: t.x, y: corridorYb },    // 底部走廊
+      ];
+      if (x0 - L.half >= 0) ops.unshift({ x: corridorX, y: s.y }, { x: corridorX, y: t.y }); // 左走廊
+      ops.push({ x: corridorXr, y: s.y }, { x: corridorXr, y: t.y }); // 右走廊
+      // 逐候选：h-x-x-h
+      for (let i = 0; i < ops.length; i += 2) {
+        const p1 = ops[i], p2 = ops[i + 1];
+        const cand = [{ x: s.x, y: s.y }, p1, p2, { x: t.x, y: t.y }];
+        const cleanC = [cand[0]];
+        for (let k = 1; k < cand.length; k++) {
+          const a = cleanC[cleanC.length - 1], b = cand[k];
+          if (Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5) continue;
+          cleanC.push(b);
+        }
+        if (!routeHits(cleanC, e.from, e.to) && cleanC.length >= 2) { pts = cleanC; break; }
+      }
+    }
     // ===== 标签：放在折线"最长线段"的中点（条件分支文本），非矩形中心 =====
     let label = '';
     if (e.label) {

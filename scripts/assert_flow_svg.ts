@@ -226,5 +226,37 @@ w1 → #q2`);
   check('sub-mini: 子流程展开＋盒保留', dSvg.includes('width="10" height="10"'));
 }
 
+// ===== 阶段三：P3 跨多格回边走外侧走廊 =====
+{
+  const e = parseFlowDSL(`Title: q
+Layout: H
+Dict: D[部1,部2,部3]
+Dict: P[阶段1,阶段2,阶段3,阶段4]
+Dict: worker[a任务,中转2,目标,起始,末,额]
+Lane from D[0,1,2] Layout H
+Lane from P[0,1,2,3] Layout V
+W: w1: worker[3] Type[S] Location(D[0],P[0])
+W: w2: worker[1] Location(D[0],P[1])
+W: w3: worker[1] Location(D[0],P[2])
+W: w6: worker[2] Type[E] Location(D[2],P[3])
+w1 → #w2
+w2 → #w3
+w6 → #w1`);
+  const layE = computeExcelLayout(e.data, e.styles);
+  const svgE = flowToSVG(e.data, e.styles);
+  const x0e = layE.bandLeft + layE.titleBandW;
+  const pathsE = [...svgE.matchAll(/<path d="(M[^"]*)" fill="none"[^>]*marker-end="url\(#flowArrow\)"/g)].map((m) => m[1]);
+  let outerHits = 0;
+  for (const d of pathsE) {
+    const c = d.match(/[-\d.]+/g)!.map(Number);
+    for (let i = 0; i < c.length; i += 2) {
+      const x = +c[i], y = +c[i + 1];
+      if (x <= x0e - layE.half + 0.01 || y >= layE.gridBottom + 0.01 || y <= FLOW_SVG.titleH + 0.01) { outerHits++; break; }
+    }
+  }
+  check('outer-corridor: 回边外绕触发(≥1边触及外侧走廊)', outerHits >= 1, `outerHits=${outerHits}`);
+  check('outer-corridor: 无解析错误', e.errors.length === 0, e.errors.join());
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);
