@@ -563,12 +563,12 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
       }
     }
     for (const f of found) rest = rest.replace(f, ' ');
-    // 解析格内 V/H 链式标注（节点尾部 `, V` 或 `, H`）
-    let vh: 'V' | 'H' | undefined;
-    const vhMatch = rest.match(/[,，\s]*([VH])\s*$/i);
+    // 解析格内 V/H/D 链式标注（节点尾部 `, V`/`, H`/`, D`；D=对角扩展格 A6）
+    let vh: 'V' | 'H' | 'D' | undefined;
+    const vhMatch = rest.match(/[,，\s]*([VHD])\s*$/i);
     if (vhMatch) {
       const dir = vhMatch[1].toUpperCase();
-      if (dir === 'V' || dir === 'H') {
+      if (dir === 'V' || dir === 'H' || dir === 'D') {
         vh = dir;
         rest = rest.slice(0, vhMatch.index).replace(/[,，]\s*$/, '').trim();
       }

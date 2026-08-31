@@ -28,9 +28,11 @@
 | 1 节点 | 1×1 |
 | 2 节点纵向（默认/V） | 2×1 |
 | 2 节点横向（H） | 1×2 |
-| 横纵都有（V/H 链交错） | X×Y |
+| 节点带 **D 对角标识**（A6 算子） | 双向扩（gx+1 且 gy+1，行列 ny/nx 同时计入） |
+| 横纵都有（V/H/D 链交错） | X×Y |
 
-- 后续节点按其**自身 vh** 相对上一节点排布；首节点恒居格内原点 (0,0)
+- 后续节点按其**自身 vh** 相对上一节点排布（V 纵向 / H 横向 / D 对角右下）；首节点恒居格内原点 (0,0)
+- D 标识的数学地位与配套性质（良基性保持 / 支配引理 L0 / 几何对齐兼容）见 `FLOW_OPTIMALITY_FRAMEWORK.md` §2 A6
 - 多个节点 = **增补绘制格**（不挤压）
 
 ## ③ 整列/整行统一扩展（XY 矩阵规范）
@@ -90,7 +92,7 @@
 - `computeExcelLayout`：ROOT 占位 + 单维按各泳道最大链长扩虚拟轴（非整图节点数）+ 子流程内部/N/DATA 不占主网格 + cellXY(nx/ny V/H链) + 整列/整行统一扩展 + nodePos（节点居中）+ 修饰类依附前驱走廊 + bandLeft + titleBandW + gridRight/gridBottom 对齐
 - `flowToSVG`：网格矩形 + 虚线细泳道线 + 表头格子化 + 两趟端口分配（同行左右/同列上下）+ 拐点吸附行列边界 + Liang-Barsky 避障 + 边标签最长线段中点 + 按字宽折行（数字不拆）+ 并行＋/默认流斜杠 + 岗位字典展开
 - `FlowDiagram`：tidyLayout（居中占据画布）+ 拖动防白屏 soft boundary
-- 断言：parser 40 项 + svg 41 项（含 ALIGN 单维链长/子流程不增行）
+- 断言：parser 60 项 + svg 61 项 + bpmn 17 项 = 138（含 ALIGN 单维链长/子流程不增行/对角 A6；随实现持续同步，过程见 `FLOW_OPTIMALITY_EXECUTION_NOTES.md`）
 
 ---
 

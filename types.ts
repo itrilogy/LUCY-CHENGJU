@@ -883,7 +883,7 @@ export interface FlowNode {
   attrs: Record<string, string>;  // 已小驼峰键（sop/role/lv/time/kpi/m）
   parent?: string;            // 子流程内部节点归属
   attach?: string;            // 修饰类节点（N/DATA）依附的前驱目标 id（spec §7.4/§10#14）
-  vh?: 'V' | 'H';             // 格内链式排布：与上一节点 V(下方)/H(右侧)
+  vh?: 'V' | 'H' | 'D';       // 格内链式排布：与上一节点 V(下方)/H(右侧)/D(对角右下，A6 扩展格算子)
 }
 
 export interface FlowEdge {

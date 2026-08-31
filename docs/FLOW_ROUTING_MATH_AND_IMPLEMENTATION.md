@@ -58,6 +58,7 @@
 3. **线路合并（Line Merging）逻辑接入**：
    - 对相同目标的汇聚边检测前驱走廊交点，就近生成正交 T 型汇流；
    - 目标 IN 端口处由独立箭头层绘制唯一的等腰三角形箭头（尖端 $0.00\text{px}$ 贴合目标边中点）。
+   - > **[2026-09 勘误]** 本条第 1 点（J\* 合并点搜索 / T 型汇流）**代码中未实现**（`components/flow` 全量检索零命中），当前仅有端口汇聚复用（`reuseIn`）与 IN 箭头去重（`drawnInArrows`）近似承接公理 3。合并算子列为待实施项，见 `docs/FLOW_OPTIMALITY_FRAMEWORK.md` §5 与 `docs/FLOW_OPTIMALITY_EXECUTION_NOTES.md` 遗留清单。
 
 ---
 

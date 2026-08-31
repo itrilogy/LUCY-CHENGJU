@@ -296,5 +296,22 @@ W: s1: 子流程 Type[SUB]
   check('sub-start: 顶层无start但有子流程内部start→不报缺失', !b.errors.some((e) => e.includes('开始节点')), b.errors.join());
 }
 
+// ===== 对角扩展格标识 D（A6 算子，FLOW_OPTIMALITY_FRAMEWORK） =====
+{
+  const dg = parseFlowDSL(`Title: t
+Dict: D[甲]
+Dict: P[一]
+Lane from D[0] Layout H
+Lane from P[0] Layout V
+W: a: 节点A Location(D[0],P[0])
+W: b: 节点B Location(D[0],P[0]) D
+W: c: 节点C Location(D[0],P[0]) V
+W: x: 节点X Location(D[0],P[0]) Z`);
+  check('diag: vh=D 解析', dg.data.nodes.find((n) => n.id === 'b')?.vh === 'D',
+    `实际 ${String(dg.data.nodes.find((n) => n.id === 'b')?.vh)}`);
+  check('diag: V 链保持解析', dg.data.nodes.find((n) => n.id === 'c')?.vh === 'V');
+  check('diag: 非法标识不误吞（Z 不设 vh）', dg.data.nodes.find((n) => n.id === 'x')?.vh === undefined);
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);

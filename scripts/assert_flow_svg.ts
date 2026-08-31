@@ -112,6 +112,34 @@ const vhSvg = flowToSVG(vhR.data, vhR.styles);
 const ySet = new Set([...vhSvg.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>节点[AB]<\/text>/g)].map((m) => m[1]));
 check('V链两节点垂直堆叠（y 不同）', ySet.size >= 2, `y集 ${[...ySet].join(',')}`);
 
+// ===== 对角扩展格 D（A6 算子，FLOW_OPTIMALITY_FRAMEWORK）：同格 a→D→b→V→c =====
+// b 应相对 a 右下偏移（gx+1 且 gy+1），c 相对 b 正下（V 不增 gx）；ny=3 推动整行统一扩展。
+{
+  const diagR = parseFlowDSL(`Title: t
+Dict: D[甲,乙]
+Dict: P[一]
+Lane from D[0,1] Layout H
+Lane from P[0] Layout V
+W: a: 节点A Location(D[0],P[0])
+W: b: 节点B Location(D[0],P[0]) D
+W: c: 节点C Location(D[0],P[0]) V
+W: s: 开始 Type[S] Location(D[1],P[0])
+W: e: 结束 Type[E] Location(D[1],P[0]) V`);
+  check('diag: 无解析错误', diagR.errors.length === 0, JSON.stringify(diagR.errors));
+  const diagL = computeExcelLayout(diagR.data, diagR.styles);
+  const pa = diagL.nodePos.get('a'), pb = diagL.nodePos.get('b'), pc = diagL.nodePos.get('c');
+  if (pa && pb && pc) {
+    check('diag: B 相对 A 对角右下（x、y 均增）', pb.x > pa.x + 1 && pb.y > pa.y + 1,
+      `dx=${(pb.x - pa.x).toFixed(1)} dy=${(pb.y - pa.y).toFixed(1)}`);
+    check('diag: C 相对 B 正下（同槽 x、y 增）', Math.abs(pc.x - pb.x) < 1 && pc.y > pb.y + 1,
+      `dx=${Math.abs(pc.x - pb.x).toFixed(1)} dy=${(pc.y - pb.y).toFixed(1)}`);
+    check('diag: 行高被对角扩展推动（ny≥3）', diagL.rowHpx[0] > 300,
+      `rowHpx[0]=${diagL.rowHpx[0].toFixed(1)}`);
+  } else {
+    check('diag: 三节点均落格', false);
+  }
+}
+
 // ===== 连线验证：折线从节点右连线区中线出发 → 中段 → 目标左连线区中线进入 =====
 const allPaths = [...svg.matchAll(/<path d="(M[^"]*)" fill="none" stroke="#64748b"/g)].map((m) => m[1]);
 check('连线折线存在', allPaths.length >= 4, `实际 ${allPaths.length}`);

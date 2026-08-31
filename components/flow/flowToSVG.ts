@@ -530,9 +530,10 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
         // 首节点定位格内原点 (0,0)
         gx = 0; gy = 0;
       } else {
-        // 后续节点按其自身 vh 相对上一节点排布（默认 V 纵向）
+        // 后续节点按其自身 vh 相对上一节点排布（默认 V 纵向；D=对角右下，A6 扩展格算子）
         const dir = n.vh ?? 'V';
         if (dir === 'V') gy++;
+        else if (dir === 'D') { gx++; gy++; }
         else gx++;
       }
       items.push({ n, gridX: gx, gridY: gy, m });
@@ -888,75 +889,11 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   }
 
   // ===== 连线与端口引擎：全局协同 WSAD 硬性互斥 + 几何中点对齐原则 =====
+  // [2026-09 清理] 旧引擎死代码已移除：nodeBoxes/getMidpointPort/getCorridorPort/
+  // segIntersectsBox/routeHits/isPortBlocked 主路径已由 AlgebraicFlowRouter 承接，
+  // 详见 docs/FLOW_OPTIMALITY_EXECUTION_NOTES.md。type Port/Box 仍供 allBoxes 等使用。
   type Port = 'R' | 'L' | 'T' | 'B';
   type Box = { x0: number; y0: number; x1: number; y1: number };
-  const nodeBoxes: Record<string, Box> = {};
-  for (const [id, p] of L.nodePos) {
-    nodeBoxes[id] = { x0: p.x - p.W / 2, y0: p.y - p.H / 2, x1: p.x + p.W / 2, y1: p.y + p.H / 2 };
-  }
-
-  // 严格边中点端口坐标（代数与几何美学中点对齐）
-  function getMidpointPort(pos: { x: number; y: number; W: number; H: number }, dir: Port): { x: number; y: number } {
-    switch (dir) {
-      case 'R': return { x: pos.x + pos.W / 2, y: pos.y };
-      case 'L': return { x: pos.x - pos.W / 2, y: pos.y };
-      case 'T': return { x: pos.x, y: pos.y - pos.H / 2 };
-      case 'B': return { x: pos.x, y: pos.y + pos.H / 2 };
-    }
-  }
-
-  // 法向走廊外端点（从中点沿法向延伸 half/2 走廊中线）
-  function getCorridorPort(pos: { x: number; y: number; W: number; H: number }, dir: Port, half: number): { x: number; y: number } {
-    const mid = getMidpointPort(pos, dir);
-    switch (dir) {
-      case 'R': return { x: mid.x + half / 2, y: mid.y };
-      case 'L': return { x: mid.x - half / 2, y: mid.y };
-      case 'T': return { x: mid.x, y: mid.y - half / 2 };
-      case 'B': return { x: mid.x, y: mid.y + half / 2 };
-    }
-  }
-
-  // 参数化相交裁剪检测（Liang-Barsky 算法）
-  function segIntersectsBox(ax: number, ay: number, bx: number, by: number, r: Box): boolean {
-    const dx = bx - ax, dy = by - ay;
-    let tmin = 0, tmax = 1;
-    const p = [-dx, dx, -dy, dy];
-    const q = [ax - r.x0, r.x1 - ax, ay - r.y0, r.y1 - ay];
-    for (let k = 0; k < 4; k++) {
-      if (p[k] === 0) {
-        if (q[k] < 0) return false;
-      } else {
-        const rk = q[k] / p[k];
-        if (p[k] < 0) { if (rk > tmin) tmin = rk; }
-        else { if (rk < tmax) tmax = rk; }
-      }
-    }
-    return tmin <= tmax;
-  }
-
-  // 全图避障检测（跳过源与宿节点自身）
-  function routeHits(pathPts: { x: number; y: number }[], skipA: string, skipB: string): boolean {
-    for (const [id, bx] of Object.entries(nodeBoxes)) {
-      if (id === skipA || id === skipB) continue;
-      for (let i = 0; i < pathPts.length - 1; i++) {
-        if (segIntersectsBox(pathPts[i].x, pathPts[i].y, pathPts[i + 1].x, pathPts[i + 1].y, bx)) return true;
-      }
-    }
-    return false;
-  }
-
-  // 检测端口引出时是否紧邻障碍物
-  function isPortBlocked(nodeId: string, dir: Port): boolean {
-    const pos = L.nodePos.get(nodeId);
-    if (!pos) return false;
-    const p0 = getMidpointPort(pos, dir);
-    const p1 = getCorridorPort(pos, dir, L.half);
-    for (const [id, bx] of Object.entries(nodeBoxes)) {
-      if (id === nodeId) continue;
-      if (segIntersectsBox(p0.x, p0.y, p1.x, p1.y, bx)) return true;
-    }
-    return false;
-  }
 
   // 提取顶层边列表（含 N/DATA 虚边）
   const edgeList = data.edges.filter((x) => !x.parent);
