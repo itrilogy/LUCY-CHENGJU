@@ -934,6 +934,10 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
         const my = horiz1 ? s.y : t.y;
         pts = [{ x: s.x, y: s.y }, { x: mx, y: my }, { x: t.x, y: t.y }];
       }
+      // clamp 到网格内（纵/横段不贴左表头、不越右缘、不进标题带）——初次 buildRoute 也生效
+      const xLo = x0 + L.half, xHi = L.gridRight - L.half;
+      const yLo = FLOW_SVG.titleH + L.half, yHi = L.gridBottom - L.half;
+      pts = pts.map((p) => ({ x: Math.max(xLo, Math.min(xHi, p.x)), y: Math.max(yLo, Math.min(yHi, p.y)) }));
       // 去除零长段与共线中间点（避免多余点造成重复/回折，也使得标签落于真正的最长段）
       const clean = [pts[0]];
       for (let i = 1; i < pts.length; i++) {
@@ -989,9 +993,9 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       }
       let found = false;
       for (const c of tryOrder) {
-        // 走廊过滤 + clamp 到网格内（不侵入左表头/越出右缘）：优先就近、不把走廊推到画布边缘
-        const cx = c.mX !== null ? Math.max(x0, Math.min(L.gridRight - L.half, c.mX)) : null;
-        const cy = c.mY !== null ? Math.max(FLOW_SVG.titleH, Math.min(L.gridBottom - L.half, c.mY)) : null;
+        // 走廊过滤 + clamp 到网格内（纵段不贴左表头/不越右缘）：下限 x0+half 避开 Y 轴标题带贴边
+        const cx = c.mX !== null ? Math.max(x0 + L.half, Math.min(L.gridRight - L.half, c.mX)) : null;
+        const cy = c.mY !== null ? Math.max(FLOW_SVG.titleH + L.half, Math.min(L.gridBottom - L.half, c.mY)) : null;
         if (cx !== null && usedCorrX.has(round2(cx))) continue;
         if (cy !== null && usedCorrY.has(round2(cy))) continue;
         const candidate = buildRoute(cx, cy);
@@ -1008,7 +1012,7 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     }
     // ===== P3 外侧走廊回退：MAX_ROUND 内仍穿节点时，绕画布外侧走廊走（跨多格长回边） =====
     if (routeHits(pts, e.from, e.to)) {
-      const corridorX = Math.max(x0 - L.half, L.bandLeft); // 左走廊（不侵入左表头/Y轴标题带）
+      const corridorX = Math.max(x0 + L.half, L.bandLeft + L.half); // 左走廊（避开左表头/Y轴标题带贴边）
       const corridorXr = L.gridRight + L.half; // 右走廊（网格右缘留 0.5 走廊）
       const corridorY = FLOW_SVG.titleH;       // 顶走廊（标题带下沿，已避开格子）
       const corridorYb = L.gridBottom + L.half;// 底走廊

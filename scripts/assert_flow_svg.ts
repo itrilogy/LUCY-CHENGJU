@@ -251,7 +251,7 @@ w6 → #w1`);
     const c = d.match(/[-\d.]+/g)!.map(Number);
     for (let i = 0; i < c.length; i += 2) {
       const x = +c[i], y = +c[i + 1];
-      if (x <= layE.bandLeft + 1 || y >= layE.gridBottom + 0.01 || y <= FLOW_SVG.titleH + 0.01) { outerHits++; break; }
+      if (x <= layE.bandLeft + layE.half + 1 || y >= layE.gridBottom + 0.01 || y <= FLOW_SVG.titleH + 0.01) { outerHits++; break; }
     }
   }
   check('outer-corridor: 回边外绕触发(≥1边触及外侧走廊)', outerHits >= 1, `outerHits=${outerHits}`);
