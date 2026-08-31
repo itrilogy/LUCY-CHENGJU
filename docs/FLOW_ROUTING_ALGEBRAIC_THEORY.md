@@ -1,4 +1,4 @@
-# IQS-Flow 几何代数连线、三折线扩展格上界与流形松弛理论体系 (3-Bend Threshold & Manifold Relaxation Theory)
+# IQS-Flow 几何代数连线、三折线上界与全局层级松弛理论体系 (Algebraic Flow Routing & Hierarchical Manifold Relaxation Theory)
 
 ---
 
@@ -71,7 +71,35 @@ $$J = \sum_{e \in \mathcal{E}} C_{\text{route}}(e) + \sum_{u \in \mathcal{V}} C_
 
 ---
 
-## 4. 全局边规划优先级全序模型 (Priority Ordering & Port Allocation)
+## 4. 节点与元素层级全序优先级模型 (Hierarchical Node Tier Priority Model)
+
+为了解决局部避让导致主流程高低与左右参差不齐的问题，布局系统引入严格的节点层级优先级体系：
+
+$$\operatorname{Priority}(\text{Tier 1: Main Tasks}) \gg \operatorname{Priority}(\text{Tier 2: Gateways}) \gg \operatorname{Priority}(\text{Tier 3: Documents})$$
+
+```
+Tier 1：主干业务节点 (Main Tasks: w1~w8) ───► 强制锁定行内统一主基准线 (gridY=0)，绝对整齐
+        │
+Tier 2：判定网关 (Gateways: q1~q3)       ───► 沿流向顺延至弹性槽位 (gridX=1 或 gridY=1)，吸收折线
+        │
+Tier 3：资料卡片 (Docs: n1~n3)           ───► 允许走廊折线绕行，严禁推挤 Tier 1 主干节点
+```
+
+### 4.1 主干基准对齐公理 (Mainstream Coaxial Invariant)
+- 同一泳道行内的所有 Tier 1 主干任务节点，**强制锚定在基准高度 $gridY = 0$**；
+- 任何跨列水平视线，若需穿过 Tier 1 节点，**严禁将 Tier 1 节点位移下沉**；
+- 保证主干流水线在视觉上保持绝对平齐贯通。
+
+### 4.2 弹性网关吸收公理 (Elastic Gateway Displacement)
+- Tier 2 判定网关作为分支节点，具备天然的分流弹性；
+- 网关优先作为“位移吸收体”（移至 $gridX = 1$ 或 $gridY = 1$），既打通了主轴垂直通道，又自然呈现出“主干居中、分支右展”的层次美感。
+
+### 4.3 辅助连线容折公理 (Secondary Edge Tolerance)
+- Tier 3 文档依附线若遇 Tier 1 主干节点阻挡，采用 2 弯标准走廊绕行，绝不牺牲主干流水线的平直度。
+
+---
+
+## 5. 全局边规划优先级全序模型 (Edge Priority Ordering & Port Allocation)
 
 边的规划全序 $\Phi(e)$ 严格定义为：
 
@@ -87,7 +115,7 @@ $$\Phi(e) = \begin{cases}
 
 ---
 
-## 5. 正交通道网格与光线投射碰撞检测 (Raycasting & Corridor Mesh)
+## 6. 正交通道网格与光线投射碰撞检测 (Raycasting & Corridor Mesh)
 
 折线拐点坐标被严格约束在网格正交通道网格上：
 $$X_{\text{mesh}} = \{ \text{列走廊中线 } x_{\text{col}} \} \cup \{ x_u, x_v \}$$
