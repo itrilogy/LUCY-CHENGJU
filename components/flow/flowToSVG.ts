@@ -888,20 +888,27 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     const a = nodeXY[e.from], b = nodeXY[e.to];
     if (!a || !b) continue;
     const cands = sourceCandidates(a, b);
-    // 优先选"未被出入口占"的端口；若朝向全被占，则退而求其次选"未出"（避开已占入口）
-    // 出口端口：按朝向排序优先选"未用作出口"的端口（不因入侧占用而背向）；
-    // 若朝向端口全被占用，才回退到其余端口。
-    let sp = cands[0];
-    // WSAD 单属性（设计⑤"出入口不共用同一侧"）：出口避开 usedIn+usedOut，同侧不既入又出
-    for (const c of cands) { if (!a.usedOut.has(c) && !a.usedIn.has(c)) { sp = c; break; } }
-    if (a.usedOut.has(sp)) { // 除遭 side 全占则复用未出
-      let fallback = null;
-      for (const c of cands) { if (!a.usedOut.has(c)) { fallback = c; break; } }
-      if (fallback) sp = fallback;
+    const tp = targetPortOf.get(e.id) ?? 'T';
+    // 运输模型②目的优先：在"未占(WSAD)"的出口端口中，选"折线最少+距离最短"者
+    const availS = cands.filter((c) => !a.usedOut.has(c) && !a.usedIn.has(c));
+    const tryS = availS.length ? availS : cands.filter((c) => !a.usedOut.has(c));
+    let bestS = (tryS[0] ?? cands[0]);
+    let bestCost = Infinity;
+    let bestBend = Infinity, bestDist = Infinity;
+    for (const c of tryS) {
+      const ps = portXY(a, c), pt = portXY(b, tp);
+      // 折线数估算：由 sp/tp 方向组合决定（L型=1弯，同轴直线=0弯，U/Z=2~3弯）
+      const h1 = (c === 'R' || c === 'L'), h2 = (tp === 'R' || tp === 'L');
+      const sameX = Math.abs(ps.x - pt.x) < 1, sameY = Math.abs(ps.y - pt.y) < 1;
+      let bends = 0;
+      if (!sameX && !sameY) bends = h1 === h2 ? (h1 ? 2 : 2) : 1; // 一横一竖=L型1弯；同相=2弯
+      const dist = Math.abs(ps.x - pt.x) + Math.abs(ps.y - pt.y);
+      const cost = bends * 3 + dist * 0.1;
+      if (cost < bestCost) { bestCost = cost; bestS = c; bestBend = bends; bestDist = dist; }
     }
+    const sp = bestS;
     a.usedOut.add(sp);
 
-    const tp = targetPortOf.get(e.id) ?? 'T';
     const s = portXY(a, sp), t = portXY(b, tp);
     // 正交走线：首段垂直于源节点该边（R/L→先横，T/B→先竖），末段垂直于目标节点该边
     const horiz1 = (sp === 'R' || sp === 'L');
