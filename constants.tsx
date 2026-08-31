@@ -1,6 +1,7 @@
 import React from 'react';
 import { Zap, BarChart3, LineChart, PieChart, ScatterChart, Activity, Workflow, Network, Boxes, Grid3X3, GitBranch, BarChart2, Table, GitFork, Radar } from 'lucide-react';
 import { QCToolType, FishboneNode, RadarData, FlowData, FlowChartStyles } from './types';
+import { parseFlowDSL } from './components/flow/FlowParser';
 
 export const TOOL_CONFIGS = [
   {
@@ -965,85 +966,72 @@ Series: 保守型组合, [6, 8, 95, 1.2, 5], #10b981, 0.2`;
 
 // ===== Flow (流程图 / BPMN 子集) =====
 
-export const INITIAL_FLOW_DSL = `Title: 采购申请审批流程
+export const INITIAL_FLOW_DSL = `Title: 供应商准入评审流程
 Layout: H
 
-// ===== 数据层：字典 =====
-Dict: D[信息中心,综合计划科,办公室]
-Dict: P[申请阶段,审批阶段,执行阶段,归档阶段]
-Dict: R[申请员,部门经理,财务岗]
-Dict: worker[提交采购申请,填写申请单,金额超过5000?,部门经理审批,直接执行,财务付款,归档,退回修改]
+// ===== 数据层：字典（D/P/R 保留字 + 自定义 worker） =====
+Dict: D[采购部,质量部,技术部,财务部]
+Dict: P[资质初审,技术评审,商务谈判,现场审核,综合定级]
+Dict: R[采购员,质量工程师,技术专家,财务专员,评审委员会]
+Dict: worker[受理申请,资质资料初审,初审是否通过?,资质补齐,技术评审,技术是否合格?,技术评审退回,商务谈判,商务条件达成?,商务谈判搁置,现场审核,现场是否通过?,现场整改,整改复验,综合评定,是否批准,不合格退回,准入生效,归档,终审归档]
 
-// ===== 结构层：泳道 =====
-Lane from D[0,1,2] Layout H
-Lane from P[0,1,2,3] Layout V
+// ===== 结构层：横向部门泳道 + 纵向阶段泳道 =====
+Lane from D[0,1,2,3] Layout H
+Lane from P[0,1,2,3,4] Layout V
 
-// ===== 轴标题 =====
-AxisX: 职能部门 Align C
-AxisY: 推进阶段 Align C
-Axis: 采购申请审批流程 AxisX
+// ===== 轴标题（Align 对齐） =====
+AxisX: 参与部门 Align C
+AxisY: 阶段 Align C
+Axis: 供应商准入评审总流程 AxisX
 
-// ===== 属性边栏提取 =====
-Attr active [Role,SOP,Lv,Time]
+// ===== 六属性图例边栏 =====
+Attr active [Role,SOP,Lv,Time,KPI]
 
-// ===== 节点 =====
+// ===== 节点：分支(?) / 并行(+) / 子流程(SUB) / 标注(N) / 数据(DATA) =====
 W: w1: worker[0] Type[S] Location(D[0],P[0])
-W: w2: worker[1] Location(D[0],P[0]) SOP(XX-CX-04) Role(R[0]) Lv(重要)
-W: q1: worker[2] Type[?] Location(D[0],P[1])
-   是 → #w4
-   否 → #w5
+W: w2: worker[1] Location(D[0],P[0]) SOP(XZ-01) Role(R[0]) Lv(常规)
+W: q1: worker[2] Type[?] Location(D[0],P[0])
+   通过 → #w4
+   否则 → #w5
    End
-W: w4: worker[3] Location(D[1],P[1]) Role(R[1]) Time(24h)
-W: q2: 审批是否通过? Type[?] Location(D[1],P[1])
-   通过 → #w6
-   驳回 → #w2
+W: w5: worker[3] Location(D[0],P[1]) Role(R[0])
+w5 → #w2
+W: w4: worker[4] Location(D[1],P[1]) Role(R[1]) Time(7D)
+W: q2: 技术是否合格? Type[?] Location(D[1],P[1])
+   合格 → #w6
+   不合格 [超差说明] → #w7
    End
-W: w5: worker[4] Location(D[0],P[2])
-W: w6: worker[5] Location(D[2],P[2]) Role(R[2]) KPI(≤1‰)
-W: w7: worker[6] Type[E] Location(D[1],P[3])
+W: w7: worker[5] Location(D[1],P[1]) Role(R[2])
+w7 → #w4
+W: w6: worker[6] Location(D[0],P[2]) Role(R[0]) KPI(≤3%)
+W: q3: 商务条件达成? Type[?] Location(D[0],P[2])
+   达成 → #w8
+   否则 → #w9
+   End
+W: w9: worker[7] Location(D[0],P[2]) Role(R[3])
+w9 → #w6
+W: w8: worker[8] Location(D[2],P[3]) Role(R[1]) Time(10D)
+W: q4: 现场是否通过? Type[?] Location(D[2],P[3])
+   通过 → #w10
+   否则 → #w11
+   End
+W: w11: worker[9] Location(D[2],P[3]) Role(R[1])
+W: w12: 整改复验 Type[+] Location(D[2],P[3])
+   合格 → #w10
+   驳回 → #w11
+   End
+W: w10: worker[10] Type[SUB] Location(D[3],P[4]) Role(R[4]) Time(15D)
+   W: s1: worker[13] Type[S]
+   W: s2: worker[14] Type[?]
+      批准 → #s3
+      不批 → #s4
+      End
+   W: s3: worker[15]
+   W: s4: worker[16]
+   End
+W: n1: 风险提示 Type[N] Location(D[3],P[4]) Attach(#w10) Lv(高)
+W: d1: 供应商档案 Type[DATA] Location(D[3],P[4]) Attach(#w10)
+W: w13: worker[19] Type[E] Location(D[1],P[4])
+w10 → #w13`;
 
-// 显式边：补齐分支汇聚，理顺流转
-w5 → #w6
-w6 → #w7`;
-
-export const INITIAL_FLOW_DATA: FlowData = {
-  title: '采购申请审批流程',
-  layout: 'H',
-  dicts: {
-    D: ['信息中心', '综合计划科', '办公室'],
-    P: ['申请阶段', '审批阶段', '执行阶段', '归档阶段'],
-    R: ['申请员', '部门经理', '财务岗'],
-    worker: ['提交采购申请', '填写申请单', '金额超过5000?', '部门经理审批', '直接执行', '财务付款', '归档', '退回修改']
-  },
-  lanes: [
-    { dict: 'D', indices: [0, 1, 2], layout: 'H' },
-    { dict: 'P', indices: [0, 1, 2, 3], layout: 'V' }
-  ],
-  axes: {
-    x: { title: '职能部门', align: 'C' },
-    y: { title: '推进阶段', align: 'C' },
-    page: { title: '采购申请审批流程', place: 'AxisX', align: 'C' }
-  },
-  nodes: [
-    { id: 'w1', type: 'start', label: '提交采购申请', labelRef: 'worker[0]', cell: { D: 0, P: 0 }, attrs: {} },
-    { id: 'w2', type: 'task', label: '填写申请单', labelRef: 'worker[1]', cell: { D: 0, P: 0 }, attrs: { sop: 'XX-CX-04', role: 'R[0]', lv: '重要' } },
-    { id: 'q1', type: 'exclusiveGateway', label: '金额超过5000?', labelRef: 'worker[2]', cell: { D: 0, P: 1 }, attrs: {} },
-    { id: 'w4', type: 'task', label: '部门经理审批', labelRef: 'worker[3]', cell: { D: 1, P: 1 }, attrs: { role: 'R[1]', time: '24h' } },
-    { id: 'q2', type: 'exclusiveGateway', label: '审批是否通过?', labelRef: null, cell: { D: 1, P: 1 }, attrs: {} },
-    { id: 'w5', type: 'task', label: '直接执行', labelRef: 'worker[4]', cell: { D: 0, P: 2 }, attrs: {} },
-    { id: 'w6', type: 'task', label: '财务付款', labelRef: 'worker[5]', cell: { D: 2, P: 2 }, attrs: { role: 'R[2]', kpi: '≤1‰' } },
-    { id: 'w7', type: 'end', label: '归档', labelRef: 'worker[6]', cell: { D: 1, P: 3 }, attrs: {} }
-  ],
-  edges: [
-    { id: 'e1', from: 'w1', to: 'w2', type: 'sequence', label: null, condition: null, default: false },
-    { id: 'e2', from: 'q1', to: 'w4', type: 'sequence', label: '是', condition: null, default: false },
-    { id: 'e3', from: 'q1', to: 'w5', type: 'sequence', label: '否', condition: null, default: false },
-    { id: 'e4', from: 'w5', to: 'w6', type: 'sequence', label: null, condition: null, default: false },
-    { id: 'e5', from: 'q2', to: 'w6', type: 'sequence', label: '通过', condition: null, default: false },
-    { id: 'e6', from: 'w6', to: 'w7', type: 'sequence', label: null, condition: null, default: false },
-    { id: 'e7', from: 'q2', to: 'w2', type: 'sequence', label: '驳回', condition: null, default: false }
-  ],
-  subProcesses: [],
-  artifacts: [],
-  attrPanel: { active: ['role', 'sop', 'lv', 'time'] }
-};
+export const INITIAL_FLOW_DATA: FlowData = parseFlowDSL(INITIAL_FLOW_DSL).data;

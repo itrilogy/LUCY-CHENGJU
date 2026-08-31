@@ -340,10 +340,13 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
   }
 
   // ===== 校验汇总（对齐 spec §10） =====
-  const startCnt = nodes.filter((n) => n.type === 'start').length;
-  const endCnt = nodes.filter((n) => n.type === 'end').length;
-  if (startCnt !== 1) errors.push(`开始节点应恰有 1 个，实际 ${startCnt}`);
-  if (endCnt < 1) errors.push('至少需要一个结束节点');
+  const topLevelStarts = nodes.filter((n) => n.type === 'start' && !n.parent);
+  const anySubStart = nodes.some((n) => n.type === 'start' && n.parent);
+  const endTop = nodes.filter((n) => n.type === 'end' && !n.parent).length;
+  // 开始节点：顶层恰 1 个；若无顶层开始则以子流程内部开始作为图入口（整图为子流程的退化用例）
+  if (topLevelStarts.length === 0 && !anySubStart) errors.push('至少需要一个开始节点');
+  if (topLevelStarts.length > 1) errors.push(`开始节点应恰有 1 个，实际 ${topLevelStarts.length}（顶层）`);
+  if (endTop < 1) errors.push('至少需要一个结束节点');
 
   // 孤立节点检查：见下方 P2 补全校验（spec §10 #9，error 级）
   const inDeg: Record<string, number> = {};

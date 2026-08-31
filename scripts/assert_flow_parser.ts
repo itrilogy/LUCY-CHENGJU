@@ -276,5 +276,25 @@ q1 → #w2`);
   check('cycle: 含网关回路不误报', !b.warnings.some((w) => w.includes('不含判断节点')), b.warnings.join());
 }
 
+// ===== 复杂图例示例配套：子流程内部 start/end 不计入顶层开始/结束 =====
+{
+  // 顶层 start 恰1（子流程内也有 start）→ 不误报"开始2个"
+  const a = parseFlowDSL(`Title: t
+W: w1: 开始 Type[S]
+W: s1: 子流程 Type[SUB]
+   W: is1: 内开始 Type[S]
+   End
+W: w2: 结束 Type[E]`);
+  check('sub-start: 子流程内 start 不计入顶层(不报2个开始)', a.errors.length === 0 || !a.errors.some((e) => e.includes('开始节点')), a.errors.join());
+
+  // 顶层无 start 但子流程内 start → 作为图入口（退化用例，不报"无开始"）
+  const b = parseFlowDSL(`Title: t
+W: s1: 子流程 Type[SUB]
+   W: is1: 内开始 Type[S]
+   W: ie1: 内结束 Type[E]
+   End`);
+  check('sub-start: 顶层无start但有子流程内部start→不报缺失', !b.errors.some((e) => e.includes('开始节点')), b.errors.join());
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);

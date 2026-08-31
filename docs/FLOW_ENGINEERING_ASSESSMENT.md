@@ -122,3 +122,31 @@
 
 *记录人: 智能体辅助审计*
 *状态: 审计完成，1 处真实缺陷已修复，127 项断言全绿*
+
+---
+
+## 6. 组件页面复杂图例示例 + parser 语义修复（2026-08-31）
+
+### 6.1 复杂图例示例（组件默认展示）
+将 `constants.tsx` 的 `INITIAL_FLOW_DSL` 由"采购审批流程"（8 节点）升级为 **"供应商准入评审流程"**（22 节点 / 27 边 / 4 部门×5 阶段双泳道），覆盖 DSL **全部核心语法点**：
+- Dict：保留字 D/P/R + 自定义 worker（20 项）
+- 泳道：H(部门) × V(阶段) 双泳道矩阵
+- 节点类型：start / task / 判断 `?`(×4) / **并行 `+`** / **子流程 `SUB`(含内嵌 start/判断/结束)** / **标注 `N`** / **数据 `DATA`**
+- 连线：分支行（含 `否则` 默认出口 / `[超差说明]` 条件）、显式边、**回边**（`w5→#w2` 等，均经网关）
+- 属性：Role/SOP/Lv/Time/KPI + **Attach(#id)** 依附 N/DATA
+- 轴标题 AxisX/AxisY/Axis + Align
+- AttrPanel 六属性
+
+改用 `INITIAL_FLOW_DATA = parseFlowDSL(INITIAL_FLOW_DSL).data` **生成式**（消除双源手工维护不一致）。
+
+### 6.2 parser 语义修复（子流程 start/end 计数）
+- 原缺陷：子流程内部 start/end 被计入**顶层**"开始恰有1个"计数，导致含子流程内 start 的图误报"开始2个"。
+- 修复：顶层 start 恰 1；顶层无 start 但有子流程内 start 时视为图入口（退化用例，兼容 PDPC 整图即子流程）；子流程内 end 不计顶层。
+- 断言：`assert_flow_parser.ts` 新增 2 项（子流程内 start 不计顶层 / 顶层无 start 回退），parser 53 → 57。
+
+### 6.3 状态
+- 组件默认图例：零 error/warn；并行+/子流程小图/默认斜杠/AttrPanel/岗位·标签展开全展示。
+- 回归：`npm run test:flow` **129 项全绿**（57+55+17）；`npx tsc --noEmit` 零错；`npm run build` 通过。
+
+*记录人: 智能体辅助实施*
+*状态: 复杂图例已接入组件，parser 语义修复完成，129 项断言全绿*
