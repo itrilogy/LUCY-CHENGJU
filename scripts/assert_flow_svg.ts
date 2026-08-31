@@ -258,5 +258,35 @@ w6 → #w1`);
   check('outer-corridor: 无解析错误', e.errors.length === 0, e.errors.join());
 }
 
+// ===== 遗留规划 M1（R1）：同走廊多边走线错位（不叠同中线） =====
+{
+  const r1 = parseFlowDSL(`Title: r1
+Layout: H
+Dict: D[列0,列1]
+Dict: P[行0,行1,行2]
+Dict: worker[A,B,C]
+Lane from D[0,1] Layout H
+Lane from P[0,1,2] Layout V
+W: s1: worker[0] Type[S] Location(D[0],P[0])
+W: a1: worker[1] Location(D[0],P[0])
+W: a2: worker[1] Location(D[0],P[1])
+W: a3: worker[1] Location(D[0],P[2])
+W: b3: worker[2] Location(D[1],P[2])
+W: b2: worker[2] Location(D[1],P[1])
+W: b1: worker[2] Location(D[1],P[0])
+W: e1: worker[0] Type[E] Location(D[1],P[0])
+s1 → #a1
+a1 → #b3
+a2 → #b2
+a3 → #b1
+b1 → #e1`);
+  const r1svg = flowToSVG(r1.data, r1.styles);
+  check('r1: 无解析错误', r1.errors.length === 0, r1.errors.join());
+  const r1vx = new Set<number>();
+  for (const mm of r1svg.matchAll(/L([\d.]+),([\d.]+) L\1,([\d.]+)/g)) r1vx.add(Math.round(parseFloat(mm[1]) * 10) / 10);
+  // R1：同列多源均连到对侧时，竖段走廊应错开（≥2 个不同 x），不全部叠回同一中线
+  check('r1: 同走廊多边竖段错位(≥2种x)', r1vx.size >= 2, `唯一竖段x=${[...r1vx].join(',')}`);
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);

@@ -795,6 +795,11 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
 
   // ===== 两趟端口分配：先"入口"（几何指向约束强），后"出口"（避开已占入口） =====
   const edgeList = data.edges.filter((x) => !x.parent);
+  // R1 走线精细：跨边共享"已用走廊"（横段用 y、竖段用 x，四舍五入到像素避免浮点重复），
+  // 使同走廊多条边错开不同的分数通道位置而非全部叠回同一中线。
+  const usedCorrX = new Set<number>();
+  const usedCorrY = new Set<number>();
+  const round2 = (v: number) => Math.round(v * 10) / 10;
   const targetPortOf = new Map<string, Port>(); // edge id -> target port (入口)
   // 第一趟：入口端口
   for (const e of edgeList) {
@@ -881,31 +886,42 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     const dw = L.half; // 走廊步长 = 0.5 连线区宽
     while (routeHits(pts, e.from, e.to) && round < MAX_ROUND) {
       round++;
-      // 确定性避障：同行下移→同列右移→反向→扩格
+      // R1 确定性避障 + 走廊分数错位：横/竖段按螺旋分数偏移（0.5/1.5/-0.5...），
+      // 避开已占走廊（usedCorrX/Y），使同走廊多条边不叠回同一中线
+      const FRACS = [0.5, 1.5, -0.5, -1.5, 1, -1, 0.25, -0.25, 0.75, 2, -2, 3];
       const tryOrder: { mX: number | null; mY: number | null }[] = [];
       if (horiz1 && horiz2) {
         const baseX = (s.x + t.x) / 2;
-        // 竖段左右挪：先右移，再左移，再更远
-        tryOrder.push({ mX: baseX + dw * round, mY: null }, { mX: baseX - dw * round, mY: null });
+        for (const f of FRACS) tryOrder.push({ mX: baseX + dw * f, mY: null });
       } else if (!horiz1 && !horiz2) {
         const baseY = (s.y + t.y) / 2;
-        // 横段下移/上移
-        tryOrder.push({ mX: null, mY: baseY + dw * round }, { mX: null, mY: baseY - dw * round });
+        for (const f of FRACS) tryOrder.push({ mX: null, mY: baseY + dw * f });
       } else {
         // L 型：拐点固定（无中间走廊可移），尝试整体下移/右移（扩格模拟）
         const my = horiz1 ? s.y : t.y;
         const mx = horiz1 ? t.x : s.x;
-        tryOrder.push(
-          { mX: mx + dw * round, mY: horiz1 ? my + dw * round : my },
-          { mX: horiz1 ? mx : mx + dw * round, mY: my + dw * round },
-        );
+        for (const f of FRACS) {
+          tryOrder.push(
+            { mX: mx + dw * f, mY: horiz1 ? my + dw * f : my },
+            { mX: horiz1 ? mx : mx + dw * f, mY: my + dw * f },
+          );
+        }
       }
       let found = false;
       for (const c of tryOrder) {
+        // 走廊过滤：避开已占走廊坐标（竖段 x / 横段 y），使同走廊多条边错开不同通道
+        if ((c.mX !== null && usedCorrX.has(round2(c.mX))) || (c.mY !== null && usedCorrY.has(round2(c.mY)))) continue;
         const candidate = buildRoute(c.mX, c.mY);
         if (!routeHits(candidate, e.from, e.to)) { pts = candidate; found = true; break; }
       }
       if (!found) break;
+    }
+    // 登记本边最终所用走廊（便于后续边错位）
+    for (let k = 1; k < pts.length - 1; k++) {
+      const a = pts[k - 1], b = pts[k], cc = pts[k + 1];
+      // 中间转折点所在走廊：竖段记录 x，横段记录 y
+      if (Math.abs(a.x - b.x) < 0.5 && Math.abs(cc.x - b.x) < 0.5) usedCorrX.add(round2(b.x));
+      if (Math.abs(a.y - b.y) < 0.5 && Math.abs(cc.y - b.y) < 0.5) usedCorrY.add(round2(b.y));
     }
     // ===== P3 外侧走廊回退：MAX_ROUND 内仍穿节点时，绕画布外侧走廊走（跨多格长回边） =====
     if (routeHits(pts, e.from, e.to)) {
