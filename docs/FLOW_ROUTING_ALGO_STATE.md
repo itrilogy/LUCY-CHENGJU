@@ -4,6 +4,7 @@
 > **最后更新**: 2026-08-31
 > **用途**: 在上下文压缩后仍能恢复算法关键设定、已做/待办、已知问题与根因。
 > **权威源头**: `FLOW_LAYOUT_ENGINE_DESIGN.md`（布局v6）、`IQS_FLOW_DSL_SPEC.md`、用户设计思想。
+> **需求/算法/数学方法完整说明**: `docs/FLOW_CONNECTION_REQUIREMENTS_ALGO.md`（需求目标 G1-G5 + 数学方法需求 M1-M8 + 伪码）。
 
 ---
 
