@@ -293,7 +293,7 @@ function renderSubprocessInner(
 }
 
 function arrowMarker(id: string, color: string): string {
-  return `<defs><marker id="${id}" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L7,3 z" fill="${color}"/></marker></defs>`;
+  return `<defs><marker id="${id}" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L0,6 L7,3 z" fill="${color}"/></marker></defs>`;
 }
 
 // ===== 布局计算结果 =====
@@ -758,12 +758,12 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   // 端口方向定义（从节点中心向外，走 0.5 连线区中线）
   type Port = 'R' | 'L' | 'T' | 'B';
   function portXY(n: { x: number; y: number; W: number; H: number }, dir: Port): { x: number; y: number } {
-    // 回归 63566cf：端点=走廊中线（节点边界 + half/2），连线沿 0.5 走廊走
+    // 端点=节点边界（箭头抵节点边中点，设计⑤⑥；不取走廊中线——否则箭头悬空在走廊）
     switch (dir) {
-      case 'R': return { x: n.x + n.W / 2 + L.half / 2, y: n.y };
-      case 'L': return { x: n.x - n.W / 2 - L.half / 2, y: n.y };
-      case 'T': return { x: n.x, y: n.y - n.H / 2 - L.half / 2 };
-      case 'B': return { x: n.x, y: n.y + n.H / 2 + L.half / 2 };
+      case 'R': return { x: n.x + n.W / 2, y: n.y };
+      case 'L': return { x: n.x - n.W / 2, y: n.y };
+      case 'T': return { x: n.x, y: n.y - n.H / 2 };
+      case 'B': return { x: n.x, y: n.y + n.H / 2 };
     }
   }
   function snapTo(v: number, marks: number[]): number {
@@ -796,8 +796,16 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   }
   // 目标端口候选：target(b) 应"面向源(a)"的一侧（同行：b 朝 a 走 L/R；同列：b 朝 a 走 T/B）
   function targetCandidates(b: XYN, a: XYN): Port[] {
-    // 回归 63566cf：目标端口朝向源（与源候选相反方向优先），原样复用源候选
-    return sourceCandidates(b, a);
+    // 目标端口朝向源 a 的一侧（同列 b 在下→b 顶部入；同行 b 在右→b 左侧入），避免同列/同行背向导致同侧出入口
+    if (b.ri === a.ri && b.ci !== a.ci) {
+      return a.x <= b.x ? ['L', 'R', 'T', 'B'] : ['R', 'L', 'T', 'B']; // b 在 a 右 → 面左(L)
+    }
+    if (b.ci === a.ci && b.ri !== a.ri) {
+      return a.y <= b.y ? ['T', 'B', 'L', 'R'] : ['B', 'T', 'L', 'R']; // b 在 a 下 → 面上(T)
+    }
+    const dx = a.x - b.x, dy = a.y - b.y;
+    if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? ['R', 'T', 'B', 'L'] : ['L', 'T', 'B', 'R'];
+    return dy > 0 ? ['B', 'L', 'R', 'T'] : ['T', 'L', 'R', 'B'];
   }
   // 进出分开记录：出口/入口各自独立可选，重复（与相反向共用一侧）可接受
   function pickPort(
@@ -981,7 +989,7 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     }
     // ===== P3 外侧走廊回退：MAX_ROUND 内仍穿节点时，绕画布外侧走廊走（跨多格长回边） =====
     if (routeHits(pts, e.from, e.to)) {
-      const corridorX = x0 - L.half;           // 左走廊（左表头右边缘留 0.5 走廊）
+      const corridorX = Math.max(x0 - L.half, L.bandLeft); // 左走廊（不侵入左表头/Y轴标题带）
       const corridorXr = L.gridRight + L.half; // 右走廊（网格右缘留 0.5 走廊）
       const corridorY = FLOW_SVG.titleH;       // 顶走廊（标题带下沿，已避开格子）
       const corridorYb = L.gridBottom + L.half;// 底走廊
