@@ -9,8 +9,9 @@
   "scripts": {
     "sync-tools": "cp mcp-server/mcp_tools.json public/mcp_tools.json",
     "validate:dsl": "node scripts/validate_dsl.mjs",
+    "test:flow": "node --experimental-strip-types scripts/assert_flow_parser.ts && node --experimental-strip-types scripts/assert_flow_svg.ts",
     "dev": "npm run sync-tools && vite",
-    "build": "npm run validate:dsl && npm run sync-tools && vite build",
+    "build": "npm run validate:dsl && npm run test:flow && npm run sync-tools && vite build",
     "preview": "vite preview",
     "mcp:stdio": "node mcp-server/index.js",
     "mcp:sse": "node mcp-server/index.js --transport=sse"
