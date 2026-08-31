@@ -125,7 +125,7 @@ W: q2: 来料检验 Type[SUB] Location(D[0])
 ## 5. AI 辅助与验证
 
 - 编辑器支持自然语言生成 DSL（DeepSeek 等通道，复用 `kind=flow`）。
-- `npm run test:flow` 一键运行 **99 项**（46 parser + 53 svg）端到端断言回归。
+- `npm run test:flow` 一键运行 **111 项**（46 parser + 53 svg + 12 bpmn）端到端断言回归。
 - MCP 工具 `render_flow` 注册（自研 SVG 引擎）。
 
 ---

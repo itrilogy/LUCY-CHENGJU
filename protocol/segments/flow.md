@@ -41,7 +41,7 @@ Flow 图定义"**谁（泳道）× 做什么（活动）× 什么条件下走哪
 | :--- | :--- | :--- |
 | `Lane from <字典>[索引] Layout H\|V` | 批量画泳道（H=行,V=列） | `Lane from D[0,1,2] Layout H` |
 | `AxisX: <标题> Align L\|R\|C` | 横轴标题 | `AxisX: 职能部门 Align C` |
-| `AxisY: <标题> Align L\|R\|C` | 纵轴标题（文字纵向） | `AxisY: 推进阶段 Align C` |
+| `AxisY: <标题> Align L\|R\|C` | 纵轴坐标标题（保持水平；仅 Y 泳道标题旋转 -90°） | `AxisY: 推进阶段 Align C` |
 | `Axis: <整图> AxisX\|AxisY [Align]` | 整图标题 | `Axis: 采购审批 AxisX` |
 | `Attr active [<键>,...]` | 属性边栏提取（缺省=全部） | `Attr active [Role,SOP,Lv]` |
 
