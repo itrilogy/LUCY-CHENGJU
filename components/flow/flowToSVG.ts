@@ -225,7 +225,14 @@ function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy:
     ? `<rect x="${cx - maxLineW / 2 - 6}" y="${cy - (lines.length * fs * 1.3) / 2 - 4}" width="${maxLineW + 12}" height="${lines.length * fs * 1.3 + 8}" rx="4" fill="#475569" opacity="0.9"/>`
     : '';
   const textCy = (n.type === 'parallelGateway' && lines.length) ? cy + fs * 0.55 : cy;
-  let out = shape + plate + multilineText(cx, textCy, lines, fs, overflow ? '#f8fafc' : '#fff');
+  let out: string;
+  if (n.type === 'subprocess') {
+    // 子流程标题放左下角（不遮挡框内内部小图）
+    const titleY = cy + H / 2 - 16;
+    out = shape + plate + `<text x="${cx - W / 2 + 10}" y="${titleY}" text-anchor="start" fill="${overflow ? '#f8fafc' : '#fff'}" font-size="${fs}" font-weight="600">${esc(lines[0] || '')}</text>`;
+  } else {
+    out = shape + plate + multilineText(cx, textCy, lines, fs, overflow ? '#f8fafc' : '#fff');
+  }
   if (roleText) {
     out += `<text x="${cx + W / 2 - 2}" y="${cy + H / 2 + 11}" text-anchor="end" fill="#64748b" font-size="9">${esc(roleText)}</text>`;
   }
@@ -882,7 +889,13 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     // 出口端口：按朝向排序优先选"未用作出口"的端口（不因入侧占用而背向）；
     // 若朝向端口全被占用，才回退到其余端口。
     let sp = cands[0];
-    for (const c of cands) { if (!a.usedOut.has(c)) { sp = c; break; } }
+    // WSAD 单属性（设计⑤"出入口不共用同一侧"）：出口避开 usedIn+usedOut，同侧不既入又出
+    for (const c of cands) { if (!a.usedOut.has(c) && !a.usedIn.has(c)) { sp = c; break; } }
+    if (a.usedOut.has(sp)) { // 除遭 side 全占则复用未出
+      let fallback = null;
+      for (const c of cands) { if (!a.usedOut.has(c)) { fallback = c; break; } }
+      if (fallback) sp = fallback;
+    }
     a.usedOut.add(sp);
 
     const tp = targetPortOf.get(e.id) ?? 'T';
