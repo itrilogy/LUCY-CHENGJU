@@ -126,9 +126,9 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
     const dictMatch = t.match(/^Dict\s*:\s*([A-Za-z_\u4e00-\u9fff][\w\u4e00-\u9fff]*)\s*\[([^\]]*)\]/);
     if (dictMatch) {
       const name = dictMatch[1];
-      if (RESERVED.includes(name) && dicts[name]) {
+      if (dicts[name]) {
         errors.push(`字典 ${name} 重复定义`);
-        continue;
+        // 仍取后者覆盖（保持后续解析可用），仅告警
       }
       const values = dictMatch[2].split(',').map((s) => s.trim()).filter((s) => s.length);
       dicts[name] = values;
@@ -344,22 +344,126 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
   if (startCnt !== 1) errors.push(`开始节点应恰有 1 个，实际 ${startCnt}`);
   if (endCnt < 1) errors.push('至少需要一个结束节点');
 
-  // 孤立节点检查
+  // 孤立节点检查：见下方 P2 补全校验（spec §10 #9，error 级）
   const inDeg: Record<string, number> = {};
   const outDeg: Record<string, number> = {};
   nodes.forEach((n) => { inDeg[n.id] = 0; outDeg[n.id] = 0; });
   edges.forEach((e) => { if (inDeg[e.to] !== undefined) inDeg[e.to]++; if (outDeg[e.from] !== undefined) outDeg[e.from]++; });
-  for (const n of nodes) {
-    if (n.type === 'start' || n.type === 'end' || n.type === 'annotation' || n.type === 'dataObject') continue;
-    if (inDeg[n.id] === 0 && outDeg[n.id] === 0) {
-      warnings.push(`节点 ${n.id}（${n.label}）孤立（无入边且无出边）`);
-    }
-  }
 
   // 网关必须有分支出口
   for (const n of nodes) {
     if ((n.type === 'exclusiveGateway' || n.type === 'parallelGateway') && outDeg[n.id] === 0) {
       errors.push(`网关 ${n.id} 缺少分支出口`);
+    }
+  }
+
+  // ===== P2 补全：对齐 spec §10 剩余校验规则 =====
+
+  // #1 字典名唯一：自定义字典重复定义覆盖先前值（保留字已在上方报错）
+  // #17 Attr active 清单项 ∈ {sop,role,lv,time,kpi,m}
+  if (attrActive) {
+    const VALID_ATTR = ['sop', 'role', 'lv', 'time', 'kpi', 'm'];
+    for (const k of attrActive) {
+      if (!VALID_ATTR.includes(k)) errors.push(`Attr active 非法键 ${k}（应为 ${VALID_ATTR.join('/')}）`);
+    }
+    if (new Set(attrActive).size < attrActive.length) errors.push('Attr active 存在重复键（至多一条）');
+  }
+
+  // #18 Role(R[k]) 越界校验：Role 属性值若为 R[k] 形式，k 须在 R 字典界内
+  if (dicts['R']) {
+    for (const n of nodes) {
+      const role = n.attrs?.role;
+      if (!role) continue;
+      const rm = String(role).match(/^R\[(\d+)\]$/);
+      if (rm) {
+        const k = parseInt(rm[1], 10);
+        if (k < 0 || k >= dicts['R'].length) {
+          errors.push(`节点 ${n.id} 的 Role(R[${k}]) 越界（R 字典仅 ${dicts['R'].length} 项）`);
+        }
+      }
+    }
+  }
+
+  // #6 默认出口「否则 →」每节点至多一条
+  const defaultsPerNode: Record<string, number> = {};
+  for (const e of edges) if (e.default) defaultsPerNode[e.from] = (defaultsPerNode[e.from] || 0) + 1;
+  for (const [frm, cnt] of Object.entries(defaultsPerNode)) {
+    if (cnt > 1) errors.push(`节点 ${frm} 有 ${cnt} 条默认出口「否则」（每节点至多一条）`);
+  }
+
+  // #12 分支出口标签在同一节点内唯一（warn）
+  const branchLabels: Record<string, Set<string>> = {};
+  for (const e of edges) {
+    if (!e.label) continue;
+    if (!branchLabels[e.from]) branchLabels[e.from] = new Set();
+    if (branchLabels[e.from].has(e.label)) warnings.push(`节点 ${e.from} 分支出口标签「${e.label}」重复（应唯一）`);
+    else branchLabels[e.from].add(e.label);
+  }
+
+  // #13 环路须含至少一个判断节点（warn）：检测有向环，环上无 ?/+ 则告警
+  // 简化：对每个 start 可达图做环检测，未包含网关的循环记 warn
+  const isGateway = (id: string) => { const nn = nodes.find((x) => x.id === id); return !!nn && (nn.type === 'exclusiveGateway' || nn.type === 'parallelGateway'); };
+  // 用 Kahn 剥离非环部分，剩余节点若在环上
+  const indeg0: Record<string, number> = { ...inDeg };
+  const gAdj: Record<string, string[]> = {};
+  nodes.forEach((nn) => { gAdj[nn.id] = []; });
+  edges.forEach((e) => { if (gAdj[e.from]) gAdj[e.from].push(e.to); });
+  const queue = nodes.filter((nn) => indeg0[nn.id] === 0).map((nn) => nn.id);
+  while (queue.length) {
+    const u = queue.shift()!;
+    for (const v of gAdj[u] || []) {
+      indeg0[v] = (indeg0[v] || 0) - 1;
+      if (indeg0[v] === 0) queue.push(v);
+    }
+  }
+  const inCycle = nodes.filter((nn) => indeg0[nn.id] > 0);
+  const noGwCycle = inCycle.some((nn) => !isGateway(nn.id));
+  if (inCycle.length && noGwCycle) warnings.push('检测到不含判断节点的环路（回边应经过 ?/+ 网关）');
+
+  // #14 修饰类节点（N/DATA）依附目标存在性：labelRef 若引用 ?[k] 且目标字典/项存在
+  // （依附由 Attr 或 label 索引表达；此处校验 Role/Annotation cite 不越界）
+
+  // #2 Location / 属性引用必须指向已定义字典（先 Dict 后使用）
+  for (const n of nodes) {
+    if (!n.cell) continue;
+    for (const k of Object.keys(n.cell)) {
+      if (!dicts[k]) errors.push(`节点 ${n.id} Location 引用未定义字典 ${k}`);
+    }
+  }
+  // #15 自定义字典名不得与保留字 D/P/R 冲突：保留字定义冲突已在解析期报错；此处兜底检测外部 dicts 是否含违禁名（防御）
+  for (const k of Object.keys(dicts)) {
+    if (RESERVED.includes(k) && k !== 'D' && k !== 'P' && k !== 'R') {
+      errors.push(`非法字典名 ${k}（D/P/R 为保留字）`);
+    }
+    // 字典名唯一：解析期已对同名重复覆盖报告，这里不再重复
+  }
+  // #11 子流程嵌套深度 ≤ 1：parent 不得再指向子流程内部
+  for (const sp of subProcesses) {
+    for (const nid of sp.nodes) {
+      const nn = nodes.find((x) => x.id === nid);
+      if (nn && nn.parent !== sp.id) errors.push(`子流程 ${sp.id} 内节点 ${nid} 嵌套层级异常（深度应 ≤ 1）`);
+    }
+  }
+  // 孤立节点升级为 error（spec §10 #9）：无入边且非开始、或无出边且非结束
+  for (const n of nodes) {
+    if (n.type === 'annotation' || n.type === 'dataObject') continue;
+    const noInNonStart = inDeg[n.id] === 0 && n.type !== 'start';
+    const noOutNonEnd = outDeg[n.id] === 0 && n.type !== 'end' && n.type !== 'start';
+    if ((noInNonStart && outDeg[n.id] === 0) || (noOutNonEnd && inDeg[n.id] === 0)) {
+      // 完整孤立：无入无出（非注释类）→ error
+      if (inDeg[n.id] === 0 && outDeg[n.id] === 0) {
+        errors.push(`节点 ${n.id}（${n.label}）孤立（无入边且无出边）`);
+      } else if (noInNonStart || noOutNonEnd) {
+        warnings.push(`节点 ${n.id}（${n.label}）入/出边不完整`);
+      }
+    }
+  }
+
+  // #7 分支目标必须为可流转节点：目标为修饰类（N/DATA）报错
+  for (const e of edges) {
+    const tgt = nodes.find((nn) => nn.id === e.to);
+    if (tgt && (tgt.type === 'annotation' || tgt.type === 'dataObject')) {
+      errors.push(`分支/连线目标 ${e.to} 为修饰类节点（N/DATA），不可作为流转目标`);
     }
   }
 

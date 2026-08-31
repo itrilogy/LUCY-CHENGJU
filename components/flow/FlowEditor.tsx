@@ -58,27 +58,56 @@ export function flowToDsl(data: FlowData): string {
   // nodes + 网关分支块（分支出口紧随网关节点，End 闭合）+ 普通显式边置文末
   lines.push('// ===== 节点 =====');
   const gatewayNodes = new Set(data.nodes.filter((n) => n.type === 'exclusiveGateway' || n.type === 'parallelGateway').map((n) => n.id));
+  const subNodes = new Set(data.nodes.filter((n) => n.type === 'subprocess').map((n) => n.id));
+  const printed = new Set<string>();
+  const childrenOf = new Map<string, FlowData['nodes']>();
   for (const n of data.nodes) {
+    if (n.parent) {
+      if (!childrenOf.has(n.parent)) childrenOf.set(n.parent, []);
+      childrenOf.get(n.parent)!.push(n);
+    }
+  }
+  // 输出单个节点行；若为网关则在行后输出其分支块；若为子流程则在行后输出内部子块（深度≤1）
+  function emitNode(n: FlowData['nodes'][0], indent: string) {
+    if (printed.has(n.id)) return;
+    printed.add(n.id);
+    const pad = ' '.repeat(indent.length);
     const typeTag = n.type !== 'task' ? ` Type[${TYPEMAP[n.type] || 'T'}]` : '';
     const loc = n.cell ? ` Location(${Object.entries(n.cell).map(([k, v]) => `${k}[${v}]`).join(',')})` : '';
     const attrs = Object.entries(n.attrs).map(([k, v]) => `${k.toUpperCase()}(${v})`).join(' ');
-    lines.push(`W: ${n.id}: ${n.labelRef || n.label}${typeTag}${loc}${attrs ? ' ' + attrs : ''}`);
-    // BUG-02 修复：网关出边就地输出为缩进分支行 + End，保留块级上下文
+    lines.push(`${pad}W: ${n.id}: ${n.labelRef || n.label}${typeTag}${loc}${attrs ? ' ' + attrs : ''}`);
+    // 网关：就地输出缩进分支行 + End（保留块级上下文）
     if (gatewayNodes.has(n.id)) {
       const branches = data.edges.filter((e) => e.from === n.id && !e.parent);
       for (const e of branches) {
         const tag = e.label || e.condition || '';
-        lines.push(`   ${tag} → #${e.to}`);
+        const exitName = e.id.includes('-') ? e.id.split('-').pop() : '';
+        // 出口名：条件分支在 DSL 用 `标签 (名)` 或 `标签` 表达——仅输出标签，出口名可由 label 表达
+        lines.push(`${pad}   ${tag} → #${e.to}`);
       }
-      lines.push('   End');
+      lines.push(`${pad}   End`);
+    }
+    // 子流程：输出内部节点块（缩进一级）
+    if (subNodes.has(n.id)) {
+      const kids = childrenOf.get(n.id) || [];
+      for (const k of kids) emitNode(k, indent + '   ');
+      lines.push(`${pad}   End`);
     }
   }
+  for (const n of data.nodes) {
+    if (!n.parent) emitNode(n, '');
+  }
   lines.push('');
-  // 普通显式边（非网关出边）置文末
+  // 普通显式边（非网关出边、非子流程内部节点的边）置文末；跳过 parser 自动生成且未在节点段显式的默认边
   lines.push('// ===== 连线 =====');
+  const innerNodes = new Set(data.nodes.filter((n) => n.parent).map((n) => n.id));
   for (const e of data.edges) {
     if (e.parent) continue;
     if (gatewayNodes.has(e.from)) continue; // 已在网关块内输出
+    if (innerNodes.has(e.from) && !subNodes.has(e.from) && data.nodes.find((x) => x.id === e.from)?.parent) continue; // 内部节点边在块内
+    // 子流程容器 → 外部节点、或外部 → 子流程容器：保留为显式边
+    const dup = data.edges.some((x) => x !== e && x.from === e.from && x.to === e.to);
+    if (dup) continue;
     lines.push(`${e.from} → #${e.to}`);
   }
   return lines.join('\n');

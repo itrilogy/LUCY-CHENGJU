@@ -150,5 +150,60 @@ W: w3: 结束 Type[E]`);
     d.data.edges.some(e => e.from === 'w2' && e.to === 'w3'));
 }
 
+// ===== 6. P2 校验补全：字典重复 / Attr非法键 / Role越界 / 否则重复 / 分支目标为修饰类 / 孤岛error =====
+{
+  // #17 Attr active 非法键
+  const a = parseFlowDSL(`Title: t
+Attr active [Foo,Role]
+W: w1: 开始 Type[S]
+W: w2: 结束 Type[E]`);
+  check('p2-attr: 非法键 Foo 报错', a.errors.some(e => e.includes('非法键')), JSON.stringify(a.errors));
+
+  // #1 自定义字典重复
+  const b = parseFlowDSL(`Title: t
+Dict: foo[a]
+Dict: foo[b]
+W: w1: 开始 Type[S]
+W: w2: 结束 Type[E]`);
+  check('p2-dict: 自定义字典重复报错', b.errors.some(e => e.includes('foo') && e.includes('重复')), JSON.stringify(b.errors));
+
+  // #18 Role(R[k]) 越界
+  const c = parseFlowDSL(`Title: t
+Dict: R[申请员]
+W: w1: 开始 Type[S]
+W: w2: 处理 Role(R[5])
+W: w3: 结束 Type[E]`);
+  check('p2-role: Role(R[5]) 越界报错', c.errors.some(e => e.includes('Role') && e.includes('越界')), JSON.stringify(c.errors));
+
+  // #6 默认出口「否则」每节点至多一条
+  const dd = parseFlowDSL(`Title: t
+W: w1: 开始 Type[S]
+W: q1: 判断 Type[?]
+   否则 → #w2
+   否则 → #w3
+   End
+W: w2: 结束 Type[E]
+W: w3: 处理`);
+  check('p2-default: 否则重复报错', dd.errors.some(e => e.includes('默认出口')), JSON.stringify(dd.errors));
+
+  // #7 分支目标为修饰类（标注 N）报错
+  const ee = parseFlowDSL(`Title: t
+W: w1: 开始 Type[S]
+W: q1: 判断 Type[?]
+   X → #n1
+   End
+W: n1: 备注 Type[N]`);
+  check('p2-modifier: 分支目标为 N 报错', ee.errors.some(e => e.includes('修饰类')), JSON.stringify(ee.errors));
+
+  // #9 孤立节点升级 error
+  const f = parseFlowDSL(`Title: t
+W: w1: 开始 Type[S]
+W: w2: 处理
+W: w3: 结束 Type[E]
+W: w4: 孤岛任务`);
+  const hasIsolated = f.errors.some(e => e.includes('孤立'));
+  check('p2-isolated: 孤岛升级为 error', hasIsolated, JSON.stringify(f.errors));
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);
