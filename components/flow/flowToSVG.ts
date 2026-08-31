@@ -797,10 +797,17 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       return b.y >= a.y ? ['B', 'T', 'R', 'L'] : ['T', 'B', 'R', 'L'];
     }
     const dx = b.x - a.x, dy = b.y - a.y;
-    if (Math.abs(dx) >= Math.abs(dy)) {
-      return dx >= 0 ? ['R', 'B', 'T', 'L'] : ['L', 'B', 'T', 'R'];
+    // 运输模型出口方向：按坐标相对位置，取"90度象限内对应边"（同向→上下向→反向）
+    // 目标在右上方 → 候选 R、T（同向正交边）；反向 L、B 排最后；主导轴优先
+    const horizDominant = Math.abs(dx) >= Math.abs(dy);
+    const sx = dx >= 0 ? 'R' : 'L';      // 水平同向边
+    const sy = dy >= 0 ? 'B' : 'T';      // 垂直同向边
+    const ox = sx === 'R' ? 'L' : 'R';   // 反向水平
+    const oy = sy === 'B' ? 'T' : 'B';   // 反向垂直
+    if (horizDominant) {
+      return [sx, sy, oy, ox]; // 同向水平 → 同向垂直 → 反向垂直 → 反向水平
     }
-    return dy >= 0 ? ['B', 'R', 'L', 'T'] : ['T', 'R', 'L', 'B'];
+    return [sy, sx, ox, oy];   // 同向垂直 → 同向水平 → 反向水平 → 反向垂直
   }
   // 目标端口候选：target(b) 应"面向源(a)"的一侧（同行：b 朝 a 走 L/R；同列：b 朝 a 走 T/B）
   function targetCandidates(b: XYN, a: XYN): Port[] {
