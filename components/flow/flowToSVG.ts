@@ -989,9 +989,12 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       }
       let found = false;
       for (const c of tryOrder) {
-        // 走廊过滤：避开已占走廊坐标（竖段 x / 横段 y），使同走廊多条边错开不同通道
-        if ((c.mX !== null && usedCorrX.has(round2(c.mX))) || (c.mY !== null && usedCorrY.has(round2(c.mY)))) continue;
-        const candidate = buildRoute(c.mX, c.mY);
+        // 走廊过滤 + clamp 到网格内（不侵入左表头/越出右缘）：优先就近、不把走廊推到画布边缘
+        const cx = c.mX !== null ? Math.max(x0, Math.min(L.gridRight - L.half, c.mX)) : null;
+        const cy = c.mY !== null ? Math.max(FLOW_SVG.titleH, Math.min(L.gridBottom - L.half, c.mY)) : null;
+        if (cx !== null && usedCorrX.has(round2(cx))) continue;
+        if (cy !== null && usedCorrY.has(round2(cy))) continue;
+        const candidate = buildRoute(cx, cy);
         if (!routeHits(candidate, e.from, e.to)) { pts = candidate; found = true; break; }
       }
       if (!found) break;
