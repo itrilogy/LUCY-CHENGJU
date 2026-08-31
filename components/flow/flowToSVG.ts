@@ -765,12 +765,13 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   // 端口方向定义（从节点中心向外，走 0.5 连线区中线）
   type Port = 'R' | 'L' | 'T' | 'B';
   function portXY(n: { x: number; y: number; W: number; H: number }, dir: Port): { x: number; y: number } {
-    // 端点=节点边界（箭头抵节点边中点，设计⑤⑥；不取走廊中线——否则箭头悬空在走廊）
+    // 端口端点 = 连线区(走廊)中线深处的"短直线外端"：节点边中点沿法向走 half/2，
+    // 箭头作为这段短直线的末端，因此连线端点天然带箭头（先划线，箭头在端点）。
     switch (dir) {
-      case 'R': return { x: n.x + n.W / 2, y: n.y };
-      case 'L': return { x: n.x - n.W / 2, y: n.y };
-      case 'T': return { x: n.x, y: n.y - n.H / 2 };
-      case 'B': return { x: n.x, y: n.y + n.H / 2 };
+      case 'R': return { x: n.x + n.W / 2 + L.half / 2, y: n.y };
+      case 'L': return { x: n.x - n.W / 2 - L.half / 2, y: n.y };
+      case 'T': return { x: n.x, y: n.y - n.H / 2 - L.half / 2 };
+      case 'B': return { x: n.x, y: n.y + n.H / 2 + L.half / 2 };
     }
   }
   function snapTo(v: number, marks: number[]): number {
@@ -860,6 +861,8 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
 
   // ===== 两趟端口分配：先"入口"（几何指向约束强），后"出口"（避开已占入口） =====
   const edgeList = data.edges.filter((x) => !x.parent);
+  // 箭头独立渲染层：先划线，再按 IN 属性(目标端口)在目标节点边中点独立渲染箭头(与边垂直,指向节点入口)
+  const arrowParts: string[] = [];
   // 为 N/DATA（annotation/dataObject）注入"依附虚边"：走与普通边同一种连线逻辑，仅渲染 dasharray 虚线。
   for (const n of data.nodes) {
     if (!n.parent && (n.type === 'annotation' || n.type === 'dataObject') && n.attach) {
@@ -1053,7 +1056,18 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       slash = `<line data-flow="default-slash" x1="${mx - uy * 6}" y1="${my + ux * 6}" x2="${mx + uy * 6}" y2="${my - ux * 6}" stroke="${st.lineColor}" stroke-width="${st.lineWidth}"/>`;
     }
     const dash = e.condition === '__doc__' ? ' stroke-dasharray="6 4"' : '';
-    parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}"${dash} marker-end="url(#flowArrow)"/>${slash}${label}`);
+    parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}"${dash}/>${slash}${label}`);
+    // 独立箭头层 = 节点连线区的一条"短直线 + 箭头"：尖端抵节点边(入口)，短线沿法向到走廊中线(连线端点)。
+    // 连线端点=portXY(走廊中线)，短线从节点边接过来，因此每个 IN 端点天然带箭头。
+    // 独立箭头层 = 节点连线区的"短直线 + 箭头头"：尖端抵节点边(入口)，梯形翅膀在走廊中线(连线端点)。
+    // 连线端点=portXY(走廊中线)，箭头尖端在节点边，因此每个 IN 端点天然带箭头(先划线,箭头在端点)。
+    const hl = L.half / 2, aw = 4.5;
+    let tri = '';
+    if (tp === 'T') tri = `${b.x},${b.y - b.H / 2} ${b.x - aw},${b.y - b.H / 2 - hl} ${b.x + aw},${b.y - b.H / 2 - hl}`;
+    else if (tp === 'B') tri = `${b.x},${b.y + b.H / 2} ${b.x - aw},${b.y + b.H / 2 + hl} ${b.x + aw},${b.y + b.H / 2 + hl}`;
+    else if (tp === 'L') tri = `${b.x - b.W / 2},${b.y} ${b.x - b.W / 2 - hl},${b.y - aw} ${b.x - b.W / 2 - hl},${b.y + aw}`;
+    else tri = `${b.x + b.W / 2},${b.y} ${b.x + b.W / 2 + hl},${b.y - aw} ${b.x + b.W / 2 + hl},${b.y + aw}`;
+    arrowParts.push(`<polygon points="${tri}" fill="${st.lineColor}"/>`);
   }
 
   // 节点
@@ -1108,5 +1122,5 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   }
 
   const outHeight = height + panelH;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${outHeight}" viewBox="0 0 ${width} ${outHeight}">${parts.join('')}${panelParts.join('')}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${outHeight}" viewBox="0 0 ${width} ${outHeight}">${parts.join('')}${arrowParts.join('')}${panelParts.join('')}</svg>`;
 }

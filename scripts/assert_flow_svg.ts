@@ -245,7 +245,7 @@ w6 → #w1`);
   const layE = computeExcelLayout(e.data, e.styles);
   const svgE = flowToSVG(e.data, e.styles);
   const x0e = layE.bandLeft + layE.titleBandW;
-  const pathsE = [...svgE.matchAll(/<path d="(M[^"]*)" fill="none"[^>]*marker-end="url\(#flowArrow\)"/g)].map((m) => m[1]);
+  const pathsE = [...svgE.matchAll(/<path d="(M[^"]*)" fill="none"[^>]*stroke-width="2"/g)].map((m) => m[1]);
   let outerHits = 0;
   for (const d of pathsE) {
     const c = d.match(/[-\d.]+/g)!.map(Number);
@@ -314,7 +314,7 @@ W: w4: 补齐材料 Location(D[0],P[1])`)
   const svgC = flowToSVG(cx.data, cx.styles);
   const box = {}; for (const [id,p] of lay.nodePos) box[id]={x:p.x,y:p.y,W:p.W,H:p.H};
   const near=(id,pt,tol=20)=>{const b=box[id];return b&&(Math.abs(pt.x-(b.x-b.W/2))<=tol||Math.abs(pt.x-(b.x+b.W/2))<=tol||Math.abs(pt.y-(b.y-b.H/2))<=tol||Math.abs(pt.y-(b.y+b.H/2))<=tol);};
-  const paths=[...svgC.matchAll(/<path d="(M[^"]*)" fill="none"[^>]*marker-end="url\(#flowArrow\)"/g)].map(x=>x[1]);
+  const paths=[...svgC.matchAll(/<path d="(M[^"]*)" fill="none"[^>]*stroke-width="2"/g)].map(x=>x[1]);
   let loose=0; for(const d of paths){const n=d.match(/[-\d.]+/g).map(Number);const s={x:+n[0],y:+n[1]},t={x:+n[n.length-2],y:+n[n.length-1]};if(!Object.keys(box).some(id=>near(id,s))||!Object.keys(box).some(id=>near(id,t)))loose++;}
   check('cx-endpoint: 连线端点贴节点边界(0悬空)', loose===0, `loose=${loose}`);
 }
