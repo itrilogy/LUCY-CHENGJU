@@ -459,7 +459,21 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     let nx = 1, ny = 1, gx = 0, gy = 0;
     const items: { n: FlowData['nodes'][0]; gridX: number; gridY: number; m: NodeMetrics }[] = [];
     nodes.forEach((n, i) => {
-      const m = nodeMetrics(n, fs);
+      // 前提2：子流程作为"等比例缩放的流程节点"，其尺寸由内部节点数/排布决定，
+      // 进而推动所在泳道/交叉格高宽（而非固定 BASE 尺寸）。
+      let m = nodeMetrics(n, fs);
+      if (n.type === 'subprocess') {
+        const childCount = data.nodes.filter((x) => x.parent === n.id && x.id !== n.id).length;
+        if (childCount > 0) {
+          const miniW = 72, miniH = 20, gap = 8, padX = 12, padY = 12, plusH = 18;
+          // 内部节点近似单行排布时所需宽，多行时所需高
+          const perRow = Math.max(1, Math.ceil(childCount / 2)); // 至多 2 行（等比例换行）
+          const needW = padX * 2 + perRow * miniW + (perRow - 1) * gap;
+          const rows = Math.ceil(childCount / 2);
+          const needH = padY * 2 + rows * miniH + (rows - 1) * gap + plusH;
+          m = { halfW: Math.max(m.halfW, needW / 2), halfH: Math.max(m.halfH, needH / 2), shapeType: m.shapeType };
+        }
+      }
       if (i === 0) {
         // 首节点定位格内原点 (0,0)
         gx = 0; gy = 0;
