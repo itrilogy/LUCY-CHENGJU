@@ -70,7 +70,8 @@ IQSDocument
 | 风险预案 | `pdpc` | ProcessGraph | OK/NG 分支 |
 | 进度与关键路径 | `arrow` | Network | CPM 矢线 |
 | 通用统计小图 | `basic` | Dataset | bar/line/pie |
-| 流程/时序/架构（类型外） | `mermaid.*` | Foreign | **救济** |
+| 企业体系文件流程图（泳道/BPMN） | `flow` | FlowGraph | **Core（BPMN 子集）** |
+| 流程/时序/架构（复杂自由绘图） | `mermaid.*` | Foreign | **救济** |
 | 桑基/漏斗等复杂可视 | `vchart.*` | Foreign | **救济** |
 
 ---
