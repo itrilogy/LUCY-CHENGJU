@@ -288,5 +288,36 @@ b1 → #e1`);
   check('r1: 同走廊多边竖段错位(≥2种x)', r1vx.size >= 2, `唯一竖段x=${[...r1vx].join(',')}`);
 }
 
+// ===== 复杂图例：扩展格(一列多节点纵向撑开) + 端点贴节点边界(连线不悬空) =====
+{
+  // 一列两节点纵向堆叠 + 跨泳道连线 + 分支
+  const cx = parseFlowDSL(`Title: t
+Layout: H
+Dict: D[采购部,质量部,技术部]
+Dict: P[初审,评审,执行]
+Lane from D[0,1,2] Layout H
+Lane from P[0,1,2] Layout V
+W: w1: 受理申请 Type[S] Location(D[0],P[0])
+W: w2: 资料初审 Location(D[0],P[0])
+w1 → #w2
+W: q1: 初审通过? Type[?] Location(D[1],P[0])
+   是 → #w3
+   否 → #w4
+   End
+W: w3: 技术评审 Location(D[1],P[1])
+W: w4: 补齐材料 Location(D[0],P[1])`)
+  const lay = computeExcelLayout(cx.data, cx.styles);
+  // 首行：w1+w2 纵向 2 节点 → rowHpx[0] ≈ 2*(单节点高+2half)
+  const row0 = lay.rowHpx[0];
+  check('cx-ext: 首行扩展格(2节点纵向)行高≈单节点2倍', row0 > 200, `rowHpx[0]=${Math.round(row0)}`);
+  // 端点贴边
+  const svgC = flowToSVG(cx.data, cx.styles);
+  const box = {}; for (const [id,p] of lay.nodePos) box[id]={x:p.x,y:p.y,W:p.W,H:p.H};
+  const near=(id,pt,tol=20)=>{const b=box[id];return b&&(Math.abs(pt.x-(b.x-b.W/2))<=tol||Math.abs(pt.x-(b.x+b.W/2))<=tol||Math.abs(pt.y-(b.y-b.H/2))<=tol||Math.abs(pt.y-(b.y+b.H/2))<=tol);};
+  const paths=[...svgC.matchAll(/<path d="(M[^"]*)" fill="none"[^>]*marker-end="url\(#flowArrow\)"/g)].map(x=>x[1]);
+  let loose=0; for(const d of paths){const n=d.match(/[-\d.]+/g).map(Number);const s={x:+n[0],y:+n[1]},t={x:+n[n.length-2],y:+n[n.length-1]};if(!Object.keys(box).some(id=>near(id,s))||!Object.keys(box).some(id=>near(id,t)))loose++;}
+  check('cx-endpoint: 连线端点贴节点边界(0悬空)', loose===0, `loose=${loose}`);
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);
