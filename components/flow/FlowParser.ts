@@ -468,6 +468,32 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
     }
   }
 
+  // R3 attach 校验 + N/DATA 填充 artifacts（spec §7.4/§10#14）
+  for (const n of nodes) {
+    if (!(n.type === 'annotation' || n.type === 'dataObject')) {
+      if (n.attach) errors.push(`非修饰节点 ${n.id} 不应用 Attach`);
+      continue;
+    }
+    if (n.attach) {
+      const tgt = nodes.find((nn) => nn.id === n.attach);
+      if (!tgt) {
+        errors.push(`修饰节点 ${n.id} 的 Attach 目标 ${n.attach} 不存在`);
+      } else if (tgt.type === 'annotation' || tgt.type === 'dataObject') {
+        errors.push(`修饰节点 ${n.id} 的 Attach 目标不能是另一修饰节点（${n.attach}）`);
+      } else {
+        artifacts.push({ id: n.id, type: n.type, label: n.label, attach: n.attach });
+      }
+    }
+    // 无 attach 的 N/DATA 不进 artifacts（保持向后兼容）
+  }
+
+  // R6 子流程嵌套深度 ≤1：parent 链超过 1 层报 error
+  for (const n of nodes) {
+    if (n.parent && nodes.some((x) => x.id === n.parent && x.parent)) {
+      errors.push(`子流程嵌套深度超过 1（节点 ${n.id} 的父 ${n.parent} 亦在子流程内）`);
+    }
+  }
+
   // 子流程 nodes 填充（由 parent 推导）
   for (const sp of subProcesses) {
     sp.nodes = nodes.filter((n) => n.parent === sp.id && n.id !== sp.id).map((n) => n.id);
@@ -532,6 +558,13 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
         rest = rest.slice(0, vhMatch.index).replace(/[,，]\s*$/, '').trim();
       }
     }
+    // 依赖目标（Attach）：修饰类节点（N/DATA）显式依附的前驱 id（spec §7.4/§10#14）
+    let attach: string | undefined;
+    const attachMatch = rest.match(/Attach\(#?\s*([\w\u4e00-\u9fff-]+)\s*\)/i);
+    if (attachMatch) {
+      attach = attachMatch[1];
+      rest = rest.replace(/Attach\([^)]*\)/i, ' ');
+    }
     // 标签
     let label = rest.replace(/\s+/g, ' ').trim();
     if (!label) label = body.replace(/Type\[[^\]]*\]/gi, '').replace(/Location\([^)]*\)/gi, '').trim();
@@ -550,6 +583,9 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
       }
     }
 
+    // 依赖目标（Attach）：修饰类节点（N/DATA）显式依附的前驱 id（spec §7.4/§10#14）
+    // （已在上方 label 提取前解析并移出 rest，此处仅由 rec 构造携带 attach）
+
     // id
     let id = idDecl || nextAutoId();
     if (nodeById.has(id) && id !== idDecl) {
@@ -560,7 +596,7 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
       errors.push(`节点 id ${id} 重复`);
     }
 
-    const rec: FlowNode = { id, type, label, labelRef, cell, attrs, vh };
+    const rec: FlowNode = { id, type, label, labelRef, cell, attrs, vh, ...(attach ? { attach } : {}) };
     return rec;
   }
 

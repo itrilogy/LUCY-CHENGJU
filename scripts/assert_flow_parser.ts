@@ -205,5 +205,52 @@ W: w4: 孤岛任务`);
   check('p2-isolated: 孤岛升级为 error', hasIsolated, JSON.stringify(f.errors));
 }
 
+// ===== 遗留规划 M3（R3+R6）：N/DATA attach 依附模型 + 子流程深度 =====
+{
+  // R3a: N/DATA 带 Attach → attach 字段 + artifacts 填充
+  const a = parseFlowDSL(`Title: t
+W: w1: 开始 Type[S]
+W: w2: 处理
+W: n1: 备注 Type[N] Attach(#w2)
+W: d1: 单据 Type[DATA] Attach(w2)
+W: w3: 结束 Type[E]`);
+  const n1 = a.data.nodes.find((x) => x.id === 'n1');
+  const d1 = a.data.nodes.find((x) => x.id === 'd1');
+  check('m3-attach: 解析 Attach 字段', n1?.attach === 'w2' && d1?.attach === 'w2', `${n1?.attach}/${d1?.attach}`);
+  check('m3-attach: label 不含 Attach 残留', n1?.label === '备注' && d1?.label === '单据', `${n1?.label}/${d1?.label}`);
+  check('m3-attach: N/DATA 填充 artifacts', a.data.artifacts.length === 2 && a.data.artifacts.every((x) => x.attach === 'w2'), JSON.stringify(a.data.artifacts));
+
+  // R3b: Attach 目标不存在 → error
+  const b = parseFlowDSL(`Title: t
+W: w1: 开始 Type[S]
+W: n1: 备注 Type[N] Attach(#不存在)
+W: w2: 结束 Type[E]`);
+  check('m3-attach: 目标不存在报错', b.errors.some((e) => e.includes('不存在')), b.errors.join());
+
+  // R3c: 目标是另一修饰 → error
+  const c = parseFlowDSL(`Title: t
+W: w1: 开始 Type[S]
+W: n1: 备注 Type[N]
+W: d1: 单据 Type[DATA] Attach(#n1)
+W: w2: 结束 Type[E]`);
+  check('m3-attach: 目标为修饰类报错', c.errors.some((e) => e.includes('另一修饰')), c.errors.join());
+
+  // R3d: 非修饰节点 Attach → error
+  const dd = parseFlowDSL(`Title: t
+W: w1: 开始 Type[S]
+W: w2: 处理 Attach(#w1)
+W: w3: 结束 Type[E]`);
+  check('m3-attach: 非修饰节点 Attach 报错', dd.errors.some((e) => e.includes('不应用')), dd.errors.join());
+
+  // R6: 子流程嵌套深度 >1 → error
+  const ee = parseFlowDSL(`Title: t
+W: w1: 开始 Type[S]
+W: s1: 外层 Type[SUB]
+   W: s2: 内层 Type[SUB]
+   End
+W: w2: 结束 Type[E]`);
+  check('m3-r6: 子流程深度>1 报错', ee.errors.some((e) => e.includes('嵌套深度')), ee.errors.join());
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);

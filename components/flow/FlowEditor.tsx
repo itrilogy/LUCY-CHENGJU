@@ -75,7 +75,8 @@ export function flowToDsl(data: FlowData): string {
     const typeTag = n.type !== 'task' ? ` Type[${TYPEMAP[n.type] || 'T'}]` : '';
     const loc = n.cell ? ` Location(${Object.entries(n.cell).map(([k, v]) => `${k}[${v}]`).join(',')})` : '';
     const attrs = Object.entries(n.attrs).map(([k, v]) => `${k.toUpperCase()}(${v})`).join(' ');
-    lines.push(`${pad}W: ${n.id}: ${n.labelRef || n.label}${typeTag}${loc}${attrs ? ' ' + attrs : ''}`);
+    const attachTag = n.attach ? ` Attach(#${n.attach})` : '';
+    lines.push(`${pad}W: ${n.id}: ${n.labelRef || n.label}${typeTag}${loc}${attrs ? ' ' + attrs : ''}${attachTag}`);
     // 网关：就地输出缩进分支行 + End（保留块级上下文）
     if (gatewayNodes.has(n.id)) {
       const branches = data.edges.filter((e) => e.from === n.id && !e.parent);
