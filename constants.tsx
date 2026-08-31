@@ -987,36 +987,36 @@ Axis: 供应商准入评审总流程 AxisX
 // ===== 六属性图例边栏 =====
 Attr active [Role,SOP,Lv,Time,KPI]
 
-// ===== 节点：分支(?) / 并行(+) / 子流程(SUB) / 标注(N) / 数据(DATA) =====
+// ===== 节点：分散到 4部门×5阶段 泳道矩阵，每格 ≤2 节点 =====
 W: w1: worker[0] Type[S] Location(D[0],P[0])
-W: w2: worker[1] Location(D[0],P[0]) SOP(XZ-01) Role(R[0]) Lv(常规)
-W: q1: worker[2] Type[?] Location(D[0],P[0])
+W: w2: worker[2] Location(D[0],P[0]) SOP(XZ-01) Role(R[0]) Lv(常规)
+W: q1: worker[1] Type[?] Location(D[1],P[0])
    通过 → #w4
    否则 → #w5
    End
 W: w5: worker[3] Location(D[0],P[1]) Role(R[0])
 w5 → #w2
-W: w4: worker[4] Location(D[1],P[1]) Role(R[1]) Time(7D)
-W: q2: 技术是否合格? Type[?] Location(D[1],P[1])
+W: w4: worker[4] Location(D[2],P[0]) Role(R[1]) Time(7D)
+W: q2: 技术是否合格? Type[?] Location(D[2],P[1])
    合格 → #w6
    不合格 [超差说明] → #w7
    End
-W: w7: worker[5] Location(D[1],P[1]) Role(R[2])
+W: w7: worker[5] Location(D[0],P[1]) Role(R[2])
 w7 → #w4
-W: w6: worker[6] Location(D[0],P[2]) Role(R[0]) KPI(≤3%)
+W: w6: worker[6] Location(D[3],P[1]) Role(R[0]) KPI(≤3%)
 W: q3: 商务条件达成? Type[?] Location(D[0],P[2])
    达成 → #w8
    否则 → #w9
    End
-W: w9: worker[7] Location(D[0],P[2]) Role(R[3])
+W: w9: worker[7] Location(D[1],P[2]) Role(R[3])
 w9 → #w6
-W: w8: worker[8] Location(D[2],P[3]) Role(R[1]) Time(10D)
-W: q4: 现场是否通过? Type[?] Location(D[2],P[3])
+W: w8: worker[8] Location(D[0],P[3]) Role(R[1]) Time(10D)
+W: q4: 现场是否通过? Type[?] Location(D[1],P[3])
    通过 → #w10
    否则 → #w11
    End
 W: w11: worker[9] Location(D[2],P[3]) Role(R[1])
-W: w12: 整改复验 Type[+] Location(D[2],P[3])
+W: w12: 整改复验 Type[+] Location(D[3],P[3])
    合格 → #w10
    驳回 → #w11
    End
@@ -1029,9 +1029,9 @@ W: w10: worker[10] Type[SUB] Location(D[3],P[4]) Role(R[4]) Time(15D)
    W: s3: worker[15]
    W: s4: worker[16]
    End
-W: n1: 风险提示 Type[N] Location(D[3],P[4]) Attach(#w10) Lv(高)
-W: d1: 供应商档案 Type[DATA] Location(D[3],P[4]) Attach(#w10)
-W: w13: worker[19] Type[E] Location(D[1],P[4])
+W: n1: 风险提示 Type[N] Location(D[2],P[4]) Attach(#w10) Lv(高)
+W: d1: 供应商档案 Type[DATA] Location(D[1],P[4]) Attach(#w10)
+W: w13: worker[19] Type[E] Location(D[0],P[4])
 w10 → #w13`;
 
 export const INITIAL_FLOW_DATA: FlowData = parseFlowDSL(INITIAL_FLOW_DSL).data;

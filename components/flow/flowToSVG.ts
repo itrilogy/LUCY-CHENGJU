@@ -746,8 +746,17 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     }
     return dy >= 0 ? ['B', 'R', 'L', 'T'] : ['T', 'R', 'L', 'B'];
   }
+  // 目标端口候选：target(b) 应"面向源(a)"的一侧（同行：b 朝 a 走 L/R；同列：b 朝 a 走 T/B）
   function targetCandidates(b: XYN, a: XYN): Port[] {
-    return sourceCandidates(b, a);
+    if (b.ri === a.ri && b.ci !== a.ci) {
+      return a.x <= b.x ? ['L', 'R', 'T', 'B'] : ['R', 'L', 'T', 'B']; // b 在 a 右 → 面左进
+    }
+    if (b.ci === a.ci && b.ri !== a.ri) {
+      return a.y <= b.y ? ['T', 'B', 'L', 'R'] : ['B', 'T', 'L', 'R']; // b 在 a 下 → 面上进
+    }
+    const dx = a.x - b.x, dy = a.y - b.y;
+    if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? ['R', 'T', 'B', 'L'] : ['L', 'T', 'B', 'R']; // a 在 b 右 → b 面右(R)
+    return dy > 0 ? ['B', 'L', 'R', 'T'] : ['T', 'L', 'R', 'B']; // a 在 b 下 → b 面下(B)
   }
   // 进出分开记录：出口/入口各自独立可选，重复（与相反向共用一侧）可接受
   function pickPort(
@@ -815,10 +824,10 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     if (!a || !b) continue;
     const cands = sourceCandidates(a, b);
     // 优先选"未被出入口占"的端口；若朝向全被占，则退而求其次选"未出"（避开已占入口）
+    // 出口端口：按朝向排序优先选"未用作出口"的端口（不因入侧占用而背向）；
+    // 若朝向端口全被占用，才回退到其余端口。
     let sp = cands[0];
-    let found = false;
-    for (const c of cands) { if (!a.usedOut.has(c) && !a.usedIn.has(c)) { sp = c; found = true; break; } }
-    if (!found) for (const c of cands) { if (!a.usedOut.has(c)) { sp = c; found = true; break; } }
+    for (const c of cands) { if (!a.usedOut.has(c)) { sp = c; break; } }
     a.usedOut.add(sp);
 
     const tp = targetPortOf.get(e.id) ?? 'T';
