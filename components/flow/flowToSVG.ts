@@ -8,7 +8,7 @@
  * ⑥ 确定性避障：同行下移→同列右移→都不行扩格(上限3单位)
  * ⑦ 全页面绘制区(fitView一页展现)
  */
-import type { FlowData, FlowChartStyles } from '../../types';
+import type { FlowData, FlowChartStyles, FlowEdge } from '../../types';
 
 export interface FlowSvgDims { width: number; height: number; }
 
@@ -230,6 +230,65 @@ function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy:
     out += `<text x="${cx + W / 2 - 2}" y="${cy + H / 2 + 11}" text-anchor="end" fill="#64748b" font-size="9">${esc(roleText)}</text>`;
   }
   return out;
+}
+
+/** 子流程框内内部小图：缩略节点按声明序横排/居中，迷你连线连接相邻内部节点 */
+function renderSubprocessInner(
+  data: FlowData,
+  inner: FlowData['nodes'],
+  innerEdges: FlowEdge[],
+  st: FlowChartStyles,
+  p: { x: number; y: number; W: number; H: number },
+): string {
+  const pad = 10, miniH = 20, fs = 8;
+  const availW = p.W - pad * 2;
+  const availH = p.H - pad * 2 - 6; // 预留底部＋盒位置
+  if (availW < 40 || availH < 20 || !inner.length) return '';
+  const n = inner.length;
+  const gap = 8;
+  const iw = Math.min(72, Math.max(40, Math.floor((availW - (n - 1) * gap) / n)));
+  const colMax = Math.max(1, Math.floor((availW + gap) / (iw + gap)));
+  const x0 = p.x - availW / 2, y0 = p.y - availH / 2;
+  const pos: Record<string, { x: number; y: number }> = {};
+  const parts: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const node = inner[i];
+    const r = Math.floor(i / colMax), c = i % colMax;
+    const cx = x0 + c * (iw + gap) + iw / 2;
+    const cy = y0 + r * (miniH + gap) + miniH / 2;
+    pos[node.id] = { x: cx, y: cy };
+  }
+  // 迷你连线（内部边：直角连接相邻节点中心）
+  for (const e of innerEdges) {
+    const s = pos[e.from], t = pos[e.to];
+    if (!s || !t) continue;
+    const midY = (s.y + t.y) / 2;
+    const d = s.x === t.x
+      ? `M${s.x},${s.y} L${t.x},${t.y}`
+      : `M${s.x},${s.y} L${s.x},${midY} L${t.x},${midY} L${t.x},${t.y}`;
+    parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="1"/>`);
+  }
+  // 迷你节点（shape 按类型极小化）
+  for (let i = 0; i < n; i++) {
+    const node = inner[i];
+    const cx = pos[node.id].x, cy = pos[node.id].y;
+    const label = wrapLabel(node.label || node.labelRef || node.id, iw - 6, fs)[0] || '';
+    let s = '';
+    const fillNode = node.type === 'start' ? st.startColor
+      : node.type === 'end' ? st.endColor
+      : node.type === 'exclusiveGateway' || node.type === 'parallelGateway' ? st.gatewayColor
+      : st.taskColor;
+    if (node.type === 'start' || node.type === 'end') {
+      const r = miniH / 2 - 2;
+      s = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fillNode}" stroke="rgba(15,23,42,0.25)" stroke-width="1"/>`;
+    } else if (node.type === 'exclusiveGateway' || node.type === 'parallelGateway') {
+      s = `<path d="M${cx},${cy - miniH / 2 + 2} L${cx + iw / 2},${cy} L${cx},${cy + miniH / 2 - 2} L${cx - iw / 2},${cy} Z" fill="${fillNode}" stroke="rgba(15,23,42,0.25)" stroke-width="1"/>`;
+    } else {
+      s = `<rect x="${cx - iw / 2}" y="${cy - miniH / 2}" width="${iw}" height="${miniH}" rx="3" fill="${fillNode}" stroke="rgba(15,23,42,0.25)" stroke-width="1"/>`;
+    }
+    parts.push(s + `<text x="${cx}" y="${cy + fs * 0.35}" text-anchor="middle" fill="#fff" font-size="${fs}">${esc(label)}</text>`);
+  }
+  return parts.join('');
 }
 
 function arrowMarker(id: string, color: string): string {
@@ -882,6 +941,15 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     const roleRaw = p.n.attrs?.role;
     const roleText = roleRaw ? expandRef(data, roleRaw) : undefined;
     parts.push(nodeShape(p.n, st, p.x, p.y, p.W, p.H, roleText));
+    // 子流程：框内嵌套内部小图（缩略节点按声明序横排，迷你连线）
+    if (p.n.type === 'subprocess') {
+      const inner = data.nodes.filter((n) => n.parent === p.n.id && n.id !== p.n.id);
+      if (inner.length) {
+        const innerIds = new Set(inner.map((n) => n.id));
+        const innerEdges = data.edges.filter((e) => innerIds.has(e.from) && innerIds.has(e.to));
+        parts.push(renderSubprocessInner(data, inner, innerEdges, st, p));
+      }
+    }
   }
 
   // ===== FEAT-01：六属性图例边栏（AttrPanel） =====

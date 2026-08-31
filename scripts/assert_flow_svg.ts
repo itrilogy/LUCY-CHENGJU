@@ -199,5 +199,32 @@ W: w3: 结束 Type[E]`);
   check('color-panel: 面板背景用 Color[Panel]', cSvg.includes('#ff0000'));
 }
 
+// ===== 阶段三：子流程框内嵌套小图 =====
+{
+  const d = parseFlowDSL(`Title: q
+Layout: V
+Dict: D[质检科,采购科]
+Dict: worker[a1,判断,合格,评审,可接收,末项]
+Lane from D[0,1] Layout V
+W: w1: worker[0] Location(D[0])
+W: q2: worker[2] Type[SUB] Location(D[0])
+   W: s1: worker[3] Type[S]
+   W: s2: worker[4] Type[?]
+      可接收 → #s3
+      End
+   W: s3: worker[1]
+   End
+W: w3: worker[5] Type[E] Location(D[1])
+q2 → #w3
+w1 → #q2`);
+  check('sub-mini: 无解析错误', d.errors.length === 0, d.errors.join());
+  const dSvg = flowToSVG(d.data, d.styles);
+  check('sub-mini: 无错误', d.errors.length === 0);
+  check('sub-mini: 内部迷你节点文字渲染', dSvg.includes('评审') && dSvg.includes('可接收') && dSvg.includes('合格'));
+  check('sub-mini: 迷你开始圆', dSvg.includes('fill="#2563eb"'));
+  check('sub-mini: 迷你网关棱', dSvg.includes('fill="#10b981"'));
+  check('sub-mini: 子流程展开＋盒保留', dSvg.includes('width="10" height="10"'));
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);
