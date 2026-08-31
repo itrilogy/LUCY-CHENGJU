@@ -1,4 +1,4 @@
-# IQS-Flow 几何代数连线、扩展格避让与布局协同理论体系 (Algebraic Flow Routing & Layout Co-optimization Theory)
+# IQS-Flow 几何代数连线、二维双向扩展格避让与布局协同理论体系 (2D Bi-directional Grid Clearance & Algebraic Flow Routing Theory)
 
 ---
 
@@ -43,9 +43,9 @@ $$\forall [p_i, p_{i+1}] \subset \mathcal{P}, \quad \forall w \in \mathcal{V} \s
 
 ---
 
-## 3. 折线阶数与扩展格位移权重的代数全序理论 (Total Order of Bends vs. Grid Displacement)
+## 3. 二维双向扩展格避让与折线极小化代数全序理论 (2D Bi-directional Grid Clearance)
 
-在流程图几何代数中，整体视觉惩罚势能泛函定义为：
+在流程图几何代数中，整体视觉惩罚势能泛函形式化为：
 $$J = \sum_{e \in \mathcal{E}} C_{\text{route}}(e) + \sum_{u \in \mathcal{V}} C_{\text{slot}}(u)$$
 
 ### 3.1 路径折线阶数代价 $C_{\text{route}}(e)$
@@ -56,19 +56,24 @@ $$J = \sum_{e \in \mathcal{E}} C_{\text{route}}(e) + \sum_{u \in \mathcal{V}} C_
 5. **$\ge 4$ 弯复杂回绕（Multi-bend Loop, $\ge 4$ Bends）**：$C_{\ge 4} \ge 1000$
 
 ### 3.2 节点扩展格位移代价 $C_{\text{slot}}(u)$
-1. **基准槽位（自然落格，$\Delta gy = 0$）**：$C_{\text{slot}} = 0$
-2. **扩展格单次位移（Single Grid Slot Shift, $gy \to gy+1$）**：$C_{\text{shift1}} = 150$
-3. **扩展格两次位移（Double Grid Slot Shift, $gy \to gy+2$）**：$C_{\text{shift2}} = 600$
+1. **基准槽位（自然落格，$\Delta gx = 0, \Delta gy = 0$）**：$C_{\text{slot}} = 0$
+2. **扩展格单次位移（Single Grid Slot Shift, $gx \to gx+1$ 或 $gy \to gy+1$）**：$C_{\text{shift1}} = 150$
+3. **扩展格两次位移（Double Grid Slot Shift）**：$C_{\text{shift2}} = 600$
 
-### 3.3 核心代数决策不等式与扩展格视线避让定理
+### 3.3 二维双向扩展格视线避让决策不等式
 $$\underbrace{C_{\text{shift1}} + C_0}_{150 + 0 = 150} < \underbrace{C_2}_{250} < \underbrace{C_3}_{450} < \underbrace{C_{\ge 4}}_{1000}$$
 
-**定理（视线避让与扩展格自适应提升定理）**：
-> 当一条重要的水平直连线（如资料节点依附虚线 $n \to u$）或主业务流水线跨越多个列/行时：
-> 若直通路径上存在中间阻挡节点 $w$：
-> 通过将阻挡节点 $w$ 及其所在单元格在纵向**下移 1 个扩展格槽位（代价 150）**，从而彻底消除中间阻挡，使连线获得 **0 弯纯净水平直线（代价 0）**，总代价为 $150$；
-> 该方案严格优于保持节点不动而导致连线走 3 弯或 4 弯外围走廊（代价 $450 \sim 1000$）。
-> 因此系统必然主动触发扩展格位移避让机制！
+#### 视线避让双向形式化定理：
+1. **水平视线避让（Horizontal Clearance via $gy$-Displacement）**：
+   - 设横向直连通道在行 $ri$，高度槽位为 $gy_0$（如资料节点依附线 $n_2 \to w_4$）；
+   - 若中间列 $c \in (c_1, c_2)$ 存在阻挡节点 $w(gridY === gy_0)$；
+   - 系统将 $w$ 在其单元格内**下移至扩展槽位 $gridY \gets gridY + 1$**；
+   - 彻底扫清水平障碍，实现 **0 弯水平纯净直线**。
+2. **垂直视线避让（Vertical Clearance via $gx$-Displacement）**：
+   - 设同列跨行直连通道在列 $ci$，水平槽位为 $gx_0$（如主干跨行顺序流 $w_6 \to w_7$）；
+   - 若同单元格下方或中间行存在阻挡节点 $w(gridX === gx_0)$（如网关节点 $q_3$）；
+   - 系统将阻挡节点 $w$ 在其单元格内**右移至扩展槽位 $gridX \gets gridX + 1$**；
+   - 彻底扫清垂直射线障碍，使 $w_6 \to w_7$ 获得 **0 弯垂直纯净直线**，全图总折弯数大幅骤降！
 
 ---
 
@@ -83,7 +88,7 @@ $$\Phi(e) = \begin{cases}
 1000, & \text{资料卡片依附虚线}
 \end{cases}$$
 
-- **最高规划权（$\Phi = 0$）**：$w_1 \to w_2 \to q_1$ 等主轴直通边率先执行，原子性锁定 $u(B) \to v(T)$ 垂直直线；
+- **最高规划权（$\Phi = 0$）**：$w_1 \to w_2 \to q_1$ 与 $w_6 \to w_7$ 等主轴直通边率先执行，原子性锁定 $u(B) \to v(T)$ 垂直直线；
 - **回流后置规划（$\Phi \ge 200$）**：$q_1 \to w_1$（驳回）在正向直通端口锁定后进行，自然从 $q_1(L)$ 优雅外绕，杜绝端口倒置与绕圈。
 
 ---
