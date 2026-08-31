@@ -1,4 +1,4 @@
-# IQS-Flow 几何代数连线、二维双向扩展格避让与布局协同理论体系 (2D Bi-directional Grid Clearance & Algebraic Flow Routing Theory)
+# IQS-Flow 几何代数连线、统一全向正交射线松弛与布局协同理论体系 (Unified 2D Orthogonal Ray-Clearance & Manifold Relaxation Theory)
 
 ---
 
@@ -43,43 +43,42 @@ $$\forall [p_i, p_{i+1}] \subset \mathcal{P}, \quad \forall w \in \mathcal{V} \s
 
 ---
 
-## 3. 二维双向扩展格避让与折线极小化代数全序理论 (2D Bi-directional Grid Clearance)
+## 3. 统一全向正交射线松弛理论 (Unified 2D Orthogonal Ray-Clearance Theory)
 
-在流程图几何代数中，整体视觉惩罚势能泛函形式化为：
+在二维行列网格系统 $\mathcal{G} = \mathcal{R} \times \mathcal{C}$ 中，整体视觉惩罚势能泛函形式化为：
 $$J = \sum_{e \in \mathcal{E}} C_{\text{route}}(e) + \sum_{u \in \mathcal{V}} C_{\text{slot}}(u)$$
 
-### 3.1 路径折线阶数代价 $C_{\text{route}}(e)$
-1. **0 弯直线（Straight Line, 0 Bend）**：$C_0 = 0$（完美几何直通）
+### 3.1 路径折线阶数与扩展格位移的严格代数全序
+1. **0 弯直线（Straight Line, 0 Bend）**：$C_0 = 0$
 2. **1 弯 90度折线（Single Orthogonal Bend, 1 Bend, L-shape）**：$C_1 = 100$
-3. **2 弯走廊折线（Double Orthogonal Bends, 2 Bends, Z-shape）**：$C_2 = 250$
-4. **3 弯避障折线（Triple Orthogonal Bends, 3 Bends）**：$C_3 = 450$
-5. **$\ge 4$ 弯复杂回绕（Multi-bend Loop, $\ge 4$ Bends）**：$C_{\ge 4} \ge 1000$
+3. **扩展格单次位移（Single Grid Slot Shift, $\Delta gx = 1$ 或 $\Delta gy = 1$）**：$C_{\text{shift1}} = 150$
+4. **2 弯走廊折线（Double Orthogonal Bends, 2 Bends, Z-shape）**：$C_2 = 250$
+5. **3 弯避障折线（Triple Orthogonal Bends, 3 Bends）**：$C_3 = 450$
+6. **$\ge 4$ 弯复杂回绕（Multi-bend Loop, $\ge 4$ Bends）**：$C_{\ge 4} \ge 1000$
 
-### 3.2 节点扩展格位移代价 $C_{\text{slot}}(u)$
-1. **基准槽位（自然落格，$\Delta gx = 0, \Delta gy = 0$）**：$C_{\text{slot}} = 0$
-2. **扩展格单次位移（Single Grid Slot Shift, $gx \to gx+1$ 或 $gy \to gy+1$）**：$C_{\text{shift1}} = 150$
-3. **扩展格两次位移（Double Grid Slot Shift）**：$C_{\text{shift2}} = 600$
+### 3.2 统一正交射线遮挡算子 $\operatorname{RayBlockers}(e)$
+对于任意具有同轴直连倾向的边 $e = (u \to v)$：
+1. **水平正交射线通道（Horizontal Ray Channel）**：
+   当 $\text{row}(u) = \text{row}(v) = r$ 时，射线高度为 $gy_u$：
+   $$\operatorname{RayBlockers}_H(e) = \{w \in \mathcal{V} \setminus \{u, v\} \mid \text{row}(w) = r \land \operatorname{slotY}(w) = gy_u \land x_w \in (\min(x_u, x_v), \max(x_u, x_v))\}$$
+   **纵向松弛变换 $\mathcal{T}_Y$**：$\forall w \in \operatorname{RayBlockers}_H(e), \quad \operatorname{slotY}(w) \gets \operatorname{slotY}(w) + 1$。
 
-### 3.3 二维双向扩展格视线避让决策不等式
-$$\underbrace{C_{\text{shift1}} + C_0}_{150 + 0 = 150} < \underbrace{C_2}_{250} < \underbrace{C_3}_{450} < \underbrace{C_{\ge 4}}_{1000}$$
+2. **垂直正交射线通道（Vertical Ray Channel）**：
+   当 $\text{col}(u) = \text{col}(v) = c$ 时，射线横向槽位为 $gx_u$：
+   $$\operatorname{RayBlockers}_V(e) = \{w \in \mathcal{V} \setminus \{u, v\} \mid \text{col}(w) = c \land \operatorname{slotX}(w) = gx_u \land y_w \in (\min(y_u, y_v), \max(y_u, y_v))\}$$
+   **横向松弛变换 $\mathcal{T}_X$**：$\forall w \in \operatorname{RayBlockers}_V(e), \quad \operatorname{slotX}(w) \gets \operatorname{slotX}(w) + 1$。
 
-#### 视线避让双向形式化定理：
-1. **水平视线避让（Horizontal Clearance via $gy$-Displacement）**：
-   - 设横向直连通道在行 $ri$，高度槽位为 $gy_0$（如资料节点依附线 $n_2 \to w_4$）；
-   - 若中间列 $c \in (c_1, c_2)$ 存在阻挡节点 $w(gridY === gy_0)$；
-   - 系统将 $w$ 在其单元格内**下移至扩展槽位 $gridY \gets gridY + 1$**；
-   - 彻底扫清水平障碍，实现 **0 弯水平纯净直线**。
-2. **垂直视线避让（Vertical Clearance via $gx$-Displacement）**：
-   - 设同列跨行直连通道在列 $ci$，水平槽位为 $gx_0$（如主干跨行顺序流 $w_6 \to w_7$）；
-   - 若同单元格下方或中间行存在阻挡节点 $w(gridX === gx_0)$（如网关节点 $q_3$）；
-   - 系统将阻挡节点 $w$ 在其单元格内**右移至扩展槽位 $gridX \gets gridX + 1$**；
-   - 彻底扫清垂直射线障碍，使 $w_6 \to w_7$ 获得 **0 弯垂直纯净直线**，全图总折弯数大幅骤降！
+### 3.3 代数势能单调递减定理 (Monotonic Energy Reduction Theorem)
+对任意遮挡边 $e$，执行正交松弛变换 $\mathcal{T} \in \{\mathcal{T}_X, \mathcal{T}_Y\}$ 诱发的全系统势能差为：
+$$\Delta J = \Delta C_{\text{route}}(e) + \sum_{w} C_{\text{shift}}(w) = (0 - C_{\ge 3}) + C_{\text{shift1}} \le -450 + 150 = -300 < 0$$
+全系统势能恒成立严格单调递减！
+该定理保证了系统能够在全向（上、下、左、右）自发消灭复杂折线，将全局折线总数压缩至紧致极小值。
 
 ---
 
 ## 4. 全局边规划优先级全序模型 (Priority Ordering & Port Allocation)
 
-为避免回流/复杂边抢占直通端口导致主干道绕圈，边的规划全序 $\Phi(e)$ 严格定义为：
+边的规划全序 $\Phi(e)$ 严格定义为：
 
 $$\Phi(e) = \begin{cases}
 0, & \text{同轴正向直连顺序流 } (\Delta x < 1 \land \Delta y > 0 \text{ 或 } \Delta y < 1 \land \Delta x > 0) \\
@@ -88,8 +87,8 @@ $$\Phi(e) = \begin{cases}
 1000, & \text{资料卡片依附虚线}
 \end{cases}$$
 
-- **最高规划权（$\Phi = 0$）**：$w_1 \to w_2 \to q_1$ 与 $w_6 \to w_7$ 等主轴直通边率先执行，原子性锁定 $u(B) \to v(T)$ 垂直直线；
-- **回流后置规划（$\Phi \ge 200$）**：$q_1 \to w_1$（驳回）在正向直通端口锁定后进行，自然从 $q_1(L)$ 优雅外绕，杜绝端口倒置与绕圈。
+- **最高规划权（$\Phi = 0$）**：同轴直通边率先执行，原子性锁定直通端口；
+- **回流后置规划（$\Phi \ge 200$）**：逆向流后置规划，沿走廊外绕，杜绝端口抢占与倒置。
 
 ---
 

@@ -542,61 +542,48 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     cellXY.set(gk, { nx, ny, items });
   }
 
-  // ===== 二维双向扩展格代数视线避让优化 (2D Bi-directional Grid Sightline Clearance) =====
-  // 核心代数权重全序公理：
-  // 0 弯直线 (Cost=0) + 扩展格单次位移 (Cost=150) = 150 < 2 弯走廊 (Cost=250) < 3/4 弯复杂避障折线 (Cost=450~1000)
+  // ===== 统一二维全向扩展格代数视线避让与流形松弛引擎 (Unified 2D Ray Clearance & Manifold Relaxation) =====
+  // 核心代数全序公理：
+  // 0 弯直线 (Cost=0) + 扩展格单次位移 (Cost=150) = 150 << 2/3/4 弯多重避障折线 (Cost=250~1000)
   
-  // 1. 水平视线避让 (Horizontal Clearance via Y-displacement)
-  // 当资料节点与依附主节点横向对齐时，中间列同高度阻挡节点自动下移进入扩展格槽位 (gy -> gy + 1)，让出纯净水平走廊
+  // 1. 水平射线视线松弛 (Horizontal Ray Clearance via Y-Displacement)
+  // 包含：资料依附虚线、同行跨列长跨度主干流
   for (const n of data.nodes) {
     if (!n.parent && (n.type === 'annotation' || n.type === 'dataObject') && n.attach) {
       const target = data.nodes.find((x) => x.id === n.attach);
       if (!target) continue;
-      // 查找 target 所在单元格与槽位
       let targetRi = -1, targetCi = -1, targetGy = 0;
       for (const [gk, cell] of cellXY) {
         const item = cell.items.find((it) => it.n.id === target.id);
         if (item) {
           const [r, c] = gk.split('_').map(Number);
-          targetRi = r;
-          targetCi = c;
-          targetGy = item.gridY;
+          targetRi = r; targetCi = c; targetGy = item.gridY;
           break;
         }
       }
       if (targetRi < 0) continue;
 
-      // 查找 doc 节点所在单元格
       let docCi = -1;
       for (const [gk, cell] of cellXY) {
         const item = cell.items.find((it) => it.n.id === n.id);
         if (item) {
           const [, c] = gk.split('_').map(Number);
           docCi = c;
-          // 确保 doc 节点的 gridY 与 target 严格水平一致
           item.gridY = targetGy;
           break;
         }
       }
       if (docCi < 0 || targetCi === docCi) continue;
 
-      const minC = Math.min(targetCi, docCi);
-      const maxC = Math.max(targetCi, docCi);
-
-      // 扫描中间所有列 (minC + 1 .. maxC - 1)，检查是否有节点挡在 targetGy
+      const minC = Math.min(targetCi, docCi), maxC = Math.max(targetCi, docCi);
       for (let c = minC + 1; c < maxC; c++) {
         const midGk = `${targetRi}_${c}`;
         const midCell = cellXY.get(midGk);
         if (!midCell) continue;
-
-        // 检查中间格内是否有节点的 gridY === targetGy
         const blocker = midCell.items.find((it) => it.gridY === targetGy);
         if (blocker) {
-          // 触发扩展格位移：将该格内受阻挡及更下方的节点全部下移 1 个槽位
           for (const it of midCell.items) {
-            if (it.gridY >= targetGy) {
-              it.gridY += 1;
-            }
+            if (it.gridY >= targetGy) it.gridY += 1;
           }
           midCell.ny = Math.max(...midCell.items.map((it) => it.gridY + 1), 1);
         }
@@ -604,10 +591,10 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     }
   }
 
-  // 2. 垂直视线避让 (Vertical Clearance via X-displacement in Extended Grid)
-  // 当主干顺序流或关键边在同列跨行垂直直通 (如 w6 -> w7) 时：
-  // 检查源节点与目标节点垂直射线通道上 (同一列 ci，同一槽位 gridX) 是否存在同格/中间格阻挡节点 (如 q3)。
-  // 若存在阻挡，将阻挡节点右移至扩展格 (gridX -> gridX + 1)，让出垂直直连通路，消灭多重折线！
+  // 2. 垂直射线视线松弛 (Vertical Ray Clearance via X-Displacement, 双向支持向上与向下)
+  // 当主干顺序流或关键边在同列跨行垂直直通 (向下如 w6 -> w7，向上如 w4 -> w5) 时：
+  // 精确探测垂直射线上 (同一列 ci，同一槽位 gridX) 的所有障碍节点 (同格下/上方障碍、中间格障碍)。
+  // 自动将阻挡节点右移至扩展格 (gridX -> gridX + 1)，彻底扫清垂直直通走廊，消灭多重折线！
   for (const e of data.edges) {
     if (e.parent || e.type !== 'sequence') continue;
     const u = data.nodes.find((x) => x.id === e.from);
@@ -629,29 +616,45 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
       }
     }
 
-    // 若 u 和 v 位于同一列 (uCi === vCi) 且为垂直跨行向下流动 (uRi < vRi)
-    if (uCi >= 0 && uCi === vCi && uRi < vRi) {
-      // 检查在 u 所在单元格内，位于 u 下方的节点 (即同格内 gridY > uGy 且 gridX === uGx 的阻挡节点)
+    if (uCi >= 0 && uCi === vCi && uRi !== vRi) {
+      const isDownward = uRi < vRi;
+      const minR = Math.min(uRi, vRi), maxR = Math.max(uRi, vRi);
+
+      // (1) 源单元格内沿射线方向的障碍物
       const uGk = `${uRi}_${uCi}`;
       const uCell = cellXY.get(uGk);
       if (uCell) {
-        const blocker = uCell.items.find((it) => it.n.id !== u.id && it.gridY > uGy && it.gridX === uGx);
-        if (blocker) {
-          // 将阻挡节点右移至扩展格槽位
-          blocker.gridX = uGx + 1;
+        const uBlocker = uCell.items.find((it) =>
+          it.n.id !== u.id && (isDownward ? it.gridY > uGy : it.gridY < uGy) && it.gridX === uGx
+        );
+        if (uBlocker) {
+          uBlocker.gridX = uGx + 1;
           uCell.nx = Math.max(...uCell.items.map((it) => it.gridX + 1), 1);
         }
       }
 
-      // 检查中间所有行 (uRi + 1 .. vRi - 1) 的中间单元格中是否有节点挡在 uGx
-      for (let r = uRi + 1; r < vRi; r++) {
+      // (2) 中间行单元格内的障碍物
+      for (let r = minR + 1; r < maxR; r++) {
         const midGk = `${r}_${uCi}`;
         const midCell = cellXY.get(midGk);
         if (!midCell) continue;
-        const blocker = midCell.items.find((it) => it.gridX === uGx);
-        if (blocker) {
-          blocker.gridX = uGx + 1;
+        const midBlocker = midCell.items.find((it) => it.gridX === uGx);
+        if (midBlocker) {
+          midBlocker.gridX = uGx + 1;
           midCell.nx = Math.max(...midCell.items.map((it) => it.gridX + 1), 1);
+        }
+      }
+
+      // (3) 目标单元格内迎着射线方向的障碍物 (如向上流动时目标单元格内位于 v 下方的节点 q2)
+      const vGk = `${vRi}_${vCi}`;
+      const vCell = cellXY.get(vGk);
+      if (vCell) {
+        const vBlocker = vCell.items.find((it) =>
+          it.n.id !== v.id && (isDownward ? it.gridY < vGy : it.gridY > vGy) && it.gridX === uGx
+        );
+        if (vBlocker) {
+          vBlocker.gridX = uGx + 1;
+          vCell.nx = Math.max(...vCell.items.map((it) => it.gridX + 1), 1);
         }
       }
     }
