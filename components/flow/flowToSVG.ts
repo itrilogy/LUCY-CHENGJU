@@ -246,8 +246,9 @@ function renderSubprocessInner(
   if (availW < 40 || availH < 20 || !inner.length) return '';
   const n = inner.length;
   const gap = 8;
-  const iw = Math.min(72, Math.max(40, Math.floor((availW - (n - 1) * gap) / n)));
-  const colMax = Math.max(1, Math.floor((availW + gap) / (iw + gap)));
+  // 内部列数 = √N（与布局 innerCols 同款），使子流程框内小图与 k×mm 整数倍框对齐
+  const colMax = Math.max(1, Math.ceil(Math.sqrt(n)));
+  const iw = Math.min(72, Math.max(40, Math.floor((availW - (colMax - 1) * gap) / colMax)));
   const x0 = p.x - availW / 2, y0 = p.y - availH / 2;
   const pos: Record<string, { x: number; y: number }> = {};
   const parts: string[] = [];
@@ -459,19 +460,22 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     let nx = 1, ny = 1, gx = 0, gy = 0;
     const items: { n: FlowData['nodes'][0]; gridX: number; gridY: number; m: NodeMetrics }[] = [];
     nodes.forEach((n, i) => {
-      // 前提2：子流程作为"等比例缩放的流程节点"，其尺寸由内部节点数/排布决定，
-      // 进而推动所在泳道/交叉格高宽（而非固定 BASE 尺寸）。
+      // 子流程 = 标准泳道交叉格整数倍（设计中心思想）：宽=k×subprocess.w，高=mm×subprocess.h
+      // k/mm 恰好容纳内部子节点（内部也按同款格子数学排布），从而与相邻泳道/交叉格无缝对齐、不超格。
       let m = nodeMetrics(n, fs);
       if (n.type === 'subprocess') {
         const childCount = data.nodes.filter((x) => x.parent === n.id && x.id !== n.id).length;
         if (childCount > 0) {
-          const miniW = 72, miniH = 20, gap = 8, padX = 12, padY = 12, plusH = 18;
-          // 内部节点近似单行排布时所需宽，多行时所需高
-          const perRow = Math.max(1, Math.ceil(childCount / 2)); // 至多 2 行（等比例换行）
-          const needW = padX * 2 + perRow * miniW + (perRow - 1) * gap;
-          const rows = Math.ceil(childCount / 2);
-          const needH = padY * 2 + rows * miniH + (rows - 1) * gap + plusH;
-          m = { halfW: Math.max(m.halfW, needW / 2), halfH: Math.max(m.halfH, needH / 2), shapeType: m.shapeType };
+          const innerCols = Math.max(1, Math.ceil(Math.sqrt(childCount))); // 内部列数（方阵近似）
+          const rows = Math.ceil(childCount / innerCols);
+          // 整除到标准节基准的整数倍
+          const k = Math.max(1, Math.ceil(innerCols / 1));
+          const mm = Math.max(1, rows);
+          m = {
+            halfW: Math.max(m.halfW, (k * NODE_BASE.subprocess.w) / 2),
+            halfH: Math.max(m.halfH, (mm * NODE_BASE.subprocess.h) / 2),
+            shapeType: m.shapeType,
+          };
         }
       }
       if (i === 0) {
@@ -725,11 +729,12 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   // 端口方向定义（从节点中心向外，走 0.5 连线区中线）
   type Port = 'R' | 'L' | 'T' | 'B';
   function portXY(n: { x: number; y: number; W: number; H: number }, dir: Port): { x: number; y: number } {
+    // 端点=节点边界（不加 half/2 走廊偏移）——箭头抵节点边中点（设计⑤⑥），指向即入口
     switch (dir) {
-      case 'R': return { x: n.x + n.W / 2 + L.half / 2, y: n.y };
-      case 'L': return { x: n.x - n.W / 2 - L.half / 2, y: n.y };
-      case 'T': return { x: n.x, y: n.y - n.H / 2 - L.half / 2 };
-      case 'B': return { x: n.x, y: n.y + n.H / 2 + L.half / 2 };
+      case 'R': return { x: n.x + n.W / 2, y: n.y };
+      case 'L': return { x: n.x - n.W / 2, y: n.y };
+      case 'T': return { x: n.x, y: n.y - n.H / 2 };
+      case 'B': return { x: n.x, y: n.y + n.H / 2 };
     }
   }
   function snapTo(v: number, marks: number[]): number {
