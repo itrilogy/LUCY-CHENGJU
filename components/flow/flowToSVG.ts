@@ -729,12 +729,12 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   // 端口方向定义（从节点中心向外，走 0.5 连线区中线）
   type Port = 'R' | 'L' | 'T' | 'B';
   function portXY(n: { x: number; y: number; W: number; H: number }, dir: Port): { x: number; y: number } {
-    // 端点=节点边界（不加 half/2 走廊偏移）——箭头抵节点边中点（设计⑤⑥），指向即入口
+    // 回归 63566cf：端点=走廊中线（节点边界 + half/2），连线沿 0.5 走廊走
     switch (dir) {
-      case 'R': return { x: n.x + n.W / 2, y: n.y };
-      case 'L': return { x: n.x - n.W / 2, y: n.y };
-      case 'T': return { x: n.x, y: n.y - n.H / 2 };
-      case 'B': return { x: n.x, y: n.y + n.H / 2 };
+      case 'R': return { x: n.x + n.W / 2 + L.half / 2, y: n.y };
+      case 'L': return { x: n.x - n.W / 2 - L.half / 2, y: n.y };
+      case 'T': return { x: n.x, y: n.y - n.H / 2 - L.half / 2 };
+      case 'B': return { x: n.x, y: n.y + n.H / 2 + L.half / 2 };
     }
   }
   function snapTo(v: number, marks: number[]): number {
@@ -767,15 +767,8 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   }
   // 目标端口候选：target(b) 应"面向源(a)"的一侧（同行：b 朝 a 走 L/R；同列：b 朝 a 走 T/B）
   function targetCandidates(b: XYN, a: XYN): Port[] {
-    if (b.ri === a.ri && b.ci !== a.ci) {
-      return a.x <= b.x ? ['L', 'R', 'T', 'B'] : ['R', 'L', 'T', 'B']; // b 在 a 右 → 面左进
-    }
-    if (b.ci === a.ci && b.ri !== a.ri) {
-      return a.y <= b.y ? ['T', 'B', 'L', 'R'] : ['B', 'T', 'L', 'R']; // b 在 a 下 → 面上进
-    }
-    const dx = a.x - b.x, dy = a.y - b.y;
-    if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? ['R', 'T', 'B', 'L'] : ['L', 'T', 'B', 'R']; // a 在 b 右 → b 面右(R)
-    return dy > 0 ? ['B', 'L', 'R', 'T'] : ['T', 'L', 'R', 'B']; // a 在 b 下 → b 面下(B)
+    // 回归 63566cf：目标端口朝向源（与源候选相反方向优先），原样复用源候选
+    return sourceCandidates(b, a);
   }
   // 进出分开记录：出口/入口各自独立可选，重复（与相反向共用一侧）可接受
   function pickPort(
