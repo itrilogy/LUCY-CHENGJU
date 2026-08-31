@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  flow-check:
+    name: IQS-Flow 校验 + 断言 + 构建
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: TypeScript 类型检查
+        run: npx tsc --noEmit
+
+      - name: IQS-Flow 断言（parser + svg + bpmn）
+        run: npm run test:flow
+
+      - name: 构建（validate:dsl + test:flow + vite）
+        run: npm run build
