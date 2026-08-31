@@ -1,4 +1,4 @@
-# IQS-Flow 几何代数连线、统一全向正交射线松弛与布局协同理论体系 (Unified 2D Orthogonal Ray-Clearance & Manifold Relaxation Theory)
+# IQS-Flow 几何代数连线、三折线扩展格上界与流形松弛理论体系 (3-Bend Threshold & Manifold Relaxation Theory)
 
 ---
 
@@ -43,36 +43,31 @@ $$\forall [p_i, p_{i+1}] \subset \mathcal{P}, \quad \forall w \in \mathcal{V} \s
 
 ---
 
-## 3. 统一全向正交射线松弛理论 (Unified 2D Orthogonal Ray-Clearance Theory)
+## 3. 三折线上界与扩展格闭环松弛理论 (The 3-Bend Threshold & Closed-Loop Relaxation)
 
-在二维行列网格系统 $\mathcal{G} = \mathcal{R} \times \mathcal{C}$ 中，整体视觉惩罚势能泛函形式化为：
+在二维正交网格系统 $\mathcal{G} = \mathcal{R} \times \mathcal{C}$ 中，系统的整体美学势能泛函形式化为：
 $$J = \sum_{e \in \mathcal{E}} C_{\text{route}}(e) + \sum_{u \in \mathcal{V}} C_{\text{slot}}(u)$$
 
 ### 3.1 路径折线阶数与扩展格位移的严格代数全序
-1. **0 弯直线（Straight Line, 0 Bend）**：$C_0 = 0$
-2. **1 弯 90度折线（Single Orthogonal Bend, 1 Bend, L-shape）**：$C_1 = 100$
+1. **0 弯直线（Straight Line, 1 段线）**：$C_0 = 0$
+2. **1 弯 90度折线（L-bend, 2 段线）**：$C_1 = 100$
 3. **扩展格单次位移（Single Grid Slot Shift, $\Delta gx = 1$ 或 $\Delta gy = 1$）**：$C_{\text{shift1}} = 150$
-4. **2 弯走廊折线（Double Orthogonal Bends, 2 Bends, Z-shape）**：$C_2 = 250$
-5. **3 弯避障折线（Triple Orthogonal Bends, 3 Bends）**：$C_3 = 450$
-6. **$\ge 4$ 弯复杂回绕（Multi-bend Loop, $\ge 4$ Bends）**：$C_{\ge 4} \ge 1000$
+4. **2 弯走廊折线（Z-bend, 3 段线）**：$C_2 = 250$
+5. **3 弯及以上复杂折线（$\ge 3$ Bends, $\ge 4$ 段线）**：$C_{\ge 3} \ge 450$（**严禁在正向流中出现，触发扩展格松弛阈值**）
 
-### 3.2 统一正交射线遮挡算子 $\operatorname{RayBlockers}(e)$
-对于任意具有同轴直连倾向的边 $e = (u \to v)$：
-1. **水平正交射线通道（Horizontal Ray Channel）**：
-   当 $\text{row}(u) = \text{row}(v) = r$ 时，射线高度为 $gy_u$：
-   $$\operatorname{RayBlockers}_H(e) = \{w \in \mathcal{V} \setminus \{u, v\} \mid \text{row}(w) = r \land \operatorname{slotY}(w) = gy_u \land x_w \in (\min(x_u, x_v), \max(x_u, x_v))\}$$
-   **纵向松弛变换 $\mathcal{T}_Y$**：$\forall w \in \operatorname{RayBlockers}_H(e), \quad \operatorname{slotY}(w) \gets \operatorname{slotY}(w) + 1$。
+### 3.2 三折线扩展格松弛定理 (The 3-Bend Expansion Threshold Theorem)
+> **定理**：在工业流程图几何代数中，任何单条连线的正交折线段数必须严格满足 $S(e) \le 3$（即折弯数 $B(e) \le 2$）。
+> 一旦布局计算出现单一路径折弯数 $B(e) \ge 3$（线段数 $\ge 4$），系统即判定发生了“流形阻塞（Manifold Congestion）”，必须触发扩展格位移算子 $\mathcal{T}_{\text{shift}}$ 进行流形松弛：
+> $$\Delta J = (C_0 - C_{\ge 3}) + C_{\text{shift1}} \le -450 + 150 = -300 < 0$$
+> 系统势能严格单调递减，直至全图所有正向流的折弯数收敛于 $B(e) \le 2$！
 
-2. **垂直正交射线通道（Vertical Ray Channel）**：
-   当 $\text{col}(u) = \text{col}(v) = c$ 时，射线横向槽位为 $gx_u$：
-   $$\operatorname{RayBlockers}_V(e) = \{w \in \mathcal{V} \setminus \{u, v\} \mid \text{col}(w) = c \land \operatorname{slotX}(w) = gx_u \land y_w \in (\min(y_u, y_v), \max(y_u, y_v))\}$$
-   **横向松弛变换 $\mathcal{T}_X$**：$\forall w \in \operatorname{RayBlockers}_V(e), \quad \operatorname{slotX}(w) \gets \operatorname{slotX}(w) + 1$。
-
-### 3.3 代数势能单调递减定理 (Monotonic Energy Reduction Theorem)
-对任意遮挡边 $e$，执行正交松弛变换 $\mathcal{T} \in \{\mathcal{T}_X, \mathcal{T}_Y\}$ 诱发的全系统势能差为：
-$$\Delta J = \Delta C_{\text{route}}(e) + \sum_{w} C_{\text{shift}}(w) = (0 - C_{\ge 3}) + C_{\text{shift1}} \le -450 + 150 = -300 < 0$$
-全系统势能恒成立严格单调递减！
-该定理保证了系统能够在全向（上、下、左、右）自发消灭复杂折线，将全局折线总数压缩至紧致极小值。
+### 3.3 全向正交射线遮挡松弛算子
+1. **水平射线松弛（Horizontal Clearance）**：
+   对于同行跨列长跨度边（如资料依附线 $n \to u$），若中间列存在同高度阻挡节点 $w$：
+   $$\operatorname{slotY}(w) \gets \operatorname{slotY}(w) + 1 \implies \text{打通 0 弯水平纯净直线}$$
+2. **垂直射线松弛（Vertical Clearance，向下/向上双向对称）**：
+   对于同列跨行直连边（向下如 $w_6 \to w_7$，向上如 $w_4 \to w_5$），若同单元格或中间行存在阻挡节点 $w$：
+   $$\operatorname{slotX}(w) \gets \operatorname{slotX}(w) + 1 \implies \text{打通 0 弯垂直纯净直线}$$
 
 ---
 
@@ -81,9 +76,9 @@ $$\Delta J = \Delta C_{\text{route}}(e) + \sum_{w} C_{\text{shift}}(w) = (0 - C_
 边的规划全序 $\Phi(e)$ 严格定义为：
 
 $$\Phi(e) = \begin{cases}
-0, & \text{同轴正向直连顺序流 } (\Delta x < 1 \land \Delta y > 0 \text{ 或 } \Delta y < 1 \land \Delta x > 0) \\
+0, & \text{同轴正向直连顺序流 } (|\Delta x| < 1 \land \text{正向顺序流} \text{ 或 } |\Delta y| < 1 \land \Delta x > 0) \\
 10 + 5 \cdot \text{dist}(u, v), & \text{正向邻近推进流 } (\Delta x > 0) \\
-200 + 10 \cdot \text{dist}(u, v), & \text{物理逆向回流 / 驳回流 / 不达标流 } (\Delta x < -20 \lor (\Delta x \approx 0 \land \Delta y < -20)) \\
+200 + 10 \cdot \text{dist}(u, v), & \text{显式逆向回流 / 驳回流 / 不达标流 } (\text{带否定标签 或 } \Delta x < -40) \\
 1000, & \text{资料卡片依附虚线}
 \end{cases}$$
 

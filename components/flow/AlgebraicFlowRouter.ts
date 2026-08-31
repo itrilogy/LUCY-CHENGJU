@@ -201,11 +201,12 @@ export function solveAlgebraicPorts(
     if (!u || !v) return 9999;
 
     const dx = v.x - u.x, dy = v.y - u.y;
-    // 物理几何逆向回流判定：目标在源节点的左方(dx < -20) 或者 在同列/偏左时的上方(dy < -20)
-    const isPhysicalBack = (dx < -20) || (Math.abs(dx) <= 30 && dy < -20) || (e.label === '驳回' || e.label === '不达标' || e.label === '整改' || e.label === '否');
+    // 显式回退流 (带驳回/不达标/整改等否定标签) 或 大幅度向左逆流
+    const isExplicitBack = (e.label === '驳回' || e.label === '不达标' || e.label === '整改' || e.label === '否');
+    const isPhysicalBack = isExplicitBack || (dx < -40);
     
-    // 纯同轴正向直连 (如同一单元格内垂直直下，或同一行水平直右)
-    const isCoaxialForward = (!isPhysicalBack && Math.abs(dx) < 1 && dy > 0) || (!isPhysicalBack && Math.abs(dy) < 1 && dx > 0);
+    // 纯同轴正向直连 (如同列垂直向上/向下直通，或同行水平直通)
+    const isCoaxialForward = (!isPhysicalBack && Math.abs(dx) < 1 && Math.abs(dy) > 10) || (!isPhysicalBack && Math.abs(dy) < 1 && dx > 10);
 
     const dist = Math.abs(u.ri - v.ri) + Math.abs(u.ci - v.ci);
     if (isCoaxialForward) return 0;
