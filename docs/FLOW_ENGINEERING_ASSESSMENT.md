@@ -77,3 +77,22 @@
 
 *记录人: 智能体辅助评估*
 *状态: 评估完成，短板上报，后续按建议推进*
+
+---
+
+## 4. 后续落地实况（2026-08-31）
+
+评估完成后按建议推进的工程化改进：
+
+| 项 | 落地 |
+|:---|:---|
+| **CI（短板1）** | 新增 `.github/workflows/ci.yml`：push/PR 触发，Node 22 + npm ci + `npx tsc --noEmit` + `npm run test:flow` + `npm run build`（全链）。 |
+| **覆盖率（短板2）** | **评估暂缓**：项目无 vitest/c8，引入新框架需评估与 `--experimental-strip-types` 断言脚本的兼容性与依赖污染；现以 125 项断言为事实护栏，覆盖率列为可选后续项。 |
+| **探针脚本（短板5）** | `scripts/_flow_probe.ts` 头部加注释明确"诊断用途、非 build 护栏"，**不迁移**（历史文档统一引用 `scripts/_flow_probe.ts`，迁移会破坏引用）。 |
+| **类型局部 any（短板4）** | 保持 parser 现有风格（strip-types 无 enum 依赖约束），未动以免引发回归。 |
+| **可视化回归（短板3）** | 未做（需 pixelmatch/截图基线，成本中等，列为后续可选）。 |
+
+- 提交：`docs/FLOW_ENGINEERING_ASSESSMENT.md` + `.github/workflows/ci.yml`（同批）。
+- 回归：`npx tsc --noEmit` 零错，`npm run test:flow` 125 项全绿，`npm run build` 通过。
+
+> 注：CI 工作流语法仅能通过 `npx github-actions`-类工具校验或 GitHub 侧执行确认；本地已等价跑通其三个验证步骤（tsc / test:flow / build）。

@@ -1,3 +1,8 @@
+/**
+ * IQS-Flow 诊断探针（非 build 护栏）：实测渲染/布局/校验的典型场景，供人工排查。
+ * 不参与 npm run test:flow；正式断言见 scripts/assert_flow_parser.ts / assert_flow_svg.ts / assert_flow_bpmn.ts。
+ * 运行: node --experimental-strip-types scripts/_flow_probe.ts
+ */
 import { parseFlowDSL } from '../components/flow/FlowParser.ts';
 import { flowToSVG, getSvgSize, computeExcelLayout } from '../components/flow/flowToSVG.ts';
 
