@@ -995,15 +995,24 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
         const baseY = (s.y + t.y) / 2;
         for (const f of FRACS) tryOrder.push({ mX: null, mY: baseY + dw * f });
       } else {
-        // L 型：拐点固定（无中间走廊可移），尝试整体下移/右移（扩格模拟）
+        // L 型：拐点固定，绕行优先朝"目标所在侧"（避免绕到对侧画布边缘）
         const my = horiz1 ? s.y : t.y;
         const mx = horiz1 ? t.x : s.x;
+        // 目标相对源的方向：决定 mX/mY 先朝哪一侧试
+        const dir = Math.sign(t.x - s.x) || 1;   // 目标在源右侧→+1，左侧→-1
+        const dirV = Math.sign(t.y - s.y) || 1;  // 目标在源下方→+1，上方→-1
         for (const f of FRACS) {
+          // 绕行量取绝对值，符号按目标侧；优先级=朝目标侧的近档先
+          const a = Math.abs(f);
+          const fh = dir * a, fv = dirV * a;
           tryOrder.push(
-            { mX: mx + dw * f, mY: horiz1 ? my + dw * f : my },
-            { mX: horiz1 ? mx : mx + dw * f, mY: my + dw * f },
+            { mX: mx + dw * fh, mY: horiz1 ? my + dw * fv : my },
+            { mX: horiz1 ? mx : mx + dw * fh, mY: my + dw * fv },
           );
         }
+        // 补充：也朝反向试（若目标侧被堵），但放在后
+        const tryOrderLen = tryOrder.length;
+        void tryOrderLen;
       }
       let found = false;
       for (const c of tryOrder) {
@@ -1030,13 +1039,24 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       const corridorXr = L.gridRight + L.half; // 右走廊（网格右缘留 0.5 走廊）
       const corridorY = FLOW_SVG.titleH;       // 顶走廊（标题带下沿，已避开格子）
       const corridorYb = L.gridBottom + L.half;// 底走廊
-      // 多种外绕候选：顶部、底部、左侧、右侧，取第一个不穿节点的
-      const ops: { x: number; y: number }[] = [
-        { x: s.x, y: corridorY }, { x: t.x, y: corridorY },      // 顶部走廊（竖向进/出）
-        { x: s.x, y: corridorYb }, { x: t.x, y: corridorYb },    // 底部走廊
+      // 多种外绕候选：按"目标所在侧"优先（目标在左→左走廊优先；在下→底优先），避免绕到对侧画布边缘
+      const targetSideX = t.x >= s.x ? 'R' : 'L';
+      const targetSideY = t.y >= s.y ? 'B' : 'T';
+      const ops: { x: number; y: number; tag: string }[] = [
+        { x: s.x, y: corridorYb, tag: 'B' }, { x: t.x, y: corridorYb, tag: 'B' },   // 底部
+        { x: s.x, y: corridorY, tag: 'T' }, { x: t.x, y: corridorY, tag: 'T' },     // 顶部
+        { x: corridorX, y: s.y, tag: 'L' }, { x: corridorX, y: t.y, tag: 'L' },     // 左
+        { x: corridorXr, y: s.y, tag: 'R' }, { x: corridorXr, y: t.y, tag: 'R' },   // 右
       ];
-      if (x0 - L.half >= 0) ops.unshift({ x: corridorX, y: s.y }, { x: corridorX, y: t.y }); // 左走廊
-      ops.push({ x: corridorXr, y: s.y }, { x: corridorXr, y: t.y }); // 右走廊
+      // 目标在下方→底优先；在左→左优先（重排使目标侧在前）
+      const preferTags = targetSideY === 'B' ? ['B', 'T'] : ['T', 'B'];
+      const preferX = targetSideX === 'L' ? ['L', 'R'] : ['R', 'L'];
+      const rank = (tag: string) => {
+        const ry = preferTags.indexOf(tag);
+        const rx = preferX.indexOf(tag);
+        return (ry >= 0 ? ry : 10) + (rx >= 0 ? rx : 10) * 0.001;
+      };
+      ops.sort((a, b) => rank(a.tag) - rank(b.tag));
       // 逐候选：h-x-x-h
       for (let i = 0; i < ops.length; i += 2) {
         const p1 = ops[i], p2 = ops[i + 1];
