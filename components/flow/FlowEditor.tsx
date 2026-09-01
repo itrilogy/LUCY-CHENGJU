@@ -76,7 +76,9 @@ export function flowToDsl(data: FlowData): string {
     const loc = n.cell ? ` Location(${Object.entries(n.cell).map(([k, v]) => `${k}[${v}]`).join(',')})` : '';
     const attrs = Object.entries(n.attrs).map(([k, v]) => `${k.toUpperCase()}(${v})`).join(' ');
     const attachTag = n.attach ? ` Attach(#${n.attach})` : '';
-    lines.push(`${pad}W: ${n.id}: ${n.labelRef || n.label}${typeTag}${loc}${attrs ? ' ' + attrs : ''}${attachTag}`);
+    // P1：编辑器导出契约——回写格内 vh 标注（V/H/D），保证同格多节点 round-trip 位置完备
+    const vhTag = n.vh ? ` ${n.vh}` : '';
+    lines.push(`${pad}W: ${n.id}: ${n.labelRef || n.label}${typeTag}${loc}${attrs ? ' ' + attrs : ''}${attachTag}${vhTag}`);
     // 网关：就地输出缩进分支行 + End（保留块级上下文）
     if (gatewayNodes.has(n.id)) {
       const branches = data.edges.filter((e) => e.from === n.id && !e.parent);
