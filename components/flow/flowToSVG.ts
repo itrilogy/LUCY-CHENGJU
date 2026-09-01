@@ -19,6 +19,7 @@ import {
   type Port,
   type Point,
 } from './AlgebraicFlowRouter.ts';
+import { computeCellOrder } from './CellOrder.ts';
 
 export interface FlowSvgDims { width: number; height: number; }
 
@@ -507,7 +508,10 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   for (const [gk, nodes] of group) {
     let nx = 1, ny = 1, gx = 0, gy = 0;
     const items: { n: FlowData['nodes'][0]; gridX: number; gridY: number; m: NodeMetrics }[] = [];
-    nodes.forEach((n, i) => {
+    // b 阶段：交叉格内先按格内拓扑序重排（computeCellOrder），使流向相邻在格内也相邻；
+    // 节点显式 vh 保持，缺省 vh 由种子/上游方位推导。返回 PlacedNode 已含相对方位(dx,dy)。
+    const placed = computeCellOrder(nodes, data.edges);
+    placed.forEach(({ n, dx, dy }) => {
       // 子流程 = 标准泳道交叉格整数倍（设计中心思想）：宽=k×subprocess.w，高=mm×subprocess.h
       // k/mm 恰好容纳内部子节点（内部也按同款格子数学排布），从而与相邻泳道/交叉格无缝对齐、不超格。
       let m = nodeMetrics(n, fs);
@@ -526,16 +530,9 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
           };
         }
       }
-      if (i === 0) {
-        // 首节点定位格内原点 (0,0)
-        gx = 0; gy = 0;
-      } else {
-        // 后续节点按其自身 vh 相对上一节点排布（默认 V 纵向；D=对角右下，A6 扩展格算子）
-        const dir = n.vh ?? 'V';
-        if (dir === 'V') gy++;
-        else if (dir === 'D') { gx++; gy++; }
-        else gx++;
-      }
+      // 首节点（placed[0].dx===dy===0）锚定原点；后续按 computeCellOrder 给的相对方位累加槽位
+      gx += dx;
+      gy += dy;
       items.push({ n, gridX: gx, gridY: gy, m });
       nx = Math.max(nx, gx + 1);
       ny = Math.max(ny, gy + 1);
