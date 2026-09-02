@@ -54,14 +54,15 @@ COPY public ./public
 COPY docker-entrypoint.sh .
 
 # Expose ports:
-#   5173 — Frontend (Vite preview)
-#   3000 — MCP Server (SSE)
-EXPOSE 5173 3000
+#   12000 — Frontend (Vite preview)
+#   12001 — MCP Server (SSE)
+EXPOSE 12000 12001
 
 # Runtime environment
 ENV NODE_ENV=production
-ENV IQS_BASE_URL=http://localhost:5173
-ENV PORT=3000
+ENV IQS_BASE_URL=http://localhost:12000
+ENV WEB_PORT=12000
+ENV PORT=12001
 
 RUN chmod +x docker-entrypoint.sh
 

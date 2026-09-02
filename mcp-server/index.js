@@ -17,7 +17,7 @@ import { networkInterfaces } from 'os';
 import { spawnSync } from "child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BASE_URL = process.env.IQS_BASE_URL || "http://localhost:5173";
+const BASE_URL = process.env.IQS_BASE_URL || "http://localhost:12000";
 const PROTOCOL_DIR = path.join(__dirname, "../protocol");
 const SEGMENTS_DIR = path.join(PROTOCOL_DIR, "segments");
 
@@ -543,7 +543,7 @@ async function main() {
       await transport.handlePostMessage(req, res);
     });
 
-    const port = process.env.PORT || 3000;
+    const port = process.env.PORT || 12001;
     PUBLIC_URL = process.env.IQS_SERVER_PUBLIC_URL || `http://${SERVER_IP}:${port}`;
 
     app.listen(port, () => {

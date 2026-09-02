@@ -6,15 +6,16 @@ services:
     image: smart-qc-studio:latest
     container_name: smart-qc-studio
     ports:
-      - "5173:5173"
-      - "3000:3000"
+      - "12000:12000"
+      - "12001:12001"
     env_file:
       - .env
     environment:
       - API_KEY=${API_KEY}
       - AI_ACTIVE_PROFILE=${AI_ACTIVE_PROFILE:-deepseek_public}
-      - IQS_BASE_URL=http://localhost:5173
-      - PORT=3000
+      - IQS_BASE_URL=http://localhost:12000
+      - WEB_PORT=12000
+      - PORT=12001
     restart: unless-stopped
     networks:
       - qc-network

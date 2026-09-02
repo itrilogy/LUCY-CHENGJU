@@ -6,7 +6,7 @@
 
 - **Node.js**: v18.0.0+
 - **Google Chrome**: 需安装在默认路径。
-- **运行中的 Web 服务**: 默认 `http://localhost:5173`。
+- **运行中的 Web 服务**: 默认 `http://localhost:12000`。
 
 ## 2. 客户端配置 (Claude Desktop)
 
@@ -20,7 +20,7 @@
       "command": "node",
       "args": ["/绝对路径/mcp-server/index.js"],
       "env": {
-        "IQS_BASE_URL": "http://localhost:5173"
+        "IQS_BASE_URL": "http://localhost:12000"
       }
     }
   }
@@ -32,14 +32,14 @@ SSE 模式能够解决部分软件（如某些 IDE 插件或客户端）无法�
 
 1. **服务端启动**:
    ```bash
-   PORT=3000 npm run start:sse
+   PORT=12001 npm run start:sse
    ```
 2. **客户端配置**:
    ```json
    {
      "mcpServers": {
        "iqs-remote": {
-         "url": "http://服务器IP:3000/sse"
+         "url": "http://服务器IP:12001/sse"
        }
      }
    }
@@ -65,7 +65,7 @@ AI 客户端将识别到以下工具分类：
 
 ## 5. 环境变量说明
 
-- `IQS_BASE_URL`: 指定 Smart QC Studio 的网页访问地址（默认 localhost:5173）。
+- `IQS_BASE_URL`: 指定 Smart QC Studio 的网页访问地址（默认 localhost:12000）。
 - `IQS_SERVER_PUBLIC_URL`: (可选) 手动指定 SSE 服务器的对外访问根地址，用于生成 Markdown 外链。如果不指定，系统将尝试自动探测本机 IP。
 
 ---
@@ -92,12 +92,12 @@ docker build -t smart-qc-studio .
    如果您需要更换 API Key，只需修改 `.env` 并运行 `docker compose up -d`。系统将通过 **运行时注入 (Runtime Injection)** 技术自动重写配置并即时生效。
 
 3. **端口说明**:
-   - **5173 端口**: 网页分析界面访问地址。
-   - **3000 端口**: MCP SSE 专家服务接入点。
+   - **12000 端口**: 网页分析界面访问地址。
+   - **12001 端口**: MCP SSE 专家服务接入点。
 
 4. **内部逻辑**:
    - **混合编排**: 容器内部同时运行前端预览与 MCP SSE 服务，环境完全一致。
-   - **闭环通信**: MCP Server 直接通过容器内网地址 `http://localhost:5173` 访问前端，性能极佳。
+   - **闭环通信**: MCP Server 直接通过容器内网地址 `http://localhost:12000` 访问前端，性能极佳。
 
 ---
 

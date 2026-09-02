@@ -8,16 +8,20 @@ window.APP_CONFIG = {
 };
 EOF
 
+WEB_PORT="${WEB_PORT:-12000}"
+MCP_PORT="${PORT:-12001}"
+export PORT="$MCP_PORT"
+export IQS_BASE_URL="${IQS_BASE_URL:-http://localhost:${WEB_PORT}}"
+
 # Start the Frontend (Vite preview for production build)
-# Using --host 0.0.0.0 to allow access from outside the container
-echo "Starting Frontend on port 5173..."
-npm run preview -- --port 5173 --host 0.0.0.0 &
+echo "Starting Frontend on port ${WEB_PORT}..."
+npx vite preview --port "$WEB_PORT" --host 0.0.0.0 --strictPort &
 
 # Wait for Frontend to be ready
 echo "Waiting for Frontend to initialize..."
 sleep 5
 
 # Start the MCP Server in SSE mode
-echo "Starting MCP Server (SSE) on port 3000..."
+echo "Starting MCP Server (SSE) on port ${MCP_PORT}..."
 cd mcp-server
 npm run start:sse

@@ -185,10 +185,10 @@ npm install
 cp .env.example .env          # 填写 API_KEY（勿提交）
 npm run validate:dsl
 npm run test:flow             # Flow 引擎回归
-npm run dev                   # http://localhost:5173
+npm run dev                   # http://localhost:12000
 ```
 
-若提示 `Port 5173 is in use`：用终端给出的备用端口，或结束旧 Vite 进程。
+若提示 `Port 12000 is in use`：结束占用进程后再启（已 `strictPort`，不会自动换端口）。
 
 改 `.env` 后需**重启** `npm run dev`，Vite 才会把密钥注入前端。
 
@@ -201,19 +201,19 @@ docker compose up -d --build
 
 | 端口 | 服务 |
 |:---|:---|
-| **5173** | Web 工作站 |
-| **3000** | MCP SSE |
+| **12000** | Web 工作站 |
+| **12001** | MCP SSE |
 
-浏览器：<http://localhost:5173>  
+浏览器：<http://localhost:12000>  
 入口脚本把 `API_KEY` / `AI_ACTIVE_PROFILE` 写入 `dist/config.js`，不要把真实密钥打进镜像层。
 
 ### MCP
 
-需先有可访问的 Web 引擎（默认 `IQS_BASE_URL=http://localhost:5173`）。
+需先有可访问的 Web 引擎（默认 `IQS_BASE_URL=http://localhost:12000`）。
 
 ```bash
 npm run mcp:stdio       # 本地 AI 客户端
-npm run mcp:sse         # http://localhost:3000/sse
+npm run mcp:sse         # http://localhost:12001/sse
 ```
 
 | 资源 | 说明 |
@@ -252,7 +252,7 @@ AI_ACTIVE_PROFILE=deepseek_public
 | 项 | 说明 |
 |:---|:---|
 | 密钥来源 | **`.env` / Vite `process.env.API_KEY` 优先**，其次才是运行时 `window.APP_CONFIG` |
-| 模型档案 | `public/config.json` → `deepseek_public`（`https://api.deepseek.com/v1/chat/completions` / `deepseek-chat`）或 `local_qwen` |
+| 模型档案 | `public/config.json`：外部 `deepseek_public` → `deepseek-v4-flash`；内网 `local_qwen` → `qwen3.5-9b` |
 | 仓库占位 | `public/config.js` 的 `API_KEY` 必须留空；Docker 由 entrypoint 注入 |
 | Flow 提示 | 已注入 `render_flow` 专家逻辑 + 语法 + 官方示例 + 禁止 Mermaid 红线 |
 

@@ -14,6 +14,8 @@
 
 - AI：本地 `.env` 的 `API_KEY` 优先于 `public/config.js`；仓库内 `config.js` 不再放置密钥
 - README 与 14 kind / Flow / AI / MCP 现状对齐
+- 默认端口 Web **12000** / MCP **12001**（`npm run dev|preview|mcp:*` 与 Docker 一致）
+- 外部模型 `deepseek-v4-flash`；内网模型 `qwen3.5-9b`
 
 ## [3.5.3-ildr] — 2026-08-11
 
