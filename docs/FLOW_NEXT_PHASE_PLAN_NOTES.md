@@ -355,3 +355,25 @@ npm run test:flow
 ### 4. 方案状态
 
 `FLOW_NEXT_PHASE_PLAN.md` 主线里程碑及收尾三项已本地落地。未 push（相对 `origin/main` 超前 7 个提交，含本条 NOTES）。
+
+---
+
+## 2026-09-02 · Editor/属性/数学/Docker 评审（分析方案落盘，不改引擎）
+
+### 1. 任务
+
+用户要求：DeepSeek 用指定 Key 测试（密钥不入库）；继续讨论 Editor；知识库全量语法；属性面板动态性；右下角按 Attr active 显示有值项；其它功能完善；数学算法是否还能优化；Docker 部署设计与说明。产出分析结论与改进方案供参考。
+
+### 2. 实证
+
+- DeepSeek HTTP 200。薄提示产出假 DSL（`Project { Lane { Start->Decision } }`）；注入 `render_flow` expert/syntax/example 后产出可 `parseFlowDSL` 的合法 IQS-Flow（0 error）。
+- 代码：`nodeShape` 仅 Role；手动页仅 SOP/Role；帮助 10 行表；`public/config.js` 另有硬编码 Key（安全债）。
+- Docker：单容器 preview+SSE 骨架在；缺健康检查、Chromium env、密钥进镜像风险。
+
+### 3. 落盘
+
+| 文件 | 性质 |
+|:---|:---|
+| `docs/FLOW_PANEL_MATH_DOCKER_REVIEW.md` | 分析结论 + S0–S6 改进顺序 |
+
+未改引擎/Editor 行为。密钥未写入任何仓库文件。
