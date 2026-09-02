@@ -2,6 +2,19 @@
 
 本文件记录面向发行的用户可见变更。格式参考 Keep a Changelog。
 
+## [Unreleased]
+
+### 新增
+
+- 第 14 个 CORE kind **IQS-Flow**（泳道 / BPMN 子集 / 自研 SVG）：字典-索引、正交走线、T2 守护位移、MCP `render_flow`
+- Flow 编辑器：LUXI LAB 侧栏、配色方案、`Grid: dashed|solid`、Attr active 右下角有值标注
+- `npm run test:flow` 解析 / SVG / BPMN / 主干序 / 格内序回归
+
+### 变更
+
+- AI：本地 `.env` 的 `API_KEY` 优先于 `public/config.js`；仓库内 `config.js` 不再放置密钥
+- README 与 14 kind / Flow / AI / MCP 现状对齐
+
 ## [3.5.3-ildr] — 2026-08-11
 
 ### 新增
