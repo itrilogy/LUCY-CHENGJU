@@ -21,6 +21,7 @@ import {
   type Point,
 } from './AlgebraicFlowRouter.ts';
 import { computeCellOrder } from './CellOrder.ts';
+import { computeMainlineOrder } from './MainlineOrder.ts';
 
 export interface FlowSvgDims { width: number; height: number; }
 
@@ -449,7 +450,12 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     }
   }
 
-  // 第二遍：缺省/未知坐标节点，按声明序填入第一个未占用交叉格
+  // 第二遍：缺省/未知坐标节点填入未占用交叉格
+  // 二维：按主干序（computeMainlineOrder）取节点，空格仍行优先扫描 —— 单维/ROOT 保持声明序
+  if (!isHSingle && !isVSingle && autoSeq.length > 1) {
+    const rank = new Map(computeMainlineOrder(data.nodes, data.edges).map((id, i) => [id, i]));
+    autoSeq.sort((a, b) => (rank.get(a.id) ?? 1e9) - (rank.get(b.id) ?? 1e9));
+  }
   for (const n of autoSeq) {
     if (isHSingle) {
       // 无泳道归属 → 放入第一条泳道(位置0)的下一个空位

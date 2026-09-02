@@ -6,6 +6,7 @@
 import { flowToSVG, getSvgSize, FLOW_SVG, computeExcelLayout } from '../components/flow/flowToSVG.ts';
 import { parseFlowDSL } from '../components/flow/FlowParser.ts';
 import { solveAlgebraicPorts } from '../components/flow/AlgebraicFlowRouter.ts';
+import { computeMainlineOrder } from '../components/flow/MainlineOrder.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail?: string) {
@@ -371,6 +372,31 @@ W: w4: 补齐材料 Location(D[0],P[1])`)
     for (const d of inDirs.get(n.id) || []) if (outDirs.get(n.id)?.has(d)) conflict++;
   }
   check('a1-wsad: 入出端口互斥', conflict === 0, `conflicts=${conflict}`);
+}
+
+{
+  // M-Ord：二维无 Location 时按主干序落格（声明序 w2 先写，主干仍是 start w1）
+  const ord = parseFlowDSL(`Title: t
+Layout: H
+Dict: D[甲,乙]
+Dict: P[一,二]
+Lane from D[0,1] Layout H
+Lane from P[0,1] Layout V
+W: w1: 开始 Type[S] Location(D[0],P[0])
+W: w3: 结束 Type[E]
+W: w2: 处理
+w1 → #w2
+w2 → #w3`);
+  check('mainline-autoseq: 无解析错误', ord.errors.length === 0, JSON.stringify(ord.errors));
+  const layO = computeExcelLayout(ord.data, ord.styles);
+  const autoIds = ord.data.nodes.filter((n) => !n.cell && !n.parent).map((n) => n.id);
+  const ml = computeMainlineOrder(ord.data.nodes, ord.data.edges).filter((id) => autoIds.includes(id));
+  const placed = [...autoIds].sort((a, b) => {
+    const pa = layO.nodePos.get(a)!, pb = layO.nodePos.get(b)!;
+    return pa.ri !== pb.ri ? pa.ri - pb.ri : pa.ci - pb.ci;
+  });
+  check('mainline-autoseq: 无 Location 节点按主干序填空格', ml.join('>') === placed.join('>'),
+    `mainline=${ml.join('>')} placed=${placed.join('>')}`);
 }
 
 console.log(`\n== ${pass} pass, ${fail} fail ==`);

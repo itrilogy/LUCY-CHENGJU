@@ -13,8 +13,8 @@
  *   4. 从「入度 0 且含 start 节点（或退化第一个）」的 comp 沿 best.next 还原主线路径；
  *   5. 输出顺序 = 主线 comp 内节点（沿主线）先，其余节点按拓扑序补在主线后。
  *
- * 接入 autoSeq 前需按守护流程单独评估断言影响（见 docs/FLOW_MAINLINE_ORDER_NOTES.md）。
- * 本函数当前仅作为可单测的排序键部件，尚未接入 computeExcelLayout。
+ * 二维 autoSeq（无 Location）已按本函数结果取节点再填空格（见 computeExcelLayout）。
+ * 单维 / ROOT 仍走声明序，避免改动 ALIGN-1。
  */
 import type { FlowNode, FlowEdge } from '../../types';
 

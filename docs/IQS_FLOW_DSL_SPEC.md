@@ -6,7 +6,7 @@
 > **作者**: 洪光华 / 鹿溪联合创新实验室
 > **落盘日期**: 2026-08-25
 > **同步日期**: 2026-09-02（M-Doc：断言口径 / BNF / N-DATA / 默认流 / 最优性承诺与代码对齐）
-> **断言口径**: `npm run test:flow` → parser 60 + svg 62 + bpmn 17 + mainline 8 + cell_order 8 = **155**（含 A1 WSAD）
+> **断言口径**: `npm run test:flow` → parser 60 + svg 64 + bpmn 17 + mainline 8 + cell_order 8 = **157**（含 A1 WSAD / 主干序 autoSeq）
 
 ---
 

@@ -244,3 +244,31 @@ npm run test:flow
 - M-Ord MainlineOrder 接 autoSeq
 - M-T2 守护位移
 - M-Man 手动页可编辑表单
+
+---
+
+## 2026-09-02 · M-Ord（二维 autoSeq 接主干序；本地提交，不 push）
+
+### 1. 基线
+
+- `3614665`（M-Fix）之上。
+
+### 2. 改动
+
+| 文件 | 性质 | 验证 |
+|:---|:---|:---|
+| `flowToSVG.ts` | 二维无 Location 的 autoSeq 按 `computeMainlineOrder` 排序后再行优先填空格；单维/ROOT 不动 | svg 新断言 |
+| `MainlineOrder.ts` | 注释改为已接入二维 autoSeq | — |
+| `assert_flow_svg.ts` | 声明序与主干序不一致时，无 Location 节点按主干序占格 | +2，svg 64 |
+| SPEC/手册/LAYOUT | 断言 155→157 | 人读 |
+
+### 3. 验证
+
+- `npx tsc --noEmit` 0 errors
+- `npm run test:flow` **157 全绿**（60+64+17+8+8），既有 155 零回归
+
+### 4. 未做（本轮停在此处）
+
+- **M-T2 守护位移**（数学主项，需 ΔΦ 与受害边集，独立守护）
+- A1b 抽模块
+- M-Man 手动页可编辑表单
