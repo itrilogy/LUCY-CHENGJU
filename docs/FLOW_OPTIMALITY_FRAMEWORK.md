@@ -128,8 +128,8 @@ $$\Phi = \sum_e \left( w_B \cdot \mathrm{bends}(\pi_e) + w_L \cdot \mathrm{len}(
 |:---|:---|:---|
 | P1 | A6 对角算子（types/Parser/cellXY + parser 3 断言 + svg 4 断言） | ✅ 本轮已实施 |
 | P2 | 死代码清理（旧引擎 nodeBoxes/getMidpointPort/getCorridorPort/segIntersectsBox/routeHits/isPortBlocked） | ✅ 本轮已实施 |
-| P3 | 水平射线松弛覆盖同行主干流（对齐 flowToSVG 注释与实现；当前仅 N/DATA） | 待做（改布局行为，需在验证环境按守护流程） |
-| P4 | T2 守护位移算子（受益/受害边集枚举 + ΔΦ 判定 + 回滚），替换单 pass 松弛 | 待做 |
+| P3 | 水平射线松弛覆盖同行主干流（对齐 flowToSVG 注释与实现；当前仅 N/DATA） | N/DATA 水平初扫保留；剩余 B≥3 正向边由 T2 守护位移承接 |
+| P4 | T2 守护位移算子（受益/受害边集枚举 + ΔΦ 判定 + 回滚） | ✅ `GuardedShift.ts`：ΔΦ≤−150 才接受，只下/只右，界内 64 |
 | P5 | T3 布线层 ILP 黄金基线（离线 CBC） | 待做 |
 | P6 | M8 合并算子（先证引理再实现）+ T3' 受限类证明 | 待做（可选） |
 

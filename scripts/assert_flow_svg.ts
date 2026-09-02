@@ -399,5 +399,13 @@ w2 → #w3`);
     `mainline=${ml.join('>')} placed=${placed.join('>')}`);
 }
 
+{
+  const layT = computeExcelLayout(r.data, r.styles);
+  const t2 = layT.t2;
+  check('t2: 统计存在', !!t2);
+  check('t2: 路由 Φ 不增', !!t2 && t2.phiRoute1 <= t2.phiRoute0 + 1e-6,
+    t2 ? `phi0=${t2.phiRoute0.toFixed(2)} phi1=${t2.phiRoute1.toFixed(2)} acc=${t2.accepted} rej=${t2.rejected}` : '');
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);

@@ -272,3 +272,33 @@ npm run test:flow
 - **M-T2 守护位移**（数学主项，需 ΔΦ 与受害边集，独立守护）
 - A1b 抽模块
 - M-Man 手动页可编辑表单
+
+---
+
+## 2026-09-02 · A1b + M-T2（ExcelLayout 抽离 + 守护位移；本地提交，不 push）
+
+### 1. 基线
+
+- `e80db1b`（M-Ord）之上。
+
+### 2. 改动
+
+| 文件 | 性质 | 验证 |
+|:---|:---|:---|
+| `components/flow/ExcelLayout.ts` | 从 flowToSVG 抽出布局纯函数（computeExcelLayout / getSvgSize / 格度量） | 157 零回归后再加 T2 |
+| `components/flow/flowToSVG.ts` | 只保留着色；re-export 布局 API | 同上 |
+| `components/flow/GuardedShift.ts` | T2：B≥3 正向边试探只下/只右位移；ΔΦ=Δroute+150(+Tier1 200)≤−150 才接受；否则回滚；上限 max(8,2\|E\|) | svg t2 |
+| `assert_flow_svg.ts` | t2 统计存在 + 路由 Φ 不增 | svg 64→66 |
+| FRAMEWORK §6 | P4 ✅；P3 注明 N/DATA 初扫保留、其余交 T2 | 人读 |
+
+### 3. 验证
+
+- `npx tsc --noEmit` 0 errors
+- `npm run test:flow` **159 全绿**（60+66+17+8+8）
+- T2 在采购样例上 Φ 不增（断言锁定）；既有几何断言零回归
+
+### 4. 未做
+
+- M-Man 手动页可编辑表单
+- scc.ts 抽取（Parser / MainlineOrder 仍各有一份 Tarjan）
+- T2 可视化黄金 SVG 快照（以断言 Φ 不增 + 既有几何为护栏）
