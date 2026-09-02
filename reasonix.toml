@@ -1,2 +1,5 @@
 [permissions]
 allow = ["run_skill"]
+
+[sandbox]
+allow_write = ["${HOME}/Project/smart-qc-studio-paper/03_Drafts", "${HOME}/Project/smart-qc-studio-paper/04_Final", "${HOME}/Project/papers"]
