@@ -142,8 +142,9 @@ async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 2000
     const profile = spec.ai_config.profiles[activeProfileName];
     if (!profile) throw new Error(`Invalid AI Profile: ${activeProfileName}`);
 
-    // Check runtime API_KEY first
-    const apiKey = window.APP_CONFIG?.API_KEY || process.env.API_KEY;
+    // 开发态 .env / Vite define 优先，避免 public/config.js 里过期占位 Key 挡住本地验证
+    const apiKey = [process.env.API_KEY, window.APP_CONFIG?.API_KEY]
+        .find((k) => typeof k === 'string' && k.trim().length > 8);
 
     try {
         const response = await fetch(profile.endpoint, {
