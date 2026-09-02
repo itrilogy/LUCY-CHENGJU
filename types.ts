@@ -933,6 +933,8 @@ export interface FlowChartStyles {
   lineColor: string;
   textColor: string;
   panelColor: string;
+  /** 泳道网格线：虚线（默认，避与连线抢视觉）| 实线 */
+  gridLine: 'dashed' | 'solid';
   labelFontSize: number;
   nodeFontSize: number;
   lineWidth: number;
@@ -955,6 +957,7 @@ export const DEFAULT_FLOW_STYLES: FlowChartStyles = {
   lineColor: '#64748b',
   textColor: '#1e293b',
   panelColor: '#f8fafc',
+  gridLine: 'dashed',
   labelFontSize: 14,
   nodeFontSize: 13,
   lineWidth: 2

@@ -377,3 +377,33 @@ npm run test:flow
 | `docs/FLOW_PANEL_MATH_DOCKER_REVIEW.md` | 分析结论 + S0–S6 改进顺序 |
 
 未改引擎/Editor 行为。密钥未写入任何仓库文件。
+
+---
+
+## 2026-09-02 · 交叉反差色 / 配色方案 / 泳道线型（设计并修订；本地提交，不 push）
+
+### 1. 设计
+
+| 点 | 决策 |
+|:---|:---|
+| 连线交叉难辨 | 正交真交 + 一线穿过另一线拐点：面板色挖空，再以 `contrastStroke(Line, Panel)` 反差色短过桥（`data-flow="cross-mark"`）。端点 T 接不算。不改路由 Φ。 |
+| 快速换色 | 编辑器五套集中方案（默认蓝 / 高反差 / 打印灰 / 青绿 / 暖沙），一键写入全部 `Color[Slot]`；单槽色板同时 upsert DSL，避免切 Tab 丢失。 |
+| 泳道线型 | DSL `Grid: dashed\|solid`（默认虚线）。图表 `Grid: true` 仍映射 ShowGrid；flow 的 dashed/solid 走 kind 指令。 |
+
+未改 GRID 公式③、未放宽 T2、未做 Dijkstra/ILP、未 push。
+
+### 2. 改动
+
+| 文件 | 性质 |
+|:---|:---|
+| `types.ts` / `FlowParser.ts` | `gridLine`；解析 `Grid: dashed\|solid` |
+| `FlowThemes.ts` | 配色方案 + `contrastStroke` |
+| `flowToSVG.ts` | 泳道虚实线；交叉过桥 |
+| `FlowEditor.tsx` | 方案芯片 + 线型开关 + Color/Grid 往返 |
+| `dsl/shell.ts` | `Grid: dashed\|solid` 不再误判为 ShowGrid=false |
+| 断言 / SPEC / protocol / 手册 | parser 66 + svg 78，合计 **177** |
+
+### 3. 验证
+
+- `npx tsc --noEmit` 0 errors
+- `npm run test:flow` **177 全绿**（66+78+17+8+8）

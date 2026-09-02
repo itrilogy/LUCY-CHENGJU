@@ -59,9 +59,13 @@ export function classifyShellLine(
   m = trimmed.match(DECIMALS_RE);
   if (m) return { kind: 'directive', raw: trimmed, key: 'Decimals', value: m[1] };
 
-  // Legacy aliases normalized at shell layer
+  // Legacy aliases normalized at shell layer.
+  // Charts: Grid: true|false → ShowGrid. Flow: Grid: dashed|solid → 泳道线型（kind 指令）。
   if (/^Grid\s*:/i.test(trimmed)) {
     const val = trimmed.split(':').slice(1).join(':').trim().toLowerCase();
+    if (val === 'dashed' || val === 'solid') {
+      return { kind: 'directive', raw: trimmed, key: 'Grid', value: val };
+    }
     return { kind: 'show', raw: trimmed, key: 'ShowGrid', value: val === 'true' ? 'true' : 'false' };
   }
   if (/^3D\s*:/i.test(trimmed)) {

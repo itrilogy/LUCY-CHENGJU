@@ -35,6 +35,7 @@ const DEFAULT_FLOW_STYLES: FlowChartStyles = {
   lineColor: '#64748b',
   textColor: '#1e293b',
   panelColor: '#f8fafc',
+  gridLine: 'dashed',
   labelFontSize: 14,
   nodeFontSize: 13,
   lineWidth: 2
@@ -192,8 +193,14 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
     if (colorMatch) {
       const slot = colorMatch[1];
       const colorKey = slotToStyleKey(slot);
-      if (colorKey) style[colorKey] = colorMatch[2];
+      if (colorKey) (style as any)[colorKey] = colorMatch[2];
       else warnings.push(`Color[${slot}] 不是已支持的色槽，已忽略`);
+      continue;
+    }
+    // Grid: dashed | solid（泳道网格线型，默认虚线）
+    const gridMatch = t.match(/^Grid\s*:\s*(dashed|solid)\s*$/i);
+    if (gridMatch) {
+      style.gridLine = gridMatch[1].toLowerCase() as 'dashed' | 'solid';
       continue;
     }
   }
@@ -204,7 +211,7 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
   const seq: Seq[] = [];
 
   const raw2: string[] = lines.map((l) => l.trim())
-    .filter((t) => t.length && !t.startsWith('//') && !/^(Title|Layout|Dict|Lane|Axis|Attr|Color)/i.test(t));
+    .filter((t) => t.length && !t.startsWith('//') && !/^(Title|Layout|Dict|Lane|Axis|Attr|Color|Grid)/i.test(t));
 
   {
     const st: ('branch' | 'subprocess')[] = [];

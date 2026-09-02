@@ -26,6 +26,7 @@ import {
   expandRef,
   attrPanelHeight,
 } from './ExcelLayout.ts';
+import { contrastStroke } from './FlowThemes.ts';
 
 export { FLOW_SVG, NODE_BASE, nodeMetrics, computeExcelLayout, getSvgSize };
 export type { FlowSvgDims, NodeMetrics } from './ExcelLayout.ts';
@@ -182,6 +183,53 @@ function arrowMarker(id: string, color: string): string {
   return `<defs><marker id="${id}" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L0,6 L7,3 z" fill="${color}"/></marker></defs>`;
 }
 
+/** 正交路径的真交叉（两端点交不算；同边折角不算）。含「一线穿过另一线拐点」。 */
+export function findOrthogonalCrossings(
+  routes: Map<string, Point[]>,
+  boxes: { x0: number; y0: number; x1: number; y1: number }[] = [],
+): { x: number; y: number }[] {
+  type Seg = { x0: number; y0: number; x1: number; y1: number; id: string; hv: 'H' | 'V' };
+  const segs: Seg[] = [];
+  for (const [id, pts] of routes) {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
+      if (Math.abs(dy) < 0.5) segs.push({ x0: Math.min(a.x, b.x), y0: a.y, x1: Math.max(a.x, b.x), y1: a.y, id, hv: 'H' });
+      else if (Math.abs(dx) < 0.5) segs.push({ x0: a.x, y0: Math.min(a.y, b.y), x1: a.x, y1: Math.max(a.y, b.y), id, hv: 'V' });
+    }
+  }
+  const hits: { x: number; y: number }[] = [];
+  const seen = new Set<string>();
+  const PAD = 1.5;
+  const inBox = (x: number, y: number) => boxes.some((b) => x >= b.x0 - 1 && x <= b.x1 + 1 && y >= b.y0 - 1 && y <= b.y1 + 1);
+  const add = (x: number, y: number) => {
+    if (inBox(x, y)) return;
+    const key = `${Math.round(x * 2) / 2},${Math.round(y * 2) / 2}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    hits.push({ x, y });
+  };
+  const onClosed = (v: number, a: number, b: number) => v >= a - 0.51 && v <= b + 0.51;
+  const interior = (v: number, a: number, b: number) => v > a + PAD && v < b - PAD;
+
+  const hs = segs.filter((s) => s.hv === 'H');
+  const vs = segs.filter((s) => s.hv === 'V');
+  for (const h of hs) {
+    for (const v of vs) {
+      if (h.id === v.id) continue;
+      const x = v.x0, y = h.y0;
+      if (!onClosed(x, h.x0, h.x1) || !onClosed(y, v.y0, v.y1)) continue;
+      // 真交叉：内点×内点；或一线内点穿过另一线（含拐点，排除双方都是端点的 T 接）
+      const hIn = interior(x, h.x0, h.x1);
+      const vIn = interior(y, v.y0, v.y1);
+      if (hIn && vIn) add(x, y);
+      else if ((hIn && onClosed(y, v.y0, v.y1)) || (vIn && onClosed(x, h.x0, h.x1))) add(x, y);
+    }
+  }
+  return hits;
+}
+
 // ===== 布局计算结果 =====
 export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   const st = styles;
@@ -203,14 +251,15 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       parts.push(`<rect x="${gx0}" y="${gy0}" width="${gw}" height="${gh}" fill="none" stroke="#94a3b8" stroke-width="1"/>`);
     }
   }
-  // 真实列/行边界：虚线-细线（避免与连线视觉重叠）
+  // 真实列/行边界：Grid dashed=虚线细线（默认，避与连线抢视觉）/ solid=实线
+  const gridDash = st.gridLine === 'solid' ? '' : ' stroke-dasharray="4 4"';
   for (let ci = 0; ci <= nC; ci++) {
     const gx = ci < nC ? L.colX[ci] : L.gridRight;
-    parts.push(`<line x1="${gx}" y1="${y0}" x2="${gx}" y2="${L.gridBottom}" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="4 4"/>`);
+    parts.push(`<line data-flow="lane-grid" x1="${gx}" y1="${y0}" x2="${gx}" y2="${L.gridBottom}" stroke="#94a3b8" stroke-width="0.8"${gridDash}/>`);
   }
   for (let ri = 0; ri <= nR; ri++) {
     const gy = ri < nR ? L.bandTop(ri) : L.gridBottom;
-    parts.push(`<line x1="${x0}" y1="${gy}" x2="${L.gridRight}" y2="${gy}" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="4 4"/>`);
+    parts.push(`<line data-flow="lane-grid" x1="${x0}" y1="${gy}" x2="${L.gridRight}" y2="${gy}" stroke="#94a3b8" stroke-width="0.8"${gridDash}/>`);
   }
 
   // ===== 流程图标题：AxisX=顶部通栏 / AxisY=左侧竖向标题带（不横排超宽） =====
@@ -388,6 +437,18 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       else if (tp === 'L') tri = `${b.x - b.W / 2},${b.y} ${b.x - b.W / 2 - al},${b.y - aw} ${b.x - b.W / 2 - al},${b.y + aw}`;
       else tri = `${b.x + b.W / 2},${b.y} ${b.x + b.W / 2 + al},${b.y - aw} ${b.x + b.W / 2 + al},${b.y + aw}`;
       arrowParts.push(`<polygon points="${tri}" fill="${st.lineColor}" stroke="${st.lineColor}" stroke-width="1"/>`);
+    }
+  }
+
+  // 正交交点：面板色挖空 + 连线/面板反差色过桥，避免交叉处无法辨认哪条线在走
+  {
+    const hits = findOrthogonalCrossings(edgeRoutes, Object.values(allBoxes));
+    const haloR = Math.max(st.lineWidth * 1.6, 3.2);
+    const mark = contrastStroke(st.lineColor || '#64748b', st.panelColor || '#f8fafc');
+    const panel = st.panelColor || '#f8fafc';
+    for (const c of hits) {
+      parts.push(`<circle data-flow="cross-halo" cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${haloR}" fill="${panel}"/>`);
+      parts.push(`<line data-flow="cross-mark" x1="${(c.x - haloR).toFixed(1)}" y1="${c.y.toFixed(1)}" x2="${(c.x + haloR).toFixed(1)}" y2="${c.y.toFixed(1)}" stroke="${mark}" stroke-width="${st.lineWidth + 0.5}" stroke-linecap="round"/>`);
     }
   }
 

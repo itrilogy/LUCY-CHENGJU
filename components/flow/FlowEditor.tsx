@@ -7,10 +7,11 @@
  */
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FlowData, FlowChartStyles, QCToolType } from '../../types';
+import { FlowData, FlowChartStyles, QCToolType, DEFAULT_FLOW_STYLES } from '../../types';
 import { INITIAL_FLOW_DSL } from '../../constants';
 import { parseFlowDSL } from './FlowParser';
 import { generateLogicDSL, getAIStatus } from '../../services/aiService';
+import { COLOR_SLOT_MAP, FLOW_PALETTES, applyPalette, paletteOf } from './FlowThemes';
 import {
   Sparkles, Code, HelpCircle, X, Loader2, Database, ChevronRight,
   Cpu, RotateCcw, Plus, Trash2
@@ -78,7 +79,33 @@ const COLOR_SLOTS: { key: keyof FlowChartStyles; label: string }[] = [
   { key: 'panelColor', label: '面板' },
 ];
 
-export function flowToDsl(data: FlowData): string {
+function upsertKv(src: string, re: RegExp, line: string): string {
+  if (re.test(src)) return src.replace(re, line);
+  const lines = src.split('\n');
+  let at = -1;
+  lines.forEach((l, i) => { if (/^(Color\[|Grid\s*:|Layout\s*:)/i.test(l.trim())) at = i; });
+  if (at >= 0) { lines.splice(at + 1, 0, line); return lines.join('\n'); }
+  return `${line}\n${src}`;
+}
+
+function upsertColorSlot(src: string, slot: string, hex: string): string {
+  return upsertKv(src, new RegExp(`^Color\\[${slot}\\]:\\s*.*$`, 'mi'), `Color[${slot}]: ${hex}`);
+}
+
+function upsertGridLine(src: string, kind: 'dashed' | 'solid'): string {
+  return upsertKv(src, /^Grid\s*:.*$/mi, `Grid: ${kind}`);
+}
+
+function upsertPaletteColors(src: string, colors: Partial<FlowChartStyles>): string {
+  let out = src;
+  for (const { styleKey, slot } of COLOR_SLOT_MAP) {
+    const v = colors[styleKey];
+    if (typeof v === 'string' && v) out = upsertColorSlot(out, slot, v);
+  }
+  return out;
+}
+
+export function flowToDsl(data: FlowData, styles?: FlowChartStyles): string {
   const lines: string[] = [];
   lines.push(`Title: ${data.title}`);
   lines.push(`Layout: ${data.layout}`);
@@ -166,6 +193,22 @@ export function flowToDsl(data: FlowData): string {
     if (isAutoSeq(e)) continue; // parser 会按声明序再生，避免往返膨胀
     lines.push(`${e.from} → #${e.to}`);
   }
+  if (styles) {
+    const styleLines: string[] = [];
+    if (styles.gridLine) styleLines.push(`Grid: ${styles.gridLine}`);
+    for (const { styleKey, slot } of COLOR_SLOT_MAP) {
+      const v = styles[styleKey];
+      const def = DEFAULT_FLOW_STYLES[styleKey];
+      if (typeof v === 'string' && v && String(v).toLowerCase() !== String(def || '').toLowerCase()) {
+        styleLines.push(`Color[${slot}]: ${v}`);
+      }
+    }
+    if (styleLines.length) {
+      lines.push('');
+      lines.push('// ===== 样式 =====');
+      lines.push(...styleLines);
+    }
+  }
   return lines.join('\n');
 }
 
@@ -225,7 +268,7 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
   const handleTabChange = (tab: 'manual' | 'dsl' | 'ai') => {
     if (tab === 'dsl' && activeTab === 'manual') {
       // 从手动页进入 DSL 时按导出契约回写，保证 Location/vh/Attach 可见
-      const out = flowToDsl(data);
+      const out = flowToDsl(data, styles);
       setDsl(out);
     }
     setActiveTab(tab);
@@ -577,6 +620,63 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
               <div className="flex items-center gap-4 border-b border-[var(--sidebar-border)] pb-3">
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">颜色方案与样式</span>
               </div>
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[var(--sidebar-muted)]">配色方案</span>
+                <div className="flex flex-wrap gap-2">
+                  {FLOW_PALETTES.map((p) => {
+                    const on = paletteOf(styles) === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          const next = applyPalette(styles, p);
+                          onStylesChange(next);
+                          commitDsl(upsertPaletteColors(dsl, p.colors));
+                        }}
+                        className={`h-8 px-3 rounded-lg text-[10px] font-black tracking-widest border flex items-center gap-2 ${
+                          on
+                            ? 'bg-teal-600 text-white border-teal-500'
+                            : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)] hover:text-[var(--sidebar-text)]'
+                        }`}
+                        title={`应用「${p.name}」到全部色槽`}
+                      >
+                        <span className="flex -space-x-0.5">
+                          {[p.colors.taskColor, p.colors.lineColor, p.colors.panelColor].map((hex, i) => (
+                            <span key={i} className="w-2.5 h-2.5 rounded-full border border-black/20" style={{ background: hex }} />
+                          ))}
+                        </span>
+                        {p.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[var(--sidebar-muted)]">泳道线型</span>
+                <div className="flex gap-2">
+                  {([
+                    { id: 'dashed' as const, label: '虚线' },
+                    { id: 'solid' as const, label: '实线' },
+                  ]).map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => {
+                        onStylesChange({ ...styles, gridLine: g.id });
+                        commitDsl(upsertGridLine(dsl, g.id));
+                      }}
+                      className={`flex-1 h-10 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
+                        (styles.gridLine || 'dashed') === g.id
+                          ? 'bg-teal-600 text-white border-teal-500'
+                          : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)]'
+                      }`}
+                    >
+                      {g.label} Grid
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                 {COLOR_SLOTS.map((c) => (
                   <div key={c.key} className="flex items-center justify-between">
@@ -588,13 +688,20 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                       <input
                         type="color"
                         value={String(styles[c.key] || '#ffffff')}
-                        onChange={(e) => onStylesChange({ ...styles, [c.key]: e.target.value })}
+                        onChange={(e) => {
+                          const slot = COLOR_SLOT_MAP.find((s) => s.styleKey === c.key)?.slot;
+                          onStylesChange({ ...styles, [c.key]: e.target.value });
+                          if (slot) commitDsl(upsertColorSlot(dsl, slot, e.target.value));
+                        }}
                         className="w-6 h-6 rounded-full cursor-pointer bg-transparent border-none p-0 overflow-hidden"
                       />
                     </div>
                   </div>
                 ))}
               </div>
+              <p className="text-[10px] text-[var(--sidebar-muted)] leading-relaxed">
+                连线交叉处自动用连线色相对面板色的反差色标出过桥。配色方案会写入 <code className="font-mono">Color[Slot]</code>；泳道线型写入 <code className="font-mono">Grid: dashed|solid</code>。
+              </p>
             </div>
           </div>
         )}
@@ -735,6 +842,8 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                       {[
                         ['Title:', '图表标题', 'Title: 采购审批流程'],
                         ['Layout:', '方向 H / V', 'Layout: H'],
+                        ['Color[Slot]:', '节点 / 连线 / 面板色', 'Color[Line]: #64748b'],
+                        ['Grid:', '泳道网格虚线或实线', 'Grid: dashed'],
                         ['Dict:', '数据层数组，D/P/R 保留字', 'Dict: D[信息中心,综合计划科]'],
                         ['Lane from', '批量泳道 H=行 V=列', 'Lane from D[0,1] Layout H'],
                         ['AxisX / AxisY', '坐标标题，文字保持水平', 'AxisY: 推进阶段 Align C'],

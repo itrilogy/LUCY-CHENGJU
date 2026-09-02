@@ -25,7 +25,8 @@ Flow 图定义"**谁（泳道）× 做什么（活动）× 什么条件下走哪
 | :--- | :--- | :--- |
 | `Title:` | 图表标题 | `Title: 采购审批流程` |
 | `Layout:` | 方向 (`H` / `V`) | `Layout: H` |
-| `Color[Slot]:` | 节点样式色 | `Color[Start]: #2563eb` |
+| `Color[Slot]:` | 节点 / 连线 / 面板色 | `Color[Start]: #2563eb` |
+| `Grid:` | 泳道网格线型 `dashed`（默认）\| `solid` | `Grid: dashed` |
 
 ### 数据层（字典）
 | 语法 | 说明 |

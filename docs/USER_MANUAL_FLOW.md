@@ -70,7 +70,8 @@ w6 → #w7
 | `AxisY: 推进阶段 Align C` | Y 轴坐标标题 |
 | `Axis: 整图标题 AxisX` | 整图标题（AxisX 顶部 / AxisY 左侧竖向） |
 | `Attr active [Role,SOP,Lv,Time]` | 激活六属性图例边栏 |
-| `Color[Panel]: #f8fafc` | 面板/节点配色槽 |
+| `Color[Panel]: #f8fafc` | 面板/节点/连线配色槽；编辑器有五套一键方案 |
+| `Grid: dashed` / `Grid: solid` | 泳道网格虚线（默认）或实线 |
 
 ### 3.3 节点（活动）
 ```
@@ -113,7 +114,7 @@ W: q2: 来料检验 Type[SUB] Location(D[0])
 网格按 `Lane from` 统一扩展：**整列宽=该列最大横向链长、整行高=该行最大纵向链长**，所有交叉格等分、节点严格居中。子流程内部 / 标注 / 数据对象**不占交叉格**（不撑歪泳道）。
 
 ### 4.3 走线通道化
-同行端口优先左右、同列优先上下；拐点吸附行列边界；穿越节点时改走格子边界 Z 通道；长回边避障失败自动绕**画布外侧走廊**。起点贴节点边界（非固定长度）。
+同行端口优先左右、同列优先上下；拐点吸附行列边界；穿越节点时改走格子边界 Z 通道；长回边避障失败自动绕**画布外侧走廊**。起点贴节点边界（非固定长度）。正交连线若交叉，交点用面板色挖空，再以连线色相对面板色的反差色画短过桥，避免两线粘在一起无法辨认。
 
 ### 4.4 校验提示（§10 规则）
 - 字典名唯一（D/P/R 保留字不可重复定义）。
@@ -127,7 +128,7 @@ W: q2: 来料检验 Type[SUB] Location(D[0])
 ## 5. AI 辅助与验证
 
 - 编辑器支持自然语言生成 DSL（DeepSeek 等通道，复用 `kind=flow`）。
-- `npm run test:flow` 一键运行 **161 项**（parser 60 + svg 68 + bpmn 17 + mainline 8 + cell_order 8）端到端断言回归。
+- `npm run test:flow` 一键运行 **177 项**（parser 66 + svg 78 + bpmn 17 + mainline 8 + cell_order 8）端到端断言回归。
 - MCP 工具 `render_flow` 注册（自研 SVG 引擎）。外部大模型应先读 `protocol://segments/iqs_native/flow`，不要用 Mermaid `flowchart TD` 冒充本模块。
 - 最优性承诺见 `docs/FLOW_OPTIMALITY_FRAMEWORK.md` §0：一般图不承诺全局最优。
 

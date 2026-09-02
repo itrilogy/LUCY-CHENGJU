@@ -86,7 +86,8 @@
 
 ## ⑨ 泳道边界线
 
-- 列/行边界线 = **虚线-细线**（`stroke-dasharray="4 4"`、0.8px、浅灰 #94a3b8），避免与连线视觉重叠
+- 列/行边界线由 `Grid: dashed|solid` 控制：默认 **虚线-细线**（`stroke-dasharray="4 4"`、0.8px、浅灰 #94a3b8），避免与连线视觉重叠；`solid` 为同色实线
+- 正交连线真交点：面板色挖空 + `contrastStroke(line, panel)` 反差过桥（`data-flow="cross-mark"`）
 - 网格最右/最下边界与末列/行格子完全对齐（gridRight/gridBottom），无出血缺口
 
 ---
@@ -94,9 +95,9 @@
 ## 实现核对
 
 - `computeExcelLayout`：ROOT 占位 + 单维按各泳道最大链长扩虚拟轴（非整图节点数）+ 子流程内部不占主网格 + N/DATA 落 DOC 虚拟列 + `computeCellOrder`（格内拓扑序 + V/H/D）+ 整列/整行统一扩展 + nodePos（节点居中）+ bandLeft + titleBandW + gridRight/gridBottom 对齐
-- `flowToSVG`：网格矩形 + 虚线细泳道线 + 表头格子化 + `solveAlgebraicPorts` / `solveAlgebraicRoute` + 拐点吸附通道网格 + 边标签最长线段中点 + 按字宽折行（数字不拆）+ 并行＋/默认流斜杠 + 岗位字典展开
+- `flowToSVG`：网格矩形 + `Grid` 虚/实泳道线 + 正交交点反差过桥 + 表头格子化 + `solveAlgebraicPorts` / `solveAlgebraicRoute` + 拐点吸附通道网格 + 边标签最长线段中点 + 按字宽折行（数字不拆）+ 并行＋/默认流斜杠 + 岗位字典展开
 - `FlowDiagram`：tidyLayout（居中占据画布）+ 拖动防白屏 soft boundary
-- 断言：parser 60 + svg 68 + bpmn 17 + mainline 8 + cell_order 8 = **161**（含黄金格位快照；布局 `ExcelLayout.ts`，T2 `GuardedShift.ts`）
+- 断言：parser 66 + svg 78 + bpmn 17 + mainline 8 + cell_order 8 = **177**（含黄金格位快照；布局 `ExcelLayout.ts`，T2 `GuardedShift.ts`）
 
 ---
 

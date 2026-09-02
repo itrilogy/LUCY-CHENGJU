@@ -6,7 +6,7 @@
 > **作者**: 洪光华 / 鹿溪联合创新实验室
 > **落盘日期**: 2026-08-25
 > **同步日期**: 2026-09-02（M-Doc：断言口径 / BNF / N-DATA / 默认流 / 最优性承诺与代码对齐）
-> **断言口径**: `npm run test:flow` → parser 60 + svg 68 + bpmn 17 + mainline 8 + cell_order 8 = **161**
+> **断言口径**: `npm run test:flow` → parser 66 + svg 78 + bpmn 17 + mainline 8 + cell_order 8 = **177**
 
 ---
 
@@ -66,7 +66,7 @@ DSL → 解析 → **canonical JSON**（校验/图谱抽取）→ **BPMN 2.0 XML
 
 ```text
 flowDoc := header* dict+ lane* axis* attrPanel* node* edge*
-header  := "Title:" str | "Layout:" ("H"|"V")
+header  := "Title:" str | "Layout:" ("H"|"V") | "Color[" slot "]:" hex | "Grid:" ("dashed"|"solid")
 dict    := "Dict:" name "[" value ("," value)* "]"
 lane    := "Lane from" dictRef "Layout" ("H"|"V")
 axis    := "AxisX:" str "Align" ("L"|"R"|"C")
@@ -611,7 +611,9 @@ q2 → #w3
 6. **岗位图例栏**：从**节点实际出现的 `Role` 属性值**去重提取，按**首次出现顺序**排列、按**出现次数**定字体粗细（非渲染 R 数组本身）；节点右下角显示其 `Role` 值小字。
 7. **属性边栏（Attr active）**：按 §6.4 提取逻辑渲染聚合面板（Role/SOP 计数排序、Lv 区间评分+色卡、Time 最小时长+公式、KPI 清单、M 色卡+标记），置于图纸边栏。
 8. **元素形状**：见 §5.2 视觉列（BPMN 标准形状）。
-9. **颜色槽**（对齐 kinds.json 机制）：`Color[Start|End|Task|Gateway|Parallel|Subprocess|Lane|Annotation|Data|Axis|Line|Text|Panel]`。
+9. **颜色槽**（对齐 kinds.json 机制）：`Color[Start|End|Task|Gateway|Parallel|Subprocess|Lane|Annotation|Data|Axis|Line|Text|Panel]`。编辑器提供集中配色方案（默认蓝 / 高反差 / 打印灰 / 青绿 / 暖沙），一键写入上述色槽。
+10. **泳道线型**：`Grid: dashed`（默认，细虚线，避与连线抢视觉）或 `Grid: solid`（实线）。
+11. **连线交叉**：正交真交点（端点 T 接不算）用面板色挖空，再以 `contrastStroke(Color[Line], Color[Panel])` 反差色画短过桥，避免交叉处无法辨认走线。
 
 ---
 

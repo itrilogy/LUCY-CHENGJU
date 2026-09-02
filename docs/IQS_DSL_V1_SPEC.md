@@ -462,7 +462,7 @@ Dataset: 产量, [120, 145, 138], #3b82f6, Y
 - **场景**: 程序文件（CX）「谁 × 做什么 × 走哪条路」；成果报告中的跨部门审批图  
 - **Body**: FlowGraph  
 - **MCP**: `render_flow`（core）。体系文件终稿禁止用 Mermaid `flowchart TD` 冒充  
-- **Directives**: `Title`, `Layout` (H/V), `Dict`, `Lane from`, `AxisX`/`AxisY`/`Axis`, `Attr active`, `Color[Slot]`, `W:` 节点（`Type[S|E|T|?|+|SUB|N|DATA]`、`Location`、`Attach`、`V|H|D`）  
+- **Directives**: `Title`, `Layout` (H/V), `Dict`, `Lane from`, `AxisX`/`AxisY`/`Axis`, `Attr active`, `Color[Slot]`, `Grid` (`dashed`\|`solid`，泳道线型；与图表 `Grid: true`→ShowGrid 分 kind 解释), `W:` 节点（`Type[S|E|T|?|+|SUB|N|DATA]`、`Location`、`Attach`、`V|H|D`）  
 - **红线**: Dict 必须先于 Lane/W；判断/并行必须分支行 + `End`；N/DATA 不作流转目标  
 
 完整文法：`docs/IQS_FLOW_DSL_SPEC.md`；协议切片：`protocol/segments/flow.md`。

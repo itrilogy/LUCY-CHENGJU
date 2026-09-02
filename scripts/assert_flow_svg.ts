@@ -3,8 +3,9 @@
  * 运行: node --experimental-strip-types scripts/assert_flow_svg.ts
  * 验证 flowToSVG 输出的结构正确性（节点落格中心、格子铺开、标签/连线存在）。
  */
-import { flowToSVG, getSvgSize, FLOW_SVG, computeExcelLayout } from '../components/flow/flowToSVG.ts';
+import { flowToSVG, getSvgSize, FLOW_SVG, computeExcelLayout, findOrthogonalCrossings } from '../components/flow/flowToSVG.ts';
 import { parseFlowDSL } from '../components/flow/FlowParser.ts';
+import { contrastStroke } from '../components/flow/FlowThemes.ts';
 import { solveAlgebraicPorts } from '../components/flow/AlgebraicFlowRouter.ts';
 import { computeMainlineOrder } from '../components/flow/MainlineOrder.ts';
 
@@ -416,7 +417,63 @@ w2 → #w3`);
     .sort()
     .join('|');
   check('golden: 采购样例节点格位快照', fp === GOLDEN_FP, fp);
-  check('golden: svg 体量稳定', svg.length >= 7000 && svg.length <= 12000, `len=${svg.length}`);
+  check('golden: svg 体量稳定', svg.length >= 7000 && svg.length <= 18000, `len=${svg.length}`);
+}
+
+// ===== 泳道线型 + 交叉反差色 =====
+{
+  const synth = new Map([
+    ['e1', [{ x: 0, y: 10 }, { x: 20, y: 10 }]],
+    ['e2', [{ x: 10, y: 0 }, { x: 10, y: 20 }]],
+  ]);
+  const hits = findOrthogonalCrossings(synth);
+  check('cross-math: 正交真交一点', hits.length === 1 && Math.abs(hits[0].x - 10) < 1e-6 && Math.abs(hits[0].y - 10) < 1e-6, JSON.stringify(hits));
+  const joint = findOrthogonalCrossings(new Map([
+    ['e1', [{ x: 0, y: 10 }, { x: 10, y: 10 }]],
+    ['e2', [{ x: 10, y: 10 }, { x: 10, y: 20 }]],
+  ]));
+  check('cross-math: 端点 T 接不算交叉', joint.length === 0, JSON.stringify(joint));
+  const elbow = findOrthogonalCrossings(new Map([
+    ['e1', [{ x: 10, y: 0 }, { x: 10, y: 30 }]],
+    ['e2', [{ x: 10, y: 0 }, { x: 10, y: 15 }, { x: 0, y: 15 }]],
+  ]));
+  check('cross-math: 一线穿过另一线拐点', elbow.length === 1 && Math.abs(elbow[0].y - 15) < 1e-6, JSON.stringify(elbow));
+
+  const mark = contrastStroke('#64748b', '#f8fafc');
+  check('contrast: 不同于连线与面板', mark.toLowerCase() !== '#64748b' && mark.toLowerCase() !== '#f8fafc', mark);
+
+  const dashed = parseFlowDSL(`Title: t
+Grid: dashed
+W: w1: a Type[S]
+W: w2: b Type[E]`);
+  const dSvg = flowToSVG(dashed.data, dashed.styles);
+  const dGrids = [...dSvg.matchAll(/data-flow="lane-grid"[^>]*/g)].map((m) => m[0]);
+  check('grid-dashed: 有泳道线', dGrids.length > 0);
+  check('grid-dashed: 虚线', dGrids.every((g) => g.includes('stroke-dasharray="4 4"')), dGrids[0] || 'none');
+
+  const solid = parseFlowDSL(`Title: t
+Grid: solid
+Color[Line]: #334155
+Color[Panel]: #f8fafc
+Dict: D[甲,乙]
+Dict: P[一,二]
+Lane from D[0,1] Layout H
+Lane from P[0,1] Layout V
+W: a: A1 Location(D[0],P[0])
+W: b: B2 Location(D[1],P[1])
+W: c: A2 Location(D[0],P[1])
+W: d: B1 Location(D[1],P[0])
+a → #b
+c → #d`);
+  const sSvg = flowToSVG(solid.data, solid.styles);
+  const sGrids = [...sSvg.matchAll(/data-flow="lane-grid"[^>]*/g)].map((m) => m[0]);
+  check('grid-solid: 有泳道线', sGrids.length > 0);
+  check('grid-solid: 实线无 dasharray', sGrids.every((g) => !g.includes('stroke-dasharray')), sGrids[0] || 'none');
+  const hasMark = sSvg.includes('data-flow="cross-mark"') || svg.includes('data-flow="cross-mark"');
+  check('cross: 对角或采购样例有过桥标记', hasMark);
+  const markSrc = sSvg.includes('data-flow="cross-mark"') ? sSvg : svg;
+  const markAttr = markSrc.match(/data-flow="cross-mark"[^>]*stroke="([^"]+)"/);
+  check('cross: 过桥用反差色', !!markAttr && markAttr[1].toLowerCase() !== (solid.styles.lineColor || '').toLowerCase(), markAttr ? markAttr[1] : 'none');
 }
 
 console.log(`\n== ${pass} pass, ${fail} fail ==`);

@@ -313,5 +313,26 @@ W: x: 节点X Location(D[0],P[0]) Z`);
   check('diag: 非法标识不误吞（Z 不设 vh）', dg.data.nodes.find((n) => n.id === 'x')?.vh === undefined);
 }
 
+// ===== 泳道线型 Grid: dashed|solid + Color 槽 =====
+{
+  const g = parseFlowDSL(`Title: t
+Grid: solid
+Color[Line]: #111111
+Color[Panel]: #ffffff
+W: w1: a Type[S]
+W: w2: b Type[E]`);
+  check('grid: solid 解析', g.styles.gridLine === 'solid', String(g.styles.gridLine));
+  check('grid: Color[Line]', g.styles.lineColor === '#111111');
+  check('grid: Color[Panel]', g.styles.panelColor === '#ffffff');
+  check('grid: 第二遍不把 Grid 当节点', g.errors.length === 0, g.errors.join());
+  const def = parseFlowDSL(`Title: t
+W: w1: a Type[S]`);
+  check('grid: 缺省 dashed', def.styles.gridLine === 'dashed', String(def.styles.gridLine));
+  const d2 = parseFlowDSL(`Title: t
+Grid: dashed
+W: w1: a Type[S]`);
+  check('grid: 显式 dashed', d2.styles.gridLine === 'dashed');
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);
