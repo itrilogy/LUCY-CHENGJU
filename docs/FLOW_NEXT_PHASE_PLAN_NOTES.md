@@ -162,3 +162,28 @@ npm run test:flow
 ### 5. 拍板复核
 
 与方案一致：DOC 虚拟列写入 SPEC；端点口径在 LAYOUT ⑥ 写为「贴边中点 + stub 到走廊」；缺省 vh 以 CellOrder 为准。
+
+---
+
+## 2026-09-02 · M-UI（B0 换壳 + Flow AI 红线；本地提交，不 push）
+
+### 1. 基线
+
+- `61f97fd`（M-Doc 已 push）之上。本里程碑及之后均 **只本地 commit，不 push**。
+
+### 2. 改动
+
+| 文件 | 性质 | 验证 |
+|:---|:---|:---|
+| `components/flow/FlowEditor.tsx` | 套用 Fishbone 侧栏骨架：Header（Cpu + 企业流程图分析 + IQS Flow Engine）、三 Tab（手动/DSL/AI，默认手动）、teal 令牌、重置、暗色知识库双 Tab、状态栏保留。手动页 = Dict 芯片只读 + 泳道/节点摘要 + 色板（B0，完整表单留给 M-Man）。`flowToDsl` 行为保持。 | tsc + test:flow |
+| `services/aiService.ts` | constraint 5 对 `subType===flow` 改为 Dict→Lane→W / End / 禁 Mermaid；flow 的 `max_tokens` 2000→4000 | tsc |
+
+### 3. 验证
+
+- `npx tsc --noEmit` 0 errors
+- `npm run test:flow` 154 全绿
+
+### 4. 未做
+
+- B1 手动页可编辑表单（M-Man）
+- MCP L0/L1 / CallTool 诊断（下一里程碑 M-MCP）

@@ -116,6 +116,7 @@ function buildSmartPrompt(parentType: string, subType: string | undefined, allTo
     const getConstraint5 = () => {
         if (parentType === 'vchart') return `5. **严禁外层 JSON**: 必须直接以 "Title:" 或 "Spec:" 开头输出纯文本。严禁将最终结果包裹在 {} 中。`;
         if (parentType === 'mermaid') return `5. **直接输出语法**: 严禁输出 "Spec:"。必须直接输出 Mermaid 原生指令（如 flowchart TD, pie 等）。严禁包裹在 {} 中。`;
+        if (subType === 'flow') return `5. **IQS-Flow**：必须 Dict → Lane from → W；Type[?]/[+] 必须分支行并以 End 闭合；严禁 flowchart TD / graph LR / JSON / Markdown 围栏。标签优先字典引用。`;
         return `5. **标准 DSL 分级**: 必须使用 "Title:"、"# 分类"、"- 项目" 的分级结构。严禁输出任何 JSON 对象。`;
     };
 
@@ -129,7 +130,7 @@ ${getConstraint5()}`;
     return prompt;
 }
 
-async function callAI(systemPrompt: string, userPrompt: string) {
+async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 2000) {
     const spec = await getChartSpec();
 
     // 1. Check runtime config (window.APP_CONFIG), then build-time env
@@ -158,7 +159,7 @@ async function callAI(systemPrompt: string, userPrompt: string) {
                     { role: "user", content: userPrompt }
                 ],
                 temperature: 0.1,
-                max_tokens: 2000
+                max_tokens: maxTokens
             })
         });
 
@@ -206,7 +207,7 @@ export const generateLogicDSL = async (prompt: string, toolType: QCToolType, sub
             console.log("--- [DEBUG] LIVE SYSTEM PROMPT (Stage 2) ---");
             console.log(systemPrompt);
             console.log("----------------------------------");
-            const text = await callAI(systemPrompt, prompt);
+            const text = await callAI(systemPrompt, prompt, finalSubType === 'flow' ? 4000 : 2000);
             return text.replace(/```\w*/g, '').replace(/```/g, '').trim();
         }
 
