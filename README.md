@@ -172,7 +172,7 @@ W: q1: 金额超过5000? Type[?] Location(D[0],P[1])
 
 ### 环境
 
-- **Node.js 20+**（开发态断言脚本使用 22+ 的 `--experimental-strip-types`）
+- **Node.js 22+**（`test:flow` 使用 `--experimental-strip-types`；Docker 镜像 `node:22-slim`）
 - Chrome / Edge 推荐
 - （可选）Docker、大模型 API Key（DeepSeek 等 OpenAI 兼容接口）
 
@@ -252,7 +252,7 @@ AI_ACTIVE_PROFILE=deepseek_public
 | 项 | 说明 |
 |:---|:---|
 | 密钥来源 | **`.env` / Vite `process.env.API_KEY` 优先**，其次才是运行时 `window.APP_CONFIG` |
-| 模型档案 | `public/config.json`：外部 `deepseek_public` → `deepseek-v4-flash`；内网 `local_qwen` → `qwen3.5-9b` |
+| 模型档案 | `public/config.json`：外部 `deepseek-v4-flash`、内网 `qwen3.5-9b`，**同一** `max_tokens: 8192` |
 | 仓库占位 | `public/config.js` 的 `API_KEY` 必须留空；Docker 由 entrypoint 注入 |
 | Flow 提示 | 已注入 `render_flow` 专家逻辑 + 语法 + 官方示例 + 禁止 Mermaid 红线 |
 

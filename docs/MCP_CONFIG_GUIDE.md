@@ -4,7 +4,7 @@
 
 ## 1. 准备环境
 
-- **Node.js**: v18.0.0+
+- **Node.js**: v22.12.0+
 - **Google Chrome**: 需安装在默认路径。
 - **运行中的 Web 服务**: 默认 `http://localhost:12000`。
 

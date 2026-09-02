@@ -1,7 +1,7 @@
 # ============================================================
 # Stage 1: Build — compile the frontend with all dev dependencies
 # ============================================================
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ RUN npm run build
 # ============================================================
 # Stage 2: Production — minimal runtime image
 # ============================================================
-FROM node:20-slim AS production
+FROM node:22-slim AS production
 
 # Install Chromium for Puppeteer (headless rendering)
 RUN apt-get update && apt-get install -y \

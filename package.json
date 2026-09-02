@@ -6,6 +6,9 @@
   "author": "江西省上饶市烟草专卖局（公司）信息中心",
   "license": "UNLICENSED",
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "sync-tools": "cp mcp-server/mcp_tools.json public/mcp_tools.json",
     "validate:dsl": "node scripts/validate_dsl.mjs",

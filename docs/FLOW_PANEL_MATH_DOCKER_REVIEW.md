@@ -232,8 +232,8 @@ Lv / M 用枚举下拉（重大|重要|一般、1–4 / BPM），Time/KPI 自由
 ### 8.1 现有设计
 
 ```
-Dockerfile 多阶段：builder (npm run build) → production (node:20-slim + chromium)
-compose：5173 Web（vite preview）+ 3000 MCP SSE
+Dockerfile 多阶段：builder (npm run build) → production (node:22-slim + chromium)
+compose：12000 Web（vite preview）+ 12001 MCP SSE
 entrypoint：写 dist/config.js（API_KEY / AI_ACTIVE_PROFILE）→ preview & → mcp start:sse
 ```
 
