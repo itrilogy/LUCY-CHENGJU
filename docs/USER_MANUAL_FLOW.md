@@ -79,6 +79,8 @@ W: <id>: <标签> [Type[?]] [Location(D[i],P[j])] [属性(...)]
 - 类型：`Type[S]`开始 · `Type[E]`结束 · `Type[T]`任务 · `Type[?]`判断 · `Type[+]`并行 · `Type[SUB]`子流程 · `Type[N]`标注 · `Type[DATA]`数据对象。
 - 属性：`SOP(依据编号)` · `Role(R[k])`岗位 · `Lv(重要)`风险度 · `Time(24h)`时效 · `KPI(≤1‰)` · `M(标记)`。
 - 坐标：`Location(D[信息中心],P[申请阶段])` 或索引 `Location(D[0],P[0])`；可省略（自动落格）。
+- 格内方位：行尾 `V`（下）/`H`（右）/`D`（对角右下）；未标注由格内拓扑序推导。
+- 标注/数据对象：`Attach(#id)` 依附目标；不占交叉格，落在右侧 DOC 列。
 
 ### 3.4 分支（网关）与子流程
 ```dsl
@@ -125,8 +127,9 @@ W: q2: 来料检验 Type[SUB] Location(D[0])
 ## 5. AI 辅助与验证
 
 - 编辑器支持自然语言生成 DSL（DeepSeek 等通道，复用 `kind=flow`）。
-- `npm run test:flow` 一键运行 **111 项**（46 parser + 53 svg + 12 bpmn）端到端断言回归。
-- MCP 工具 `render_flow` 注册（自研 SVG 引擎）。
+- `npm run test:flow` 一键运行 **154 项**（parser 60 + svg 61 + bpmn 17 + mainline 8 + cell_order 8）端到端断言回归。
+- MCP 工具 `render_flow` 注册（自研 SVG 引擎）。外部大模型应先读 `protocol://segments/iqs_native/flow`，不要用 Mermaid `flowchart TD` 冒充本模块。
+- 最优性承诺见 `docs/FLOW_OPTIMALITY_FRAMEWORK.md` §0：一般图不承诺全局最优。
 
 ---
 

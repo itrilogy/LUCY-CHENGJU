@@ -1,6 +1,7 @@
 # IQS-Flow 流程图模块 ALIGN 对齐/工整修复日志
 
 > **文档状态**: 执行记录 / 归档  
+> **归档时点**: 文中断言数字以当时为准；现行口径见 `FLOW_NEXT_PHASE_PLAN.md`（154 = 60+61+17+8+8）
 > **修复日期**: 2026-08-31  
 > **设计意图（用户明示）**: 流程图必须**绝对对齐、工整**——XY 矩阵统一扩展、节点居中、行列齐平、连线走格子通道，不得因功能补丁打乱网格。  
 > **覆盖范围**: `components/flow/flowToSVG.ts`、`scripts/assert_flow_svg.ts`、`scripts/_flow_probe.ts`  

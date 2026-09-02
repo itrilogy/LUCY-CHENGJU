@@ -1,10 +1,12 @@
 # IQS-Flow DSL 规范（企业体系文件流程图）
 
-> **状态**: 已实现（解析器 FlowParser + 渲染引擎 flowToSVG + 视图 FlowDiagram；parser 40 项 + svg 41 项断言全通过）
-> **版本**: 0.7.0
-> **适用范围**: 新增 IQS-DSL v1 第 14 个 core kind —— `flow`
+> **状态**: 已实现（FlowParser + flowToSVG + FlowDiagram + AlgebraicFlowRouter；最优性框架 P3–P6 / T2 守护位移待做，见 `FLOW_OPTIMALITY_FRAMEWORK.md`）
+> **版本**: 0.7.1
+> **适用范围**: IQS-DSL v1 第 14 个 core kind —— `flow`
 > **作者**: 洪光华 / 鹿溪联合创新实验室
 > **落盘日期**: 2026-08-25
+> **同步日期**: 2026-09-02（M-Doc：断言口径 / BNF / N-DATA / 默认流 / 最优性承诺与代码对齐）
+> **断言口径**: `npm run test:flow` → parser 60 + svg 61 + bpmn 17 + mainline 8 + cell_order 8 = **154**
 
 ---
 
@@ -43,6 +45,19 @@ DSL → 解析 → **canonical JSON**（校验/图谱抽取）→ **BPMN 2.0 XML
 | 标签直写 | `W: worker[0]`（字典引用）或字面量 |
 | `[SOP 编号]` 方括号属性 | `SOP(编号)` 圆括号属性，值可字典引用 |
 
+### 0.5 最优性承诺（分层，不以口号为准）
+
+布局+布线全耦合在一般图上是 NP-hard（FRAMEWORK T4）。本规范**不承诺**一般情形解析全局最优。在线引擎保证：
+
+| 情形 | 保证 | 状态 |
+|:---|:---|:---|
+| 一般图 · 收敛 | 位移只下/只右 + 有限网格 → 必然终止 | 良基已证；T2 守护位移待实施 |
+| 一般图 · 布局质量 | 位移邻域一阶局部最优（ΔΦ ≤ −150 才接受） | 定理已述，实现见下一阶段 T2 |
+| 单条边（端口+同伦固定） | 分级候选近似最短正交路 | 已实现；非 Dijkstra |
+| 一般图 · 全局最优 | **不承诺** | — |
+
+权威上限：`docs/FLOW_OPTIMALITY_FRAMEWORK.md` §0。旧文「合并+迭代 → 全局最优」「B≥3 无条件位移」作废。
+
 ---
 
 ## 1. 语言总览（文档结构与 BNF）
@@ -58,11 +73,13 @@ axis    := "AxisX:" str "Align" ("L"|"R"|"C")
          | "AxisY:" str "Align" ("L"|"R"|"C")
          | "Axis:" str ("AxisX"|"AxisY") ["Align" ("L"|"R"|"C")]
 attrPanel:= "Attr active" ["[" key ("," key)* "]"]  // 属性边栏提取（见 §6.4）
-node    := "W:" [id ":"] label [typeMark] [location] attr*
+node    := "W:" [id ":"] label [typeMark] [location] attr* [attach] [vh]
 label   := dictRef | str                 // 节点标签：字典引用或字面量
-typeMark:= "Type[" ("S"|"E"|"?"|"+"|"SUB"|"N"|"DATA") "]"   // 缺省=任务
+typeMark:= "Type[" ("S"|"E"|"T"|"?"|"+"|"SUB"|"N"|"DATA") "]"   // 缺省=任务（T 可显式）
 location:= "Location(" dictRef ("," dictRef)* ")"           // 如 Location(D[0],P[1])
 attr    := key "(" value ("," value)* ")"  // key ∈ {SOP,Role,Lv,Time,KPI,M}；值可列表
+attach  := "Attach(" ["#"] id ")"        // 仅 Type[N]/Type[DATA]；依附目标节点
+vh      := "V" | "H" | "D"               // 格内相对上一节点：下 / 右 / 对角右下
 dictRef := name "[" index ("," index)* "]"  // 索引引用；"*"=全部
 branch  := label [ "(" exitName ")" ] [ "[" cond "]" ] "→" target ["," target]*
          | "否则 →" target ["," target]*
@@ -199,7 +216,7 @@ Axis: 采购申请审批流程 AxisX
 ### 5.1 W 行完整语法
 
 ```
-W: [<id>:] <标签> [Type[<类型>]] [Location(<坐标>)] [<属性>...]
+W: [<id>:] <标签> [Type[<类型>]] [Location(<坐标>)] [<属性>...] [Attach(#<id>)] [V|H|D]
 ```
 
 | 部分 | 说明 |
@@ -207,9 +224,11 @@ W: [<id>:] <标签> [Type[<类型>]] [Location(<坐标>)] [<属性>...]
 | `W:` | 节点行标识（Worker） |
 | `<id>:` | **可选** id；省略时解析器按声明顺序自动编号 `w1, w2, w3, ...`（稳定、可审计）；显式 id 用于分支/连线引用 |
 | `<标签>` | **字典引用**（`worker[0]`）或**字面量**（`提交采购申请`），二选一 |
-| `Type[...]` | 节点类型标记，**缺省 = 任务**（见 §5.2） |
+| `Type[...]` | 节点类型标记，**缺省 = 任务**（见 §5.2）；可显式 `Type[T]` |
 | `Location(...)` | 格子坐标（见 §5.3），缺省 = 自动顺序落格 |
 | `<属性>` | 六属性（见 §6），任意组合、可缺省 |
+| `Attach(#id)` | 仅 `Type[N]` / `Type[DATA]`：依附目标（见 §5.5） |
+| `V` / `H` / `D` | 格内相对方位（下 / 右 / 对角右下）。未标注由格内拓扑序推导，无种子则 V（见 `FLOW_CELL_ORDER_DESIGN.md`） |
 
 ```dsl
 W: w1: worker[0] Type[S] Location(D[0],P[0])        // 显式 id + 开始
@@ -228,8 +247,8 @@ W: 直接执行 Location(D[0],P[3])                      // 字面量标签（�
 | 判断 | `Type[?]` | exclusiveGateway | ◇ 菱形 |
 | 并行 | `Type[+]` | parallelGateway | ◇＋ |
 | 子流程 | `Type[SUB]` | subProcess | 圆角矩形＋（内嵌子图，见 §7.4） |
-| 文本标注 | `Type[N]` | textAnnotation | 折角纸（不占格，见 §5.5） |
-| 数据对象 | `Type[DATA]` | dataObject | 纸带（不占格，见 §5.5） |
+| 文本标注 | `Type[N]` | textAnnotation | 折角纸（不占交叉格，见 §5.5） |
+| 数据对象 | `Type[DATA]` | dataObject | 纸带（不占交叉格，见 §5.5） |
 
 > 注：数据对象用 `Type[DATA]` 而非 `Type[D]`，避免与固定部门字典名 `D` 混淆。
 
@@ -243,7 +262,7 @@ Location(<P索引>)
 
 - 坐标引用**与 `Lane from` 对齐的数组索引**（通常为 D/P，也可为自定义数组，见 §3.3）；缺省 `Location` = **自动顺序落格**（按声明顺序从首个格子起填充，canonical 输出实际坐标，可审计）。
 - **维度自动清洗（兼容性）**：若书写了**未被任何 `Lane from` 定义**的坐标维度（如单维泳道却写 `Location(D[0],P[1])`），解析器**自动丢弃该坐标分量**（不报错，warn 提示），canonical 输出清洗后的坐标——允许员工按二维习惯书写、按实际网格自适应。
-- `Type[N]` / `Type[DATA]` 修饰类**不占格子**：Location 可省略（缺省依附声明顺序前驱节点），也可写坐标强制占格显示。
+- `Type[N]` / `Type[DATA]` 修饰类**不占交叉格**（不撑开泳道行列），见 §5.5。
 - 语义上：**一个动作节点只归属一个格子**（单归属），跨泳道流转用连线表达，不复制节点。
 
 ### 5.4 岗位标注
@@ -251,6 +270,20 @@ Location(<P索引>)
 - 岗位通过属性 `Role(<值>)` 标注在节点上（见 §6.2），渲染为**节点右下角一行小字**——如同图纸标注。岗位不参与格子坐标（岗位不占格）。
 - **`Role` 值不强制绑定 R 数组**：`Role(R[1])` 只是"接受数组值"的一种写法；同样接受任意自定义字典引用（`Role(岗位[2])`）与**正常自定义字面量**（`Role(部门经理)`）。
 - **岗位图例栏（渲染侧）**：提取**节点中实际出现的 `Role` 属性值**（去重），按**首次出现顺序**排列，并按**出现次数**决定字体粗细（次数越多越粗）；而非渲染 `Dict: R[...]` 数组本身。R 字典仅作可选数据源，无 `Role` 引用的岗位不进入图例栏。
+
+### 5.5 修饰类 N/DATA（DOC 虚拟列）
+
+- **不占交叉格**：N/DATA 不进入泳道矩阵的 `nx/ny` 计算，不把主流程行高/列宽撑歪。
+- **DOC 虚拟列**：出现 N/DATA 时，渲染器在网格最右侧增加一列 `DOC`，节点与其 `Attach` 目标**横向对齐**（同行）；多枚 N/DATA 纵向避让。
+- **依附**：`Attach(#id)` / `Attach(id)` 指向非修饰节点；缺省依附声明序前驱。目标必须存在且非 N/DATA（§10 #14）。
+- **连线**：N/DATA → 依附节点用虚线（`condition=__doc__`），走同一套正交路由，仅 `stroke-dasharray` 不同。
+- **默认顺序流**：N/DATA **不作默认流出源、也不作为默认流入目标**（流转目标必须是可执行节点）。
+
+```dsl
+W: w10: 技术评审 Location(D[1],P[2])
+W: n1: 评审记录 Type[N] Attach(#w10)
+W: d1: 技术规格书 Type[DATA] Attach(#w10)
+```
 
 ---
 
@@ -313,11 +346,12 @@ Attr active                        // 全部六属性提取
 
 ### 7.1 默认顺序流（声明顺序自动连）
 
-普通节点（S/T/E/SUB/N/DATA）按**声明顺序**自动生成顺序边 `w1→w2→w3...`。断点规则：
+可流转的普通节点（S/T/SUB，不含结束、网关、N/DATA）按**声明顺序**自动生成顺序边 `w1→w2→w3...`。断点规则：
 
 1. **`Type[?]` / `Type[+]` 节点不参与默认顺序流**——其出口必须用分支行显式声明（见 §7.3），否则校验报错。
-2. **判断/并行节点的显式出口目标节点**，其默认入边被抑制（该节点是分支起点，如两个分支目标之间不自动连线）。
-3. 普通节点之间的显式边（如回边 `b3 → #s2`）**不抑制**目标的默认入边（`s2` 保留默认入边 + 回边，形成合并汇聚）。
+2. **`Type[E]` / `Type[N]` / `Type[DATA]` 不作默认流出源**；N/DATA 亦不得作为默认流入目标（§5.5）。
+3. **判断/并行节点的显式出口目标节点**，其默认入边被抑制（该节点是分支起点，如两个分支目标之间不自动连线）。
+4. 普通节点之间的显式边（如回边 `b3 → #s2`）**不抑制**目标的默认入边（`s2` 保留默认入边 + 回边，形成合并汇聚）。
 
 canonical 输出中默认边全部展开为显式边（id 自动编号 `e1,e2,...`），校验可查。
 
@@ -657,4 +691,4 @@ Attr active [<键>,<键>,...]    // 键 ∈ {SOP,Role,Lv,Time,KPI,M}；缺省 = 
 
 ---
 
-*IQS Protocol Council — 2026.08（aligned with DSL v1 governance）*
+*IQS Protocol Council — 2026.08；M-Doc 同步 2026-09-02（aligned with DSL v1 governance + FLOW_OPTIMALITY_FRAMEWORK）*

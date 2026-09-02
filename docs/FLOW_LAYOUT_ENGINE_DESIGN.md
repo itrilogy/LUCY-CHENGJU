@@ -57,11 +57,15 @@
 3. 走线正交：首段沿源端口法向（R/L 先横、T/B 先竖），末段沿目标端口法向；异行异列 = L 型一次拐弯，**去零长段与共线中间点**（不产生 U/n 形）
 4. 条件分支**文本标签放在折线最长线段中点**（水平段在线上方、垂直段在线右侧）
 
-## ⑥ 避障连线（确定性）
+## ⑥ 避障连线（代数路由，现行实现）
 
-- 节点形状包围盒碰撞检测（Liang-Barsky 线段裁剪）
-- 确定性避障顺序：**同行下移 → 同列右移 → 反向 → 扩格**，上限 3 轮防死循环
-- 箭头抵目标节点边中点，不超出
+> **勘误（2026-09-02）**：旧引擎「同行下移 → 同列右移 → 反向 → 扩格，上限 3 轮」已删除，主路径为 `AlgebraicFlowRouter`。
+
+- **接触点**：连线与节点的物理接触点 = 该边几何中点（贴边）；法向 stub 外延 `half` 到走廊中线，再走通道网格（公理 A2）
+- **端口**：`solveAlgebraicPorts` — WSAD 入出互斥；势能 `E = 100·bends + 50·blocked + 20·reuseOut + 5·reuseIn − 35·alignment`
+- **路径**：`solveAlgebraicRoute` — 分级候选：直连 → L → 局部 Z 走廊 → 3~4 弯 → 外侧走廊；碰撞检测 Liang-Barsky
+- **箭头**：独立渲染层，仅 IN 端口等腰三角，尖端贴边中点；同向入流箭头去重（A3 近似，无 J\* 合并）
+- **未实施**：T2 守护位移、M8 线路合并；无守护的整行/整列腾挪已回退（见 `FLOW_NEXT_PHASE_PLAN.md`）
 
 ## ⑦ 表头（格子化 + 默认居中）
 
@@ -89,10 +93,10 @@
 
 ## 实现核对
 
-- `computeExcelLayout`：ROOT 占位 + 单维按各泳道最大链长扩虚拟轴（非整图节点数）+ 子流程内部/N/DATA 不占主网格 + cellXY(nx/ny V/H链) + 整列/整行统一扩展 + nodePos（节点居中）+ 修饰类依附前驱走廊 + bandLeft + titleBandW + gridRight/gridBottom 对齐
-- `flowToSVG`：网格矩形 + 虚线细泳道线 + 表头格子化 + 两趟端口分配（同行左右/同列上下）+ 拐点吸附行列边界 + Liang-Barsky 避障 + 边标签最长线段中点 + 按字宽折行（数字不拆）+ 并行＋/默认流斜杠 + 岗位字典展开
+- `computeExcelLayout`：ROOT 占位 + 单维按各泳道最大链长扩虚拟轴（非整图节点数）+ 子流程内部不占主网格 + N/DATA 落 DOC 虚拟列 + `computeCellOrder`（格内拓扑序 + V/H/D）+ 整列/整行统一扩展 + nodePos（节点居中）+ bandLeft + titleBandW + gridRight/gridBottom 对齐
+- `flowToSVG`：网格矩形 + 虚线细泳道线 + 表头格子化 + `solveAlgebraicPorts` / `solveAlgebraicRoute` + 拐点吸附通道网格 + 边标签最长线段中点 + 按字宽折行（数字不拆）+ 并行＋/默认流斜杠 + 岗位字典展开
 - `FlowDiagram`：tidyLayout（居中占据画布）+ 拖动防白屏 soft boundary
-- 断言：parser 60 项 + svg 61 项 + bpmn 17 项 = 138（含 ALIGN 单维链长/子流程不增行/对角 A6；随实现持续同步，过程见 `FLOW_OPTIMALITY_EXECUTION_NOTES.md`）
+- 断言：parser 60 + svg 61 + bpmn 17 + mainline 8 + cell_order 8 = **154**（现行口径；过程见 `FLOW_OPTIMALITY_EXECUTION_NOTES.md` / `FLOW_CELL_ORDER_DESIGN.md`）
 
 ---
 

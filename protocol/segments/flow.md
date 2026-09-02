@@ -13,7 +13,8 @@ Flow 图定义"**谁（泳道）× 做什么（活动）× 什么条件下走哪
 > 网格**只按 `Lane from` 的定义产生**；节点坐标的多余维度**自动清洗**；图上必须显示字典展开值。
 
 ### 专家建议
-- **默认顺序流**：W 节点按声明顺序自动连；判断/并行节点不出自动序，其出口必须显式分支行声明。
+- **默认顺序流**：可流转节点（S/T/SUB）按声明顺序自动连；判断/并行节点不出自动序，其出口必须显式分支行声明并以 `End` 闭合。结束节点与 N/DATA 不作默认流出源。
+- **禁止 Mermaid 冒充**：体系文件/部门泳道/BPMN 子集终稿必须用本 kind（MCP `render_flow`），禁止 `flowchart TD` / `graph LR`。
 - **岗位图例**：从节点实际 `Role` 属性值去重提取，按出现次数定字体粗细（非渲染 R 数组本身）。
 - **属性边栏**：`Attr active` 激活后从全部节点提取聚合视图（Role/SOP 计数、Lv 区间评分、Time 最小时长、KPI 清单、M 色卡）。
 
@@ -42,6 +43,8 @@ Flow 图定义"**谁（泳道）× 做什么（活动）× 什么条件下走哪
 | `Lane from <字典>[索引] Layout H\|V` | 批量画泳道（H=行,V=列） | `Lane from D[0,1,2] Layout H` |
 | `AxisX: <标题> Align L\|R\|C` | 横轴标题 | `AxisX: 职能部门 Align C` |
 | `AxisY: <标题> Align L\|R\|C` | 纵轴坐标标题（保持水平；仅 Y 泳道标题旋转 -90°） | `AxisY: 推进阶段 Align C` |
+| `W: … Attach(#id)` | 仅 N/DATA：依附目标节点 | `W: n1: 依据 Type[N] Attach(#w2)` |
+| 行尾 `V`/`H`/`D` | 格内相对上一节点：下 / 右 / 对角右下 | `W: w3: 复核 Location(D[0],P[0]) H` |
 | `Axis: <整图> AxisX\|AxisY [Align]` | 整图标题 | `Axis: 采购审批 AxisX` |
 | `Attr active [<键>,...]` | 属性边栏提取（缺省=全部） | `Attr active [Role,SOP,Lv]` |
 
@@ -132,4 +135,4 @@ W: w3: worker[6] Type[E] Location(D[2])
 ```
 
 ---
-**权威性声明**: 本文档内容与 `components/flow/FlowParser.ts`、`FlowDiagram.tsx` 及 spec `docs/IQS_FLOW_DSL_SPEC.md` 保持同步。Riverside,
+**权威性声明**: 本文档内容与 `components/flow/FlowParser.ts`、`FlowDiagram.tsx` 及 spec `docs/IQS_FLOW_DSL_SPEC.md` 保持同步。最优性承诺见 `docs/FLOW_OPTIMALITY_FRAMEWORK.md` §0。

@@ -282,7 +282,7 @@ Lane from P[0,1] Layout V     # 纵向泳道（列）
 
 # 3. 轴标题
 AxisX: 职能部门 Align C       # 横轴标题（L/R/C 对齐）
-AxisY: 推进阶段 Align C       # 纵轴标题（文字纵向）
+AxisY: 推进阶段 Align C       # 纵轴坐标标题（水平；仅 Y 泳道标题旋转 -90°）
 Axis: 整图标题 AxisX          # 整图标题挂横轴
 
 # 4. 属性边栏提取
@@ -301,11 +301,14 @@ W: w5: worker[4] Type[E]                       # 结束
 w1 → #w5
 
 # 类型标记
-# Type[S]=开始 Type[E]=结束 Type[?]=判断 Type[+]=并行
+# Type[S]=开始 Type[E]=结束 Type[T]=任务 Type[?]=判断 Type[+]=并行
 # Type[SUB]=子流程 Type[N]=标注 Type[DATA]=数据对象
+# 格内方位：行尾 V(下) H(右) D(对角右下)
+# N/DATA：Attach(#id) 依附；不占交叉格
 
 # 属性
 # SOP(标准编号) Role(R[i]/岗位名) Lv(重大|重要|一般|1|2|3)
-# Time(24h) KPI(指标) M(BPM|1|2|3|4)`;
+# Time(24h) KPI(指标) M(BPM|1|2|3|4)
+# 禁止用 Mermaid flowchart TD 冒充本 DSL`;
 
 export default FlowEditor;

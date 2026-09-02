@@ -25,7 +25,7 @@
 5. [Body 代数总表](#5-body-代数总表)
 6. [指令消歧总表](#6-指令消歧总表)
 7. [场景 → kind 选用指南](#7-场景--kind-选用指南)
-8. [核心 kind 细目（13）](#8-核心-kind-细目13)
+8. [核心 kind 细目（14）](#8-核心-kind-细目14)
 9. [救济层信封（Mermaid / VChart）](#9-救济层信封mermaid--vchart)
 10. [交叉对照与常见错误](#10-交叉对照与常见错误)
 11. [AI 生成红线与自检清单](#11-ai-生成红线与自检清单)
@@ -308,6 +308,7 @@ Decimals: 2
 | 对策 | 多对多关联 | matrix | matrixPlot |
 | 对策 | 风险预案 | pdpc | mermaid flowchart（终稿慎用） |
 | 实施 | 进度关键路径 | arrow | mermaid gantt（终稿慎用） |
+| 实施 | 跨部门审批 / 程序文件 | flow | mermaid flowchart（终稿禁止） |
 | 效果 | 过程是否受控 | control | scatter |
 | 效果 | 多维对比 | radar | basic |
 | 深挖 | 多因子两两相关 | matrixPlot | scatter 单张 |
@@ -1356,13 +1357,16 @@ W: q1: worker[2] Type[?]                        // 判断
 ```
 - 类型：`S`开始 `E`结束 `T`任务(缺省) `?`排他 `+`并行 `SUB`子流程 `N`标注 `DATA`数据对象。
 - 属性：`SOP` `Role` `Lv` `Time` `KPI` `M`（值可为字面量或字典引用；`Role` 可为 `R[i]` 或岗位字面量；`Lv`/`M` 支持数值）。
-- 默认顺序流按声明顺序；分支目标抑制默认入边；多出口 `→ #a,#b` 自动拆并行。
+- 格内方位：行尾 `V`/`H`/`D`；N/DATA 用 `Attach(#id)`，不占交叉格。
+- 默认顺序流按声明顺序（E/N/DATA/?/+ 不作默认流出源）；分支目标抑制默认入边；多出口 `→ #a,#b` 自动拆并行。
+- MCP：`render_flow`。禁止用 Mermaid `flowchart TD` 冒充本 kind。
 
 #### 反例（Avoid）
 - 节点直接写名字而不走字典（允许但削弱一致性与全局改动的受益）。
 - `Lane from worker[...]` 未先定义字典 → 报错。
 - 坐标写多余维度（如单维却写双维）——解析器自动清洗（warn），合法但建议省略。
-- 判断节点无分支出口 → 校验 error。
+- 判断节点无分支出口或缺少 `End` → 校验 error。
+- 用 `flowchart TD` / `graph LR` 写体系文件流程图。
 
 ---
 

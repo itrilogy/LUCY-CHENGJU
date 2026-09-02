@@ -33,8 +33,10 @@ graph TD
 
 现已实现 **50 个专项工具**，分为三大类：
 
-### 3.1 核心组件 (Core) - 14 种
-- `render_fishbone`, `render_pareto`, `render_spc`, `render_affinity`, `render_histogram`, `render_scatter`, `render_relation`, `render_matrix`, `render_matrix_data`, `render_pdpc`, `render_arrow`, `render_basic`, `render_radar`, `render_vchart`
+### 3.1 核心组件 (Core) - 14 种 IQS Native
+- `render_fishbone`, `render_pareto`, `render_spc`, `render_affinity`, `render_histogram`, `render_scatter`, `render_relation`, `render_matrix`, `render_matrix_data`, `render_pdpc`, `render_arrow`, `render_basic`, `render_radar`, `render_flow`
+
+> **勘误（2026-09-02）**：`render_vchart` 属救济层（§3.3），不计入 Core。企业体系文件流程图终稿用 `render_flow`，禁止用 `render_mermaid_flowchart` 冒充。
 
 ### 3.2 Mermaid 扩展 - 18 种
 - 支持 `flowchart`, `sequence`, `gantt`, `class`, `state`, `er`, `journey`, `pie`, `mindmap`, `timeline`, `kanban`, `git`, `requirement`, `quadrant`, `xychart`, `block`, `architecture`, `packet`

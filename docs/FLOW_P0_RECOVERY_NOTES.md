@@ -1,6 +1,7 @@
 # IQS-Flow 流程图模块 P0 正确性修复日志
 
 > **文档状态**: 执行记录 / 归档
+> **归档时点**: 文中断言数字以当时为准；现行口径见 `FLOW_NEXT_PHASE_PLAN.md`（154 = 60+61+17+8+8）
 > **修复日期**: 2026-09
 > **覆盖范围**: `components/flow/FlowParser.ts`、`components/flow/flowToSVG.ts`、`scripts/_flow_probe.ts`
 > **关联文档**: `docs/IQS_FLOW_DSL_SPEC.md`（规范）、`docs/FLOW_ENGINEERING_AUDIT_NOTES.md`（审计）、`docs/FLOW_LAYOUT_ENGINE_DESIGN.md`（布局算法）、`docs/FLOW_DIAGRAM_RENDER_QA.md`（渲染 QA）

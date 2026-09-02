@@ -103,3 +103,62 @@
 
 *记录人: 智能体辅助审阅*
 *状态: 立项记录完稿*
+
+---
+
+## 2026-09-02 · M-Doc（现行规范勘误，无引擎行为变更）
+
+### 0. 前置
+
+- 已将当时本地超前 10 提交 push 到 `origin/main`（`ece5e48..fe48685`）。
+- 方案正文先独立提交：`f84c724` `docs(flow): 下一阶段综合方案与过程记录落盘`。
+
+### 1. 基线
+
+- 起点：`f84c724`（方案落盘之后）
+- 本里程碑：按 `FLOW_NEXT_PHASE_PLAN.md` §6.1 / §4.1 / §4.2 勘误「自称与代码同步」的现行文档；归档日志只加「归档时点」，不改当时数字。
+
+### 2. 改动文件表
+
+| 文件 | 性质 | 验证 |
+|:---|:---|:---|
+| `IQS_FLOW_DSL_SPEC.md` | 标头 154；BNF 补 Attach/vh/Type[T]；§0.5 最优性分层；§5.5 DOC 列；§7.1 排除 E/N/DATA 默认源 | 人读 |
+| `USER_MANUAL_FLOW.md` | §5 111→154；补 Attach/vh；MCP 禁 Mermaid | 人读 |
+| `FLOW_LAYOUT_ENGINE_DESIGN.md` | ⑥ 改为代数路由；断言 154；实现核对接 CellOrder/DOC | 人读 |
+| `FLOW_CELL_ORDER_DESIGN.md` | 文头「待实施」→已实施 | 人读 |
+| `FLOW_NDATA_LANE_DESIGN.md` | 文头「未实施」→已实施 | 人读 |
+| `FLOW_DIAGRAM_RENDER_QA.md` | 横幅：已被 v6 取代 | 人读 |
+| `protocol/segments/flow.md` | 删 `Riverside,`；补 Attach/vh/默认流/禁 Mermaid | 人读 |
+| `protocol/DSL_V1.md` | 13→14 kind，红线加 render_flow | 人读 |
+| `IQS_DSL_V1_SPEC.md` | 新增 §5.14 FlowGraph；MCP 核心名单含 flow | 人读 |
+| `IQS_DSL_V1_MANUAL.md` | TOC 13→14；选型表加 flow；8.14 补 Attach/vh/反例 | 人读 |
+| `IQS_CHART_MCP_DESIGN.md` | Core 列表 `render_flow` 替换误列的 `render_vchart` | 人读 |
+| `IQS_DSL_AGENT_MANIFESTO.md` | 新增 2.13 Flow | 人读 |
+| `FLOW_CORRIDOR_RELOCATE_PROOF.md` | §3/§6.4/总结：全局最优口号降级 | 人读 |
+| `FLOW_ROUTING_ALGEBRAIC_THEORY.md` | §3.2 无条件位移 → T2 守护勘误 | 人读 |
+| `FLOW_ROUTING_MATH_AND_IMPLEMENTATION.md` | §4.5 合并过声称勘误 | 人读 |
+| `FLOW_CONNECTION_REQUIREMENTS_ALGO.md` | M8 降级为局部稳定点 | 人读 |
+| `FLOW_{P0,ALIGN,STAGES,AUDIT,ASSESSMENT,REMAINING_PLAN}` | 文头加归档时点 | 人读 |
+| `components/flow/flowToSVG.ts` | 文件头 ⑥ 改为代数路由（注释 only） | tsc/test:flow 行为不变 |
+| `components/flow/FlowEditor.tsx` | HELP：AxisY 水平；补 Attach/vh | 无逻辑 |
+
+### 3. 验证
+
+本里程碑不改变解析/布局/连线语义。提交前跑：
+
+```
+npx tsc --noEmit
+npm run test:flow
+```
+
+预期与基线相同：154 全绿、tsc 0 errors。`npm run build` 含 test:flow，本步以 tsc + test:flow 为门禁（未改构建链路）。
+
+### 4. 未做（留给后续里程碑，不是遗漏）
+
+- M-UI FlowEditor 换壳
+- M-MCP L0/L1 编译卡与 CallTool 诊断（本步只把人读/协议入口对齐）
+- T2 / autoSeq / 穿盒兜底
+
+### 5. 拍板复核
+
+与方案一致：DOC 虚拟列写入 SPEC；端点口径在 LAYOUT ⑥ 写为「贴边中点 + stub 到走廊」；缺省 vh 以 CellOrder 为准。

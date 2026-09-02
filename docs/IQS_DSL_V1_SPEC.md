@@ -457,6 +457,33 @@ Dataset: 产量, [120, 145, 138], #3b82f6, Y
 
 ---
 
+### 5.14 `flow` — 企业体系文件流程图（泳道 / BPMN 子集）
+
+- **场景**: 程序文件（CX）「谁 × 做什么 × 走哪条路」；成果报告中的跨部门审批图  
+- **Body**: FlowGraph  
+- **MCP**: `render_flow`（core）。体系文件终稿禁止用 Mermaid `flowchart TD` 冒充  
+- **Directives**: `Title`, `Layout` (H/V), `Dict`, `Lane from`, `AxisX`/`AxisY`/`Axis`, `Attr active`, `Color[Slot]`, `W:` 节点（`Type[S|E|T|?|+|SUB|N|DATA]`、`Location`、`Attach`、`V|H|D`）  
+- **红线**: Dict 必须先于 Lane/W；判断/并行必须分支行 + `End`；N/DATA 不作流转目标  
+
+完整文法：`docs/IQS_FLOW_DSL_SPEC.md`；协议切片：`protocol/segments/flow.md`。
+
+```dsl
+Title: 采购申请审批流程
+Layout: H
+Dict: D[信息中心,综合计划科]
+Dict: P[申请,审批]
+Lane from D[0,1] Layout H
+Lane from P[0,1] Layout V
+W: w1: 提交申请 Type[S] Location(D[0],P[0])
+W: q1: 金额超限? Type[?] Location(D[0],P[1])
+   是 → #w2
+   否则 → #w2
+   End
+W: w2: 归档 Type[E] Location(D[1],P[1])
+```
+
+---
+
 ## 6. 救济层信封（非核心文法）
 
 ### 6.1 Mermaid（`tier: relief`）
@@ -505,7 +532,7 @@ protocol://governance
 ### 7.3 核心 kind 必须在 MCP 可调用
 
 `iqs_native` 至少包含：  
-`affinity, arrow, basic, control, fishbone, histogram, matrix, matrixPlot, pareto, pdpc, relation, scatter, radar`。
+`affinity, arrow, basic, control, fishbone, flow, histogram, matrix, matrixPlot, pareto, pdpc, relation, scatter, radar`。
 
 ---
 

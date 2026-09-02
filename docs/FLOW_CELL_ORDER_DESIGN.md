@@ -1,7 +1,7 @@
 # IQS-Flow 交叉格内排序（格内拓扑序）设计与核验记录
 
-> **文档状态**: 设计确认 / 待实施（用户已定排序键 = 格内拓扑序）
-> **基线**: `main @ 101e74e`（主干序排序键 + 编辑器导出契约）
+> **文档状态**: 已实施 / 与代码同步（`components/flow/CellOrder.ts` + `assert_cell_order.ts`，154 项全绿）
+> **基线**: `main @ 101e74e`（主干序排序键 + 编辑器导出契约）→ 落地提交 `6b805d9`
 > **决策**: `dec-5447e9c5a255f3ac`（b 阶段格内排序键 = 格内拓扑序）
 > **框架文档**: `FLOW_OPTIMALITY_FRAMEWORK.md` §2 A6 / `FLOW_MAINLINE_ORDER_NOTES.md`
 
