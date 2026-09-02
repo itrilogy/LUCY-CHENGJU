@@ -10,7 +10,7 @@ import { createPortal } from 'react-dom';
 import { FlowData, FlowChartStyles, QCToolType, DEFAULT_FLOW_STYLES } from '../../types';
 import { INITIAL_FLOW_DSL } from '../../constants';
 import { parseFlowDSL } from './FlowParser';
-import { generateLogicDSL, getAIStatus } from '../../services/aiService';
+import { generateLogicDSL, getAIStatus, getLastAICompletion } from '../../services/aiService';
 import { COLOR_SLOT_MAP, FLOW_PALETTES, applyPalette, paletteOf } from './FlowThemes';
 import {
   Sparkles, Code, HelpCircle, X, Loader2, Database, ChevronRight,
@@ -284,6 +284,13 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
       if (!text) throw new Error('空响应');
       setDsl(text);
       applyDsl(text);
+      const meta = getLastAICompletion();
+      if (meta?.finishReason === 'length') {
+        setWarnings((w) => [
+          ...w,
+          `模型输出被截断（finish_reason=length，已收 ${meta.chars} 字）。当前请求上限 max_tokens=8192，与外部 DeepSeek 同一档。`,
+        ]);
+      }
       setActiveTab('dsl');
     } catch (e: any) {
       setError('AI 生成失败: ' + (e?.message || String(e)));

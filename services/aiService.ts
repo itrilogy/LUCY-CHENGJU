@@ -5,6 +5,19 @@ interface AIProfile {
     name: string;
     endpoint: string;
     model: string;
+    /** 与外部 DeepSeek 对齐；未设时默认 8192，不大于外网档 */
+    max_tokens?: number;
+}
+
+export type AICompletionMeta = {
+    finishReason: string | null;
+    chars: number;
+    usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+};
+
+let lastAICompletion: AICompletionMeta | null = null;
+export function getLastAICompletion(): AICompletionMeta | null {
+    return lastAICompletion;
 }
 
 interface ChartSpec {
@@ -130,7 +143,7 @@ ${getConstraint5()}`;
     return prompt;
 }
 
-async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 2000) {
+async function callAI(systemPrompt: string, userPrompt: string, maxTokens?: number) {
     const spec = await getChartSpec();
 
     // 1. Check runtime config (window.APP_CONFIG), then build-time env
@@ -146,6 +159,18 @@ async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 2000
     const apiKey = [process.env.API_KEY, window.APP_CONFIG?.API_KEY]
         .find((k) => typeof k === 'string' && k.trim().length > 8);
 
+    const body: Record<string, unknown> = {
+        model: profile.model,
+        messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+        ],
+        temperature: 0.1
+    };
+    // 内外网同一档：档案 max_tokens → 调用方 → 默认 8192（不大于 DeepSeek）
+    const cap = profile.max_tokens ?? maxTokens ?? 8192;
+    if (typeof cap === 'number' && cap > 0) body.max_tokens = cap;
+
     try {
         const response = await fetch(profile.endpoint, {
             method: 'POST',
@@ -153,15 +178,7 @@ async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 2000
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             },
-            body: JSON.stringify({
-                model: profile.model,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt }
-                ],
-                temperature: 0.1,
-                max_tokens: maxTokens
-            })
+            body: JSON.stringify(body)
         });
 
         if (!response.ok) {
@@ -170,7 +187,18 @@ async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 2000
         }
 
         const data = await response.json();
-        return data.choices?.[0]?.message?.content || "";
+        const choice = data.choices?.[0];
+        const msg = choice?.message || {};
+        const text = String(msg.content || msg.reasoning_content || "");
+        lastAICompletion = {
+            finishReason: choice?.finish_reason ?? data.finish_reason ?? null,
+            chars: text.length,
+            usage: data.usage
+        };
+        if (lastAICompletion.finishReason === 'length') {
+            console.warn('[AI] finish_reason=length，输出被本次请求上限截断', lastAICompletion);
+        }
+        return text;
     } catch (error) {
         console.error("AI Inference Failed:", error);
         throw error;
@@ -208,7 +236,7 @@ export const generateLogicDSL = async (prompt: string, toolType: QCToolType, sub
             console.log("--- [DEBUG] LIVE SYSTEM PROMPT (Stage 2) ---");
             console.log(systemPrompt);
             console.log("----------------------------------");
-            const text = await callAI(systemPrompt, prompt, finalSubType === 'flow' ? 4000 : 2000);
+            const text = await callAI(systemPrompt, prompt);
             return text.replace(/```\w*/g, '').replace(/```/g, '').trim();
         }
 

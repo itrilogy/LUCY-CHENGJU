@@ -8,12 +8,14 @@
       "deepseek_public": {
         "name": "DeepSeek",
         "endpoint": "https://api.deepseek.com/v1/chat/completions",
-        "model": "deepseek-v4-flash"
+        "model": "deepseek-v4-flash",
+        "max_tokens": 8192
       },
       "local_qwen": {
         "name": "内网 Qwen3.5-9B 服务",
         "endpoint": "http://10.37.87.15:4000/v1/chat/completions",
-        "model": "qwen3.5-9b"
+        "model": "qwen3.5-9b",
+        "max_tokens": 8192
       }
     }
   }
