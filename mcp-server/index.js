@@ -14,6 +14,7 @@ import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express from "express";
 import cors from "cors";
 import { networkInterfaces } from 'os';
+import { spawnSync } from "child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE_URL = process.env.IQS_BASE_URL || "http://localhost:5173";
@@ -198,16 +199,49 @@ function createServer() {
 
   /** ILDR thin catalog — minimize list_tools tokens; full grammar via resources */
   function buildThinDescription(tool) {
+    if (tool.name === "render_flow") {
+      return [
+        "[CORE] IQS 企业流程图/泳道图",
+        "面向体系文件（CX）：谁×做什么×走哪条路。字典-索引 DSL（Dict / Lane from / W），自研 SVG。",
+        "intents: 流程图, 泳道图, 程序文件, 跨部门流程, BPMN, swimlane",
+        "NOT mermaid: 企业泳道/审批/程序文件必须用本工具，禁止 render_mermaid_flowchart。",
+        "must: Dict 先于 Lane 与 W；Type[?]/[+] 必须分支行并以 End 闭合；纯文本非 JSON。",
+        "read: protocol://segments/iqs_native/flow",
+        "dsl: IQS-DSL v1 pure text (not JSON)"
+      ].join(" | ");
+    }
     const tier = tool.tier || (tool.parent_type === 'iqs_native' ? 'core' : 'relief');
     const tierLabel = tier === 'core' ? 'CORE' : 'RELIEF';
     const intents = (tool.intent_trigger || []).slice(0, 6).join(', ');
+    const extra = tool.name === "render_mermaid_flowchart"
+      ? "RELIEF only. 体系文件/部门泳道/BPMN 子集请改用 render_flow."
+      : "";
     return [
       `[${tierLabel}] ${tool.display_name}`,
       tool.description,
       intents ? `intents: ${intents}` : '',
+      extra,
       `read: protocol://segments/${tool.parent_type}/${tool.sub_type}`,
       tier === 'core' ? 'dsl: IQS-DSL v1 pure text (not JSON)' : 'dsl: dialect text (not bare JSON object)'
     ].filter(Boolean).join(' | ');
+  }
+
+  function lintFlowDsl(dsl) {
+    try {
+      const script = path.join(__dirname, "../scripts/lint_flow.ts");
+      const r = spawnSync(process.execPath, ["--experimental-strip-types", script], {
+        input: String(dsl ?? ""),
+        encoding: "utf8",
+        timeout: 8000,
+        maxBuffer: 2 * 1024 * 1024,
+      });
+      const out = (r.stdout || "").trim();
+      if (!out) return { errors: [r.stderr || "lint_flow 无输出"], warnings: [], nodes: 0, edges: 0, lanes: 0 };
+      const line = out.split("\n").filter(Boolean).pop();
+      return JSON.parse(line);
+    } catch (e) {
+      return null;
+    }
   }
 
   // --- Resources (single registration; governance + dsl + kind segments) ---
@@ -289,6 +323,12 @@ function createServer() {
     const kindMatch = uri.match(/^protocol:\/\/segments\/([^/]+)\/([^/]+)$/);
     if (kindMatch) {
       const [, parent, sub] = kindMatch;
+      if (parent === "iqs_native" && sub === "flow") {
+        const agent = getProtocolFile("segments/flow.agent.md");
+        const segment = getProtocolFile("segments/flow.md");
+        const text = [agent || "# IQS-Flow", "\n---\n", "## 人读协议切片", segment || ""].join("\n");
+        return { contents: [{ uri, mimeType: "text/markdown", text }] };
+      }
       const allTools = getMCPTools();
       const master = allTools.find((t) => t.parent_type === parent && t.sub_type === "master");
       const tool = allTools.find((t) => t.parent_type === parent && t.sub_type === sub);
@@ -318,6 +358,10 @@ function createServer() {
       if (key.includes("/")) throw new Error(`Resource not found: ${uri}`);
       const segment = getProtocolFile(`segments/${key}.md`);
       if (!segment) throw new Error(`Segment [${key}] not found`);
+      // flow：L2 只给切片全文，不再拼接 governance（避免重复吞 token）
+      if (key === "flow") {
+        return { contents: [{ uri, mimeType: "text/markdown", text: segment }] };
+      }
       const combined = [
         `# IQS Segment Knowledge: ${key}`,
         `\n## 1. Governance\n${governance}`,
@@ -382,7 +426,9 @@ function createServer() {
     if (isJsonLike) {
       const allTools = getMCPTools();
       const tool = allTools.find(t => t.parent_type === type && (t.sub_type === args.sub_type || name.includes(t.sub_type)));
-      const example = tool?.official_example || "Title: 标题\nSpec: { ... }";
+      const example = name === "render_flow"
+        ? "Title: 采购申请审批流程\nLayout: H\nDict: D[部门A,部门B]\nDict: P[申请,审批]\nLane from D[0,1] Layout H\nLane from P[0,1] Layout V\nW: w1: 提交 Type[S] Location(D[0],P[0])\nW: w2: 结束 Type[E] Location(D[1],P[1])"
+        : (tool?.official_example || "Title: 标题\nSpec: { ... }");
       
       return {
         content: [{
@@ -398,31 +444,58 @@ function createServer() {
       };
     }
     
+    let flowLint = null;
+    if (name === "render_flow") {
+      flowLint = lintFlowDsl(dsl);
+      if (flowLint && Array.isArray(flowLint.errors) && flowLint.errors.length) {
+        return {
+          content: [{
+            type: "text",
+            text: [
+              "error: true",
+              "parser_errors:",
+              ...flowLint.errors.map((e) => `  - ${e}`),
+              flowLint.warnings?.length ? "parser_warnings:\n" + flowLint.warnings.map((w) => `  - ${w}`).join("\n") : "",
+              "hint: Dict 必须先于 Lane/W；Type[?]/[+] 必须分支行并以 End 闭合。见 protocol://segments/iqs_native/flow"
+            ].filter(Boolean).join("\n")
+          }],
+          isError: true
+        };
+      }
+    }
+
     try {
       const result = await renderChart(type, dsl, args.width, args.height, isSse);
+      const diag = name === "render_flow" && flowLint
+        ? [
+            "error: false",
+            `nodes: ${flowLint.nodes}`,
+            `edges: ${flowLint.edges}`,
+            `lanes: ${flowLint.lanes}`,
+            flowLint.warnings?.length ? `warnings:\n${flowLint.warnings.map((w) => `  - ${w}`).join("\n")}` : "warnings: []"
+          ].join("\n")
+        : "";
       if (isSse && result.url) {
         return {
           content: [
             {
               type: "text",
-              text: `【系统强制指令：必须显示图片】图表已生成。请务必在最终回复中包含以下内容：\n\n![IQS Chart](${result.url})\n\n(查看链接: ${result.url})`
+              text: [diag, `【系统强制指令：必须显示图片】图表已生成。请务必在最终回复中包含以下内容：\n\n![IQS Chart](${result.url})\n\n(查看链接: ${result.url})`].filter(Boolean).join("\n\n")
             }
           ]
         };
       } else {
-        return {
-          content: [
-            {
-              type: "image",
-              data: result.base64,
-              mimeType: "image/png"
-            }
-          ]
-        };
+        const content = [];
+        if (diag) content.push({ type: "text", text: diag });
+        content.push({ type: "image", data: result.base64, mimeType: "image/png" });
+        return { content };
       }
     } catch (error) {
+      const extra = name === "render_flow" && flowLint?.errors?.length
+        ? "\nparser_errors:\n" + flowLint.errors.map((e) => `  - ${e}`).join("\n")
+        : "";
       return {
-        content: [{ type: "text", text: `渲染错误: ${error.message}` }],
+        content: [{ type: "text", text: `渲染错误: ${error.message}${extra}` }],
         isError: true
       };
     }

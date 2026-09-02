@@ -187,3 +187,29 @@ npm run test:flow
 
 - B1 手动页可编辑表单（M-Man）
 - MCP L0/L1 / CallTool 诊断（下一里程碑 M-MCP）
+
+---
+
+## 2026-09-02 · M-MCP（L0 路由卡 + L1 编译卡 + CallTool 诊断；本地提交，不 push）
+
+### 1. 基线
+
+- `8389298`（M-UI）之上。
+
+### 2. 改动
+
+| 文件 | 性质 | 验证 |
+|:---|:---|:---|
+| `protocol/segments/flow.agent.md` | 新建 L1 编译卡：BNF、8 红线、2 正例、3 反例 | 人读 |
+| `scripts/lint_flow.ts` | stdin DSL → JSON 诊断；识别 Mermaid 冒充 | 探针：缺 End / flowchart TD |
+| `mcp-server/index.js` | `render_flow` 专用 list_tools 薄描述（NOT mermaid）；mermaid_flowchart 加 RELIEF only；`iqs_native/flow` 资源读 agent+flow.md；`protocol://segments/flow` 不再拼 governance；CallTool 先 lint，失败回 parser_errors，成功附 nodes/edges/lanes | lint 探针 |
+
+### 3. 验证
+
+- `lint_flow.ts`：缺 End 的判断返回 parser_errors；`flowchart TD` 被拒绝
+- `tsc` / `test:flow` 本步不改引擎（与 M-Fix 一并回归）
+
+### 4. 未做
+
+- 独立 `lint_flow` MCP 工具（可选，未膨胀 catalog）
+- 外部模型抽检成功率（需人工接 MCP 客户端）
