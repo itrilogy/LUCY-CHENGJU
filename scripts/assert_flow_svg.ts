@@ -407,5 +407,17 @@ w2 → #w3`);
     t2 ? `phi0=${t2.phiRoute0.toFixed(2)} phi1=${t2.phiRoute1.toFixed(2)} acc=${t2.accepted} rej=${t2.rejected}` : '');
 }
 
+{
+  // 黄金几何快照：采购样例节点格位（ri,ci,round x/y）锁定，防止 T2/布局无声漂移
+  const GOLDEN_FP = 'q1:0,1,358,147|w1:0,0,170,147|w2:0,0,170,293|w4:1,1,358,426|w5:0,2,546,147|w6:2,2,546,546|w7:1,3,710,426';
+  const layG = computeExcelLayout(r.data, r.styles);
+  const fp = [...layG.nodePos.entries()]
+    .map(([id, p]) => `${id}:${p.ri},${p.ci},${Math.round(p.x)},${Math.round(p.y)}`)
+    .sort()
+    .join('|');
+  check('golden: 采购样例节点格位快照', fp === GOLDEN_FP, fp);
+  check('golden: svg 体量稳定', svg.length >= 7000 && svg.length <= 12000, `len=${svg.length}`);
+}
+
 console.log(`\n== ${pass} pass, ${fail} fail ==`);
 process.exit(fail ? 1 : 0);

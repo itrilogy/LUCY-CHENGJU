@@ -28,10 +28,39 @@ const TYPEMAP: Record<string, string> = {
   parallelGateway: '+', subprocess: 'SUB', annotation: 'N', dataObject: 'DATA'
 };
 
-const TYPE_LABEL: Record<string, string> = {
-  start: '开始', end: '结束', task: '任务', exclusiveGateway: '判断',
-  parallelGateway: '并行', subprocess: '子流程', annotation: '标注', dataObject: '数据'
-};
+const TYPE_OPTS: { code: keyof typeof TYPEMAP | 'task'; mark: string; label: string }[] = [
+  { code: 'start', mark: 'S', label: '开始' },
+  { code: 'end', mark: 'E', label: '结束' },
+  { code: 'task', mark: 'T', label: '任务' },
+  { code: 'exclusiveGateway', mark: '?', label: '判断' },
+  { code: 'parallelGateway', mark: '+', label: '并行' },
+  { code: 'subprocess', mark: 'SUB', label: '子流程' },
+  { code: 'annotation', mark: 'N', label: '标注' },
+  { code: 'dataObject', mark: 'DATA', label: '数据' },
+];
+
+function emitWLine(n: FlowData['nodes'][0], indent = ''): string {
+  const typeTag = n.type !== 'task' ? ` Type[${TYPEMAP[n.type] || 'T'}]` : '';
+  const loc = n.cell && Object.keys(n.cell).length
+    ? ` Location(${Object.entries(n.cell).map(([k, v]) => `${k}[${v}]`).join(',')})`
+    : '';
+  const attrs = Object.entries(n.attrs || {}).filter(([, v]) => v != null && String(v).length).map(([k, v]) => `${k.toUpperCase()}(${v})`).join(' ');
+  const attachTag = n.attach ? ` Attach(#${n.attach})` : '';
+  const vhTag = n.vh ? ` ${n.vh}` : '';
+  return `${indent}W: ${n.id}: ${n.labelRef || n.label}${typeTag}${loc}${attrs ? ' ' + attrs : ''}${attachTag}${vhTag}`;
+}
+
+function replaceWLine(src: string, n: FlowData['nodes'][0]): string {
+  const re = new RegExp(`^( *)W:\\s*${n.id}:.*$`, 'm');
+  if (!re.test(src)) return src;
+  return src.replace(re, (_, pad) => emitWLine(n, pad));
+}
+
+function replaceLaneLine(src: string, oldL: FlowData['lanes'][0], next: FlowData['lanes'][0]): string {
+  const a = `Lane from ${oldL.dict}[${oldL.indices.join(',')}] Layout ${oldL.layout}`;
+  const b = `Lane from ${next.dict}[${next.indices.join(',')}] Layout ${next.layout}`;
+  return src.includes(a) ? src.replace(a, b) : src;
+}
 
 const COLOR_SLOTS: { key: keyof FlowChartStyles; label: string }[] = [
   { key: 'startColor', label: '开始' },
@@ -371,15 +400,48 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                 <ChevronRight size={14} className="text-teal-500" />
                 <span className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">结构层 泳道 / 节点</span>
               </div>
-              <div className="p-4 bg-[var(--card-bg)] rounded-lg border border-[var(--sidebar-border)] space-y-2 text-[11px]">
+              <div className="p-4 bg-[var(--card-bg)] rounded-lg border border-[var(--sidebar-border)] space-y-3 text-[11px]">
                 {(data.lanes || []).length === 0 && (
                   <p className="text-[var(--sidebar-muted)]">无泳道（ROOT 占位）。在 DSL 写 Lane from …</p>
                 )}
-                {(data.lanes || []).map((l, i) => (
-                  <div key={i} className="font-mono text-[var(--sidebar-text)]">
-                    Lane from {l.dict}[{l.indices.join(',')}] Layout {l.layout}
-                  </div>
-                ))}
+                {(data.lanes || []).map((l, i) => {
+                  const vals = data.dicts[l.dict] || [];
+                  return (
+                    <div key={i} className="space-y-2">
+                      <div className="flex items-center justify-between font-mono text-[var(--sidebar-text)]">
+                        <span>Lane {l.dict} · {l.layout === 'H' ? '行' : '列'}</span>
+                        <button
+                          onClick={() => commitDsl(replaceLaneLine(dsl, l, { ...l, layout: l.layout === 'H' ? 'V' : 'H' }))}
+                          className="text-[9px] font-black uppercase tracking-widest text-teal-400"
+                        >
+                          切 {l.layout === 'H' ? 'V' : 'H'}
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {vals.map((v, idx) => {
+                          const on = l.indices.includes(idx);
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                const next = on ? l.indices.filter((x) => x !== idx) : [...l.indices, idx].sort((a, b) => a - b);
+                                if (!next.length) return;
+                                commitDsl(replaceLaneLine(dsl, l, { ...l, indices: next }));
+                              }}
+                              className={`px-2 py-1 rounded border text-[10px] ${
+                                on
+                                  ? 'bg-teal-600 text-white border-teal-500'
+                                  : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)]'
+                              }`}
+                            >
+                              {idx} {v}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
               <div className="space-y-2">
                 {topNodes.length === 0 && (
@@ -387,14 +449,106 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                     暂无节点。请到 DSL 用 W: 行声明活动。
                   </div>
                 )}
-                {topNodes.map((n, index) => (
-                  <div key={n.id} className="flex gap-3 items-center bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-4 h-12">
-                    <span className="text-[9px] font-black text-[var(--sidebar-muted)] w-6 font-mono opacity-50">{(index + 1).toString().padStart(2, '0')}</span>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-teal-400 w-10 shrink-0">{TYPE_LABEL[n.type] || n.type}</span>
-                    <span className="text-xs font-mono font-bold text-[var(--sidebar-text)] truncate">{n.label}</span>
-                    <span className="ml-auto text-[9px] font-mono text-[var(--sidebar-muted)]">{n.id}</span>
-                  </div>
-                ))}
+                {topNodes.map((n, index) => {
+                  const hLane = (data.lanes || []).find((l) => l.layout === 'H');
+                  const vLane = (data.lanes || []).find((l) => l.layout === 'V');
+                  const axisLane = hLane || vLane;
+                  return (
+                    <div key={n.id} className="space-y-2 p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg">
+                      <div className="flex gap-2 items-center">
+                        <span className="text-[9px] font-black text-[var(--sidebar-muted)] w-6 font-mono opacity-50">{(index + 1).toString().padStart(2, '0')}</span>
+                        <input
+                          value={n.label}
+                          onChange={(e) => commitDsl(replaceWLine(dsl, { ...n, label: e.target.value, labelRef: null }))}
+                          className="flex-1 bg-transparent outline-none text-xs font-mono font-bold text-[var(--sidebar-text)]"
+                        />
+                        <span className="text-[9px] font-mono text-[var(--sidebar-muted)]">{n.id}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <select
+                          value={n.type}
+                          onChange={(e) => commitDsl(replaceWLine(dsl, { ...n, type: e.target.value as FlowData['nodes'][0]['type'] }))}
+                          className="h-8 px-2 rounded bg-[var(--card-bg)] border border-[var(--input-border)] text-[10px] text-[var(--sidebar-text)]"
+                        >
+                          {TYPE_OPTS.map((t) => (
+                            <option key={t.code} value={t.code}>{t.label}</option>
+                          ))}
+                        </select>
+                        {(['V', 'H', 'D'] as const).map((dir) => (
+                          <button
+                            key={dir}
+                            onClick={() => commitDsl(replaceWLine(dsl, { ...n, vh: dir }))}
+                            className={`h-8 px-2 rounded text-[10px] font-black border ${
+                              n.vh === dir ? 'bg-teal-600 text-white border-teal-500' : 'border-[var(--input-border)] text-[var(--sidebar-muted)]'
+                            }`}
+                          >
+                            {dir}
+                          </button>
+                        ))}
+                      </div>
+                      {(hLane || vLane) && (
+                        <div className="flex flex-wrap gap-2">
+                          {hLane && (
+                            <select
+                              value={n.cell?.[hLane.dict] ?? ''}
+                              onChange={(e) => {
+                                const cell = { ...(n.cell || {}) };
+                                if (e.target.value === '') delete cell[hLane.dict];
+                                else cell[hLane.dict] = Number(e.target.value);
+                                commitDsl(replaceWLine(dsl, { ...n, cell: Object.keys(cell).length ? cell : null }));
+                              }}
+                              className="h-8 px-2 rounded bg-[var(--card-bg)] border border-[var(--input-border)] text-[10px] text-[var(--sidebar-text)]"
+                            >
+                              <option value="">行 · 自动</option>
+                              {(data.dicts[hLane.dict] || []).map((v, idx) => (
+                                <option key={idx} value={idx}>{hLane.dict}[{idx}] {v}</option>
+                              ))}
+                            </select>
+                          )}
+                          {vLane && (
+                            <select
+                              value={n.cell?.[vLane.dict] ?? ''}
+                              onChange={(e) => {
+                                const cell = { ...(n.cell || {}) };
+                                if (e.target.value === '') delete cell[vLane.dict];
+                                else cell[vLane.dict] = Number(e.target.value);
+                                commitDsl(replaceWLine(dsl, { ...n, cell: Object.keys(cell).length ? cell : null }));
+                              }}
+                              className="h-8 px-2 rounded bg-[var(--card-bg)] border border-[var(--input-border)] text-[10px] text-[var(--sidebar-text)]"
+                            >
+                              <option value="">列 · 自动</option>
+                              {(data.dicts[vLane.dict] || []).map((v, idx) => (
+                                <option key={idx} value={idx}>{vLane.dict}[{idx}] {v}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <input
+                          placeholder="SOP"
+                          value={n.attrs?.sop || ''}
+                          onChange={(e) => commitDsl(replaceWLine(dsl, { ...n, attrs: { ...n.attrs, sop: e.target.value } }))}
+                          className="flex-1 h-8 px-2 rounded bg-[var(--card-bg)] border border-[var(--input-border)] text-[10px] text-[var(--sidebar-text)] outline-none"
+                        />
+                        <input
+                          placeholder="Role"
+                          value={n.attrs?.role || ''}
+                          onChange={(e) => commitDsl(replaceWLine(dsl, { ...n, attrs: { ...n.attrs, role: e.target.value } }))}
+                          className="flex-1 h-8 px-2 rounded bg-[var(--card-bg)] border border-[var(--input-border)] text-[10px] text-[var(--sidebar-text)] outline-none"
+                        />
+                      </div>
+                      {(n.type === 'annotation' || n.type === 'dataObject') && (
+                        <input
+                          placeholder="Attach(#id)"
+                          value={n.attach || ''}
+                          onChange={(e) => commitDsl(replaceWLine(dsl, { ...n, attach: e.target.value || undefined }))}
+                          className="w-full h-8 px-2 rounded bg-[var(--card-bg)] border border-[var(--input-border)] text-[10px] text-[var(--sidebar-text)] outline-none"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
                 <button
                   onClick={() => {
                     const used = new Set((data.nodes || []).map((n) => n.id));

@@ -15,6 +15,7 @@ import type {
   FlowNodeType,
   FlowChartStyles
 } from '../../types';
+import { tarjanSCC } from './scc.ts';
 
 /** 本地默认样式（避免跨文件运行时依赖，便于 Node strip-types 独立测试） */
 const DEFAULT_FLOW_STYLES: FlowChartStyles = {
@@ -408,34 +409,15 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
   // #13 环路须含至少一个判断节点（warn）：用 Tarjan SCC 找真强连通分量（真环），
   //   仅当存在"不含任何网关"的环才告警（原近似判定会误报：环上含任务节点即触发）。
   const isGateway = (id: string) => { const nn = nodes.find((x) => x.id === id); return !!nn && (nn.type === 'exclusiveGateway' || nn.type === 'parallelGateway'); };
-  // Tarjan SCC
-  const gAdj2: Record<string, string[]> = {};
-  nodes.forEach((nn) => { gAdj2[nn.id] = []; });
-  edges.forEach((e) => { if (gAdj2[e.from]) gAdj2[e.from].push(e.to); });
-  const index = new Map<string, number>();
-  const low = new Map<string, number>();
-  const onStack = new Set<string>();
-  const stack: string[] = [];
-  let idx = 0;
-  const nonGwCycles: string[] = [];
-  const visitTarjan = (v: string) => {
-    index.set(v, idx); low.set(v, idx); idx++;
-    stack.push(v); onStack.add(v);
-    for (const w of gAdj2[v] || []) {
-      if (!index.has(w)) { visitTarjan(w); low.set(v, Math.min(low.get(v)!, low.get(w)!)); }
-      else if (onStack.has(w)) low.set(v, Math.min(low.get(v)!, index.get(w)!));
+  const sccAdj = new Map<string, string[]>();
+  nodes.forEach((nn) => sccAdj.set(nn.id, []));
+  edges.forEach((e) => { sccAdj.get(e.from)?.push(e.to); });
+  const { components } = tarjanSCC(nodes.map((n) => n.id), sccAdj);
+  for (const comp of components) {
+    if (comp.length > 1 && !comp.some(isGateway)) {
+      warnings.push(`检测到不含判断节点的环路（${comp.join(',')}）→ 回边应经过 ?/+ 网关`);
     }
-    if (low.get(v) === index.get(v)) {
-      // 弹出 SCC
-      const comp: string[] = [];
-      let u: string;
-      do { u = stack.pop()!; onStack.delete(u); comp.push(u); } while (u !== v);
-      // 真环：SCC 节点数 >1 才构成环路；单节点自环除外
-      if (comp.length > 1 && !comp.some(isGateway)) nonGwCycles.push(comp.join(','));
-    }
-  };
-  for (const nn of nodes) if (!index.has(nn.id)) visitTarjan(nn.id);
-  for (const cyc of nonGwCycles) warnings.push(`检测到不含判断节点的环路（${cyc}）→ 回边应经过 ?/+ 网关`);
+  }
 
   // #14 修饰类节点（N/DATA）依附目标存在性：labelRef 若引用 ?[k] 且目标字典/项存在
   // （依附由 Attr 或 label 索引表达；此处校验 Role/Annotation cite 不越界）

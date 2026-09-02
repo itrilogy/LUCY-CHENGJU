@@ -17,6 +17,7 @@
  * 单维 / ROOT 仍走声明序，避免改动 ALIGN-1。
  */
 import type { FlowNode, FlowEdge } from '../../types';
+import { tarjanSCC } from './scc.ts';
 
 export interface MainlineOpts {
   /** default 边加成（默认 10），使 default 主线优先于非 default 分支 */
@@ -34,36 +35,11 @@ export function computeMainlineOrder(nodes: FlowNode[], edges: FlowEdge[], opts?
   for (const n of top) adj.set(n.id, []);
   for (const e of topEdges) adj.get(e.from)!.push({ to: e.to, def: e.default });
 
-  // ---- 2. Tarjan SCC（递归；节点数有界 < 100，安全）----
-  const index = new Map<string, number>();
-  const low = new Map<string, number>();
-  const onStack = new Set<string>();
-  const stack: string[] = [];
-  const compOf = new Map<string, number>();
-  let idx = 0, compCount = 0;
-
-  function strongconnect(v: string) {
-    index.set(v, idx); low.set(v, idx); idx++;
-    stack.push(v); onStack.add(v);
-    for (const { to } of adj.get(v) ?? []) {
-      if (!index.has(to)) {
-        strongconnect(to);
-        low.set(v, Math.min(low.get(v)!, low.get(to)!));
-      } else if (onStack.has(to)) {
-        low.set(v, Math.min(low.get(v)!, index.get(to)!));
-      }
-    }
-    if (low.get(v) === index.get(v)) {
-      let w: string;
-      do {
-        w = stack.pop()!;
-        onStack.delete(w);
-        compOf.set(w, compCount);
-      } while (w !== v);
-      compCount++;
-    }
-  }
-  for (const n of top) if (!index.has(n.id)) strongconnect(n.id);
+  // ---- 2. Tarjan SCC（共享 scc.ts）----
+  const sccAdj = new Map<string, string[]>();
+  for (const n of top) sccAdj.set(n.id, (adj.get(n.id) ?? []).map((x) => x.to));
+  const { compOf, components } = tarjanSCC(top.map((n) => n.id), sccAdj);
+  const compCount = components.length;
 
   // ---- 3. 聚合 comp、建 DAG（去重）+ 入度 ----
   const compNodes: string[][] = Array.from({ length: compCount }, () => []);

@@ -96,7 +96,7 @@
 - `computeExcelLayout`：ROOT 占位 + 单维按各泳道最大链长扩虚拟轴（非整图节点数）+ 子流程内部不占主网格 + N/DATA 落 DOC 虚拟列 + `computeCellOrder`（格内拓扑序 + V/H/D）+ 整列/整行统一扩展 + nodePos（节点居中）+ bandLeft + titleBandW + gridRight/gridBottom 对齐
 - `flowToSVG`：网格矩形 + 虚线细泳道线 + 表头格子化 + `solveAlgebraicPorts` / `solveAlgebraicRoute` + 拐点吸附通道网格 + 边标签最长线段中点 + 按字宽折行（数字不拆）+ 并行＋/默认流斜杠 + 岗位字典展开
 - `FlowDiagram`：tidyLayout（居中占据画布）+ 拖动防白屏 soft boundary
-- 断言：parser 60 + svg 66 + bpmn 17 + mainline 8 + cell_order 8 = **159**（含 A1 / 主干序 autoSeq / T2；布局在 `ExcelLayout.ts`，T2 在 `GuardedShift.ts`）
+- 断言：parser 60 + svg 68 + bpmn 17 + mainline 8 + cell_order 8 = **161**（含黄金格位快照；布局 `ExcelLayout.ts`，T2 `GuardedShift.ts`）
 
 ---
 
