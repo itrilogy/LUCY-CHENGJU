@@ -407,3 +407,21 @@ npm run test:flow
 
 - `npx tsc --noEmit` 0 errors
 - `npm run test:flow` **177 全绿**（66+78+17+8+8）
+
+---
+
+## 2026-09-02 · 交叉整线差异色 / 泳道内框虚实 / 右下角 Attr（本地提交，不 push）
+
+### 1. 反馈与修订
+
+| 点 | 修订 |
+|:---|:---|
+| 差异色 | 不再画短过桥。交叉对中**线序更大**的整条连线用 `contrastStroke(Line, Panel)`，后绘压上（`data-flow="cross-over"`）。 |
+| 泳道虚实 | 交叉格内框此前写死 1px 实线，开关只改叠加边界。内框与边界现共用 `Grid: dashed\|solid`。 |
+| 右下角 | 按 `Attr active` 顺序、只标该节点有值项（展开字典），至多 4 行；无 active 时回退 Role。空键（如未写 Lv）不出现。 |
+
+### 2. 验证
+
+- `npx tsc --noEmit` 0 errors
+- `npm run test:flow` **184 全绿**（66+85+17+8+8）
+- 栅格样张：虚线内框 / 实线内框可区分；w3 右下角为 系统工程师 / SOP QP-008 / 15D / KPI DFMEA覆盖率100%

@@ -3,7 +3,7 @@
  * 运行: node --experimental-strip-types scripts/assert_flow_svg.ts
  * 验证 flowToSVG 输出的结构正确性（节点落格中心、格子铺开、标签/连线存在）。
  */
-import { flowToSVG, getSvgSize, FLOW_SVG, computeExcelLayout, findOrthogonalCrossings } from '../components/flow/flowToSVG.ts';
+import { flowToSVG, getSvgSize, FLOW_SVG, computeExcelLayout, findOrthogonalCrossings, crossingOverIds, nodeCornerLines } from '../components/flow/flowToSVG.ts';
 import { parseFlowDSL } from '../components/flow/FlowParser.ts';
 import { contrastStroke } from '../components/flow/FlowThemes.ts';
 import { solveAlgebraicPorts } from '../components/flow/AlgebraicFlowRouter.ts';
@@ -447,9 +447,9 @@ Grid: dashed
 W: w1: a Type[S]
 W: w2: b Type[E]`);
   const dSvg = flowToSVG(dashed.data, dashed.styles);
-  const dGrids = [...dSvg.matchAll(/data-flow="lane-grid"[^>]*/g)].map((m) => m[0]);
+  const dGrids = [...dSvg.matchAll(/<(?:rect|line)[^>]*data-flow="lane-grid"[^>]*>/g)].map((m) => m[0]);
   check('grid-dashed: 有泳道线', dGrids.length > 0);
-  check('grid-dashed: 虚线', dGrids.every((g) => g.includes('stroke-dasharray="4 4"')), dGrids[0] || 'none');
+  check('grid-dashed: 虚线含内框', dGrids.every((g) => g.includes('stroke-dasharray="4 4"')), dGrids[0] || 'none');
 
   const solid = parseFlowDSL(`Title: t
 Grid: solid
@@ -466,14 +466,39 @@ W: d: B1 Location(D[1],P[0])
 a → #b
 c → #d`);
   const sSvg = flowToSVG(solid.data, solid.styles);
-  const sGrids = [...sSvg.matchAll(/data-flow="lane-grid"[^>]*/g)].map((m) => m[0]);
+  const sGrids = [...sSvg.matchAll(/<(?:rect|line)[^>]*data-flow="lane-grid"[^>]*>/g)].map((m) => m[0]);
   check('grid-solid: 有泳道线', sGrids.length > 0);
-  check('grid-solid: 实线无 dasharray', sGrids.every((g) => !g.includes('stroke-dasharray')), sGrids[0] || 'none');
-  const hasMark = sSvg.includes('data-flow="cross-mark"') || svg.includes('data-flow="cross-mark"');
-  check('cross: 对角或采购样例有过桥标记', hasMark);
-  const markSrc = sSvg.includes('data-flow="cross-mark"') ? sSvg : svg;
-  const markAttr = markSrc.match(/data-flow="cross-mark"[^>]*stroke="([^"]+)"/);
-  check('cross: 过桥用反差色', !!markAttr && markAttr[1].toLowerCase() !== (solid.styles.lineColor || '').toLowerCase(), markAttr ? markAttr[1] : 'none');
+  check('grid-solid: 实线无 dasharray（含内框）', sGrids.every((g) => !g.includes('stroke-dasharray')), sGrids[0] || 'none');
+  const overColor = contrastStroke('#334155', '#f8fafc');
+  const hasOver = sSvg.includes('data-flow="cross-over"') || svg.includes('data-flow="cross-over"');
+  check('cross: 线序更大者整条用差异色', hasOver);
+  const overSrc = sSvg.includes('data-flow="cross-over"') ? sSvg : svg;
+  check('cross: 差异色不是连线本色', overSrc.includes(overColor) && overColor.toLowerCase() !== '#334155', overColor);
+  const order = new Map([['e1', 0], ['e2', 1]]);
+  const over = crossingOverIds(findOrthogonalCrossings(synth), order);
+  check('cross-order: 线序更大者为 e2', over.has('e2') && !over.has('e1'), JSON.stringify([...over]));
+}
+
+// ===== 节点右下角：Attr active 顺序 + 有值项 =====
+{
+  const attrDsl = parseFlowDSL(`Title: t
+Attr active [Role,SOP,Lv,Time,KPI]
+Dict: R[系统工程师]
+W: w1: 开始 Type[S]
+W: w3: 方案架构与DFMEA设计 Role(R[0]) SOP(QP-008) KPI(DFMEA覆盖率100%) Time(15D)
+W: w4: 仅岗位 Role(R[0])
+W: w9: 结束 Type[E]`);
+  check('corner: 无解析错误', attrDsl.errors.length === 0, attrDsl.errors.join());
+  const w3 = attrDsl.data.nodes.find((n) => n.id === 'w3')!;
+  const w4 = attrDsl.data.nodes.find((n) => n.id === 'w4')!;
+  const c3 = nodeCornerLines(w3, attrDsl.data);
+  const c4 = nodeCornerLines(w4, attrDsl.data);
+  check('corner: w3 按 active 有值四项（无 Lv）', c3.length === 4 && c3[0].includes('系统工程师') && c3.some((t) => t.includes('QP-008')) && c3.some((t) => t.includes('15D')) && c3.some((t) => t.includes('DFMEA')), JSON.stringify(c3));
+  check('corner: w3 不含空 Lv', !c3.some((t) => /Lv/i.test(t) && !t.includes('QP')));
+  check('corner: w4 仅 Role', c4.length === 1 && c4[0].includes('系统工程师'), JSON.stringify(c4));
+  const aSvg = flowToSVG(attrDsl.data, attrDsl.styles);
+  check('corner: SVG 含 SOP/Time/KPI', aSvg.includes('QP-008') && aSvg.includes('15D') && aSvg.includes('DFMEA覆盖率100%'));
+  check('corner: SVG node-attr 标记', (aSvg.match(/data-flow="node-attr"/g) || []).length >= 5);
 }
 
 console.log(`\n== ${pass} pass, ${fail} fail ==`);

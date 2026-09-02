@@ -1,6 +1,6 @@
 /**
  * IQS-Flow 配色方案 + 连线/面板反差色
- * 交叉点用 contrastStroke(line, panel) 标出，避免正交交点难以辨认。
+ * 交叉时线序更大的整条连线用 contrastStroke(line, panel)（连线色×底色公共差异色）。
  */
 import type { FlowChartStyles } from '../../types';
 

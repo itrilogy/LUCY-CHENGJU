@@ -42,8 +42,37 @@ function multilineText(cx: number, cy: number, lines: string[], fs: number, fill
   return `<text x="${cx}" y="${cy}" text-anchor="middle" fill="${fill}" font-size="${fs}" font-weight="500">${tspans}</text>`;
 }
 
+const ATTR_CORNER_PREFIX: Record<string, string> = {
+  role: '', sop: 'SOP ', lv: 'Lv ', time: '', kpi: 'KPI ', m: 'M ',
+};
+
+/** Attr active 顺序下，本节点有值的项（展开字典引用）；无 active 时回退只标 Role。 */
+export function nodeCornerLines(n: FlowData['nodes'][0], data: FlowData): string[] {
+  const active = data.attrPanel?.active?.length ? data.attrPanel.active : ['role'];
+  const lines: string[] = [];
+  for (const key of active) {
+    const raw = n.attrs?.[key];
+    if (raw == null || !String(raw).trim()) continue;
+    const shown = expandRef(data, raw);
+    if (!shown) continue;
+    lines.push(`${ATTR_CORNER_PREFIX[key] || ''}${shown}`);
+    if (lines.length >= 4) break;
+  }
+  return lines;
+}
+
+function renderCorner(cx: number, cy: number, W: number, H: number, lines: string[]): string {
+  if (!lines.length) return '';
+  const fs = 9, lh = 10;
+  const x = cx + W / 2 - 2;
+  const y0 = cy + H / 2 + 11;
+  return lines.map((t, i) =>
+    `<text data-flow="node-attr" x="${x}" y="${y0 + i * lh}" text-anchor="end" fill="#64748b" font-size="${fs}">${esc(t)}</text>`
+  ).join('');
+}
+
 /** 节点形状（中心格内，1W×1H） */
-function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy: number, W: number, H: number, roleText?: string): string {
+function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy: number, W: number, H: number, corner: string[] = []): string {
   const label = n.label || n.labelRef || n.id;
   const fs = st.nodeFontSize;
   const stroke = 'rgba(15,23,42,0.25)';
@@ -62,7 +91,7 @@ function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy:
     const labelPlate = overflow
       ? `<rect x="${cx - maxLineW / 2 - 6}" y="${cy - (lines.length * fs * 1.3) / 2 - 4}" width="${maxLineW + 12}" height="${lines.length * fs * 1.3 + 8}" rx="4" fill="#64748b" stroke="none" opacity="0.9"/>`
       : '';
-    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>${labelPlate}${multilineText(cx, cy, lines, fs, overflow ? '#f8fafc' : '#fff')}`;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>${labelPlate}${multilineText(cx, cy, lines, fs, overflow ? '#f8fafc' : '#fff')}${renderCorner(cx, cy, W, H, corner)}`;
   }
   switch (n.type) {
     case 'exclusiveGateway':
@@ -113,10 +142,7 @@ function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy:
   } else {
     out = shape + plate + multilineText(cx, textCy, lines, fs, overflow ? '#f8fafc' : '#fff');
   }
-  if (roleText) {
-    out += `<text x="${cx + W / 2 - 2}" y="${cy + H / 2 + 11}" text-anchor="end" fill="#64748b" font-size="9">${esc(roleText)}</text>`;
-  }
-  return out;
+  return out + renderCorner(cx, cy, W, H, corner);
 }
 
 /** 子流程框内内部小图：缩略节点按声明序横排/居中，迷你连线连接相邻内部节点 */
@@ -183,11 +209,13 @@ function arrowMarker(id: string, color: string): string {
   return `<defs><marker id="${id}" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L0,6 L7,3 z" fill="${color}"/></marker></defs>`;
 }
 
+export type CrossingHit = { x: number; y: number; a: string; b: string };
+
 /** 正交路径的真交叉（两端点交不算；同边折角不算）。含「一线穿过另一线拐点」。 */
 export function findOrthogonalCrossings(
   routes: Map<string, Point[]>,
   boxes: { x0: number; y0: number; x1: number; y1: number }[] = [],
-): { x: number; y: number }[] {
+): CrossingHit[] {
   type Seg = { x0: number; y0: number; x1: number; y1: number; id: string; hv: 'H' | 'V' };
   const segs: Seg[] = [];
   for (const [id, pts] of routes) {
@@ -199,16 +227,16 @@ export function findOrthogonalCrossings(
       else if (Math.abs(dx) < 0.5) segs.push({ x0: a.x, y0: Math.min(a.y, b.y), x1: a.x, y1: Math.max(a.y, b.y), id, hv: 'V' });
     }
   }
-  const hits: { x: number; y: number }[] = [];
+  const hits: CrossingHit[] = [];
   const seen = new Set<string>();
   const PAD = 1.5;
   const inBox = (x: number, y: number) => boxes.some((b) => x >= b.x0 - 1 && x <= b.x1 + 1 && y >= b.y0 - 1 && y <= b.y1 + 1);
-  const add = (x: number, y: number) => {
+  const add = (x: number, y: number, ea: string, eb: string) => {
     if (inBox(x, y)) return;
     const key = `${Math.round(x * 2) / 2},${Math.round(y * 2) / 2}`;
     if (seen.has(key)) return;
     seen.add(key);
-    hits.push({ x, y });
+    hits.push({ x, y, a: ea, b: eb });
   };
   const onClosed = (v: number, a: number, b: number) => v >= a - 0.51 && v <= b + 0.51;
   const interior = (v: number, a: number, b: number) => v > a + PAD && v < b - PAD;
@@ -220,14 +248,25 @@ export function findOrthogonalCrossings(
       if (h.id === v.id) continue;
       const x = v.x0, y = h.y0;
       if (!onClosed(x, h.x0, h.x1) || !onClosed(y, v.y0, v.y1)) continue;
-      // 真交叉：内点×内点；或一线内点穿过另一线（含拐点，排除双方都是端点的 T 接）
       const hIn = interior(x, h.x0, h.x1);
       const vIn = interior(y, v.y0, v.y1);
-      if (hIn && vIn) add(x, y);
-      else if ((hIn && onClosed(y, v.y0, v.y1)) || (vIn && onClosed(x, h.x0, h.x1))) add(x, y);
+      if (hIn && vIn) add(x, y, h.id, v.id);
+      else if ((hIn && onClosed(y, v.y0, v.y1)) || (vIn && onClosed(x, h.x0, h.x1))) add(x, y, h.id, v.id);
     }
   }
   return hits;
+}
+
+/** 交叉对中线序更大（后声明 / 后绘制）的边，整条用连线色×底色的公共差异色。 */
+export function crossingOverIds(hits: CrossingHit[], order: Map<string, number>): Set<string> {
+  const over = new Set<string>();
+  for (const h of hits) {
+    const oa = order.get(h.a) ?? -1;
+    const ob = order.get(h.b) ?? -1;
+    if (oa === ob) continue;
+    over.add(oa > ob ? h.a : h.b);
+  }
+  return over;
 }
 
 // ===== 布局计算结果 =====
@@ -243,23 +282,23 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
 
   // 泳道区背景
   parts.push(`<rect x="${x0}" y="${y0}" width="${L.gridRight - x0}" height="${L.gridBottom - y0}" fill="${st.panelColor || '#f8fafc'}"/>`);
-  // 绘制格分布：每个交叉格（含空格）画真实列宽/行高的矩形，行列对齐直接可见
+  // 绘制格内框 + 行列边界：同一套 Grid dashed|solid（内线条此前写死实线，开关无效）
+  const gridDash = st.gridLine === 'solid' ? '' : ' stroke-dasharray="4 4"';
+  const gridStroke = `stroke="#94a3b8" stroke-width="0.8"${gridDash}`;
   for (let ri = 0; ri < nR; ri++) {
     for (let ci = 0; ci < nC; ci++) {
       const gx0 = L.colX[ci], gy0 = L.bandTop(ri);
       const gw = L.colWpx[ci], gh = L.rowHpx[ri];
-      parts.push(`<rect x="${gx0}" y="${gy0}" width="${gw}" height="${gh}" fill="none" stroke="#94a3b8" stroke-width="1"/>`);
+      parts.push(`<rect x="${gx0}" y="${gy0}" width="${gw}" height="${gh}" fill="none" ${gridStroke} data-flow="lane-grid"/>`);
     }
   }
-  // 真实列/行边界：Grid dashed=虚线细线（默认，避与连线抢视觉）/ solid=实线
-  const gridDash = st.gridLine === 'solid' ? '' : ' stroke-dasharray="4 4"';
   for (let ci = 0; ci <= nC; ci++) {
     const gx = ci < nC ? L.colX[ci] : L.gridRight;
-    parts.push(`<line data-flow="lane-grid" x1="${gx}" y1="${y0}" x2="${gx}" y2="${L.gridBottom}" stroke="#94a3b8" stroke-width="0.8"${gridDash}/>`);
+    parts.push(`<line data-flow="lane-grid" x1="${gx}" y1="${y0}" x2="${gx}" y2="${L.gridBottom}" ${gridStroke}/>`);
   }
   for (let ri = 0; ri <= nR; ri++) {
     const gy = ri < nR ? L.bandTop(ri) : L.gridBottom;
-    parts.push(`<line data-flow="lane-grid" x1="${x0}" y1="${gy}" x2="${L.gridRight}" y2="${gy}" stroke="#94a3b8" stroke-width="0.8"${gridDash}/>`);
+    parts.push(`<line data-flow="lane-grid" x1="${x0}" y1="${gy}" x2="${L.gridRight}" y2="${gy}" ${gridStroke}/>`);
   }
 
   // ===== 流程图标题：AxisX=顶部通栏 / AxisY=左侧竖向标题带（不横排超宽） =====
@@ -387,15 +426,30 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     edgeRoutes.set(e.id, path);
   }
 
+  // 交叉：线序更大者整条用连线色×底色的公共差异色，后绘压在上面
+  const edgeOrder = new Map(edgeList.map((e, i) => [e.id, i]));
+  const crossHits = findOrthogonalCrossings(edgeRoutes, Object.values(allBoxes));
+  const overIds = crossingOverIds(crossHits, edgeOrder);
+  const contrast = contrastStroke(st.lineColor || '#64748b', st.panelColor || '#f8fafc');
+  const drawOrder = [...edgeList].sort((a, b) => {
+    const ao = overIds.has(a.id) ? 1 : 0;
+    const bo = overIds.has(b.id) ? 1 : 0;
+    if (ao !== bo) return ao - bo;
+    return (edgeOrder.get(a.id) ?? 0) - (edgeOrder.get(b.id) ?? 0);
+  });
+
   // 阶段 2：独立单箭头层与路径渲染
   const drawnInArrows = new Set<string>(); // 避免同一 IN 端口重复绘制箭头
 
-  for (const e of edgeList) {
+  for (const e of drawOrder) {
     const a = L.nodePos.get(e.from), b = L.nodePos.get(e.to);
     if (!a || !b) continue;
     const tp = targetPortOf.get(e.id) ?? 'T';
     const pts = edgeRoutes.get(e.id) ?? [];
     if (pts.length < 2) continue;
+    const isOver = overIds.has(e.id);
+    const stroke = isOver ? contrast : (st.lineColor || '#64748b');
+    const overAttr = isOver ? ' data-flow="cross-over"' : '';
 
     // ===== 标签：放在折线最长线段的中点 =====
     let label = '';
@@ -421,10 +475,10 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       const len = Math.hypot(vx, vy) || 1;
       const ux = vx / len, uy = vy / len;
       const mx = p0.x + ux * 10, my = p0.y + uy * 10;
-      slash = `<line data-flow="default-slash" x1="${mx - uy * 6}" y1="${my + ux * 6}" x2="${mx + uy * 6}" y2="${my - ux * 6}" stroke="${st.lineColor}" stroke-width="${st.lineWidth}"/>`;
+      slash = `<line data-flow="default-slash" x1="${mx - uy * 6}" y1="${my + ux * 6}" x2="${mx + uy * 6}" y2="${my - ux * 6}" stroke="${stroke}" stroke-width="${st.lineWidth}"/>`;
     }
     const dash = e.condition === '__doc__' ? ' stroke-dasharray="6 4"' : '';
-    parts.push(`<path d="${d}" fill="none" stroke="${st.lineColor}" stroke-width="${st.lineWidth}"${dash}/>${slash}${label}`);
+    parts.push(`<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${st.lineWidth}"${dash}${overAttr}/>${slash}${label}`);
 
     // IN 端口独立单箭头层（城门口接待员，单点唯一定位，尖端 0.00px 贴合目标边中点）
     const arrowKey = `${e.to}_${tp}`;
@@ -436,27 +490,13 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       else if (tp === 'B') tri = `${b.x},${b.y + b.H / 2} ${b.x - aw},${b.y + b.H / 2 + al} ${b.x + aw},${b.y + b.H / 2 + al}`;
       else if (tp === 'L') tri = `${b.x - b.W / 2},${b.y} ${b.x - b.W / 2 - al},${b.y - aw} ${b.x - b.W / 2 - al},${b.y + aw}`;
       else tri = `${b.x + b.W / 2},${b.y} ${b.x + b.W / 2 + al},${b.y - aw} ${b.x + b.W / 2 + al},${b.y + aw}`;
-      arrowParts.push(`<polygon points="${tri}" fill="${st.lineColor}" stroke="${st.lineColor}" stroke-width="1"/>`);
-    }
-  }
-
-  // 正交交点：面板色挖空 + 连线/面板反差色过桥，避免交叉处无法辨认哪条线在走
-  {
-    const hits = findOrthogonalCrossings(edgeRoutes, Object.values(allBoxes));
-    const haloR = Math.max(st.lineWidth * 1.6, 3.2);
-    const mark = contrastStroke(st.lineColor || '#64748b', st.panelColor || '#f8fafc');
-    const panel = st.panelColor || '#f8fafc';
-    for (const c of hits) {
-      parts.push(`<circle data-flow="cross-halo" cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${haloR}" fill="${panel}"/>`);
-      parts.push(`<line data-flow="cross-mark" x1="${(c.x - haloR).toFixed(1)}" y1="${c.y.toFixed(1)}" x2="${(c.x + haloR).toFixed(1)}" y2="${c.y.toFixed(1)}" stroke="${mark}" stroke-width="${st.lineWidth + 0.5}" stroke-linecap="round"/>`);
+      arrowParts.push(`<polygon points="${tri}" fill="${stroke}" stroke="${stroke}" stroke-width="1"/>`);
     }
   }
 
   // 节点
   for (const [, p] of L.nodePos) {
-    const roleRaw = p.n.attrs?.role;
-    const roleText = roleRaw ? expandRef(data, roleRaw) : undefined;
-    parts.push(nodeShape(p.n, st, p.x, p.y, p.W, p.H, roleText));
+    parts.push(nodeShape(p.n, st, p.x, p.y, p.W, p.H, nodeCornerLines(p.n, data)));
     // 子流程：框内嵌套内部小图（缩略节点按声明序横排，迷你连线）
     if (p.n.type === 'subprocess') {
       const inner = data.nodes.filter((n) => n.parent === p.n.id && n.id !== p.n.id);

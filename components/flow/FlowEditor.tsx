@@ -700,7 +700,7 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                 ))}
               </div>
               <p className="text-[10px] text-[var(--sidebar-muted)] leading-relaxed">
-                连线交叉处自动用连线色相对面板色的反差色标出过桥。配色方案会写入 <code className="font-mono">Color[Slot]</code>；泳道线型写入 <code className="font-mono">Grid: dashed|solid</code>。
+                交叉时线序更大的整条连线改用连线色与底色的公共差异色。配色方案写入 <code className="font-mono">Color[Slot]</code>；泳道内框与边界写入 <code className="font-mono">Grid: dashed|solid</code>。
               </p>
             </div>
           </div>
