@@ -329,3 +329,29 @@ npm run test:flow
 - 节点 Type/Location/属性表单、泳道索引多选（可再增一档）
 - scc.ts 抽取
 - T2 像素黄金快照
+
+---
+
+## 2026-09-02 · 收尾（scc + 节点/泳道表单 + 黄金格位快照；本地提交，不 push）
+
+### 1. 基线
+
+- `78a9aab`（M-Man）之上 → `b96336c`。
+
+### 2. 改动
+
+| 文件 | 性质 | 验证 |
+|:---|:---|:---|
+| `components/flow/scc.ts` | Tarjan SCC 抽出 | parser 环路 + mainline 8 |
+| `FlowParser.ts` / `MainlineOrder.ts` | 改用 `tarjanSCC` | 既有断言 |
+| `FlowEditor.tsx` | 泳道索引多选；节点 Type/Location/vh/SOP/Role/Attach 回写 DSL | tsc |
+| `assert_flow_svg.ts` | 采购样例节点格位黄金指纹 + svg 体量 | svg 66→68 |
+
+### 3. 验证
+
+- `npx tsc --noEmit` 0 errors
+- `npm run test:flow` **161 全绿**（60+68+17+8+8）
+
+### 4. 方案状态
+
+`FLOW_NEXT_PHASE_PLAN.md` 主线里程碑及收尾三项已本地落地。未 push（相对 `origin/main` 超前 7 个提交，含本条 NOTES）。
