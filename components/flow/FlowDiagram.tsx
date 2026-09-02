@@ -24,7 +24,7 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
 
   const finalStyles = { ...DEFAULT_FLOW_STYLES, ...styles };
   const svg = flowToSVG(data, finalStyles);
-  const size = getSvgSize(data);
+  const size = getSvgSize(data, finalStyles);
 
   const buildPNG = async (pixelRatio: number, background: string, width?: number, height?: number): Promise<string> => {
     const outW = width || size.width;

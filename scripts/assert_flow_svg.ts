@@ -5,6 +5,7 @@
  */
 import { flowToSVG, getSvgSize, FLOW_SVG, computeExcelLayout } from '../components/flow/flowToSVG.ts';
 import { parseFlowDSL } from '../components/flow/FlowParser.ts';
+import { solveAlgebraicPorts } from '../components/flow/AlgebraicFlowRouter.ts';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail?: string) {
@@ -345,6 +346,31 @@ W: w4: 补齐材料 Location(D[0],P[1])`)
   const paths=[...svgC.matchAll(/<path d="(M[^"]*)" fill="none"[^>]*stroke-width="2"/g)].map(x=>x[1]);
   let loose=0; for(const d of paths){const n=d.match(/[-\d.]+/g).map(Number);const s={x:+n[0],y:+n[1]},t={x:+n[n.length-2],y:+n[n.length-1]};if(!Object.keys(box).some(id=>near(id,s))||!Object.keys(box).some(id=>near(id,t)))loose++;}
   check('cx-endpoint: 连线端点贴节点边界(0悬空)', loose===0, `loose=${loose}`);
+}
+
+{
+  // A1 WSAD：任意节点入端口集 ∩ 出端口集 = ∅
+  const lay = computeExcelLayout(r.data, r.styles);
+  const nodesGeo = [...lay.nodePos.entries()].map(([id, p]) => ({
+    id, ri: p.ri, ci: p.ci, x: p.x, y: p.y, W: p.W, H: p.H,
+  }));
+  const specs = r.data.edges.map((e) => ({
+    id: e.id, from: e.from, to: e.to, label: e.label, condition: e.condition, isDoc: e.condition === '__doc__',
+  }));
+  const { sourcePorts, targetPorts } = solveAlgebraicPorts(nodesGeo, specs);
+  const inDirs = new Map<string, Set<string>>();
+  const outDirs = new Map<string, Set<string>>();
+  for (const n of nodesGeo) { inDirs.set(n.id, new Set()); outDirs.set(n.id, new Set()); }
+  for (const e of specs) {
+    const sp = sourcePorts.get(e.id); const tp = targetPorts.get(e.id);
+    if (sp) outDirs.get(e.from)?.add(sp);
+    if (tp) inDirs.get(e.to)?.add(tp);
+  }
+  let conflict = 0;
+  for (const n of nodesGeo) {
+    for (const d of inDirs.get(n.id) || []) if (outDirs.get(n.id)?.has(d)) conflict++;
+  }
+  check('a1-wsad: 入出端口互斥', conflict === 0, `conflicts=${conflict}`);
 }
 
 console.log(`\n== ${pass} pass, ${fail} fail ==`);

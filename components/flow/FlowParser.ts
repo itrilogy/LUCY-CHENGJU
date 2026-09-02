@@ -192,6 +192,7 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
       const slot = colorMatch[1];
       const colorKey = slotToStyleKey(slot);
       if (colorKey) style[colorKey] = colorMatch[2];
+      else warnings.push(`Color[${slot}] 不是已支持的色槽，已忽略`);
       continue;
     }
   }
@@ -671,14 +672,13 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
 
   function slotToStyleKey(slot: string): string | undefined {
     const map: Record<string, string> = {
-      'Start': 'startColor', 'StartText': 'startTextColor',
-      'End': 'endColor', 'EndText': 'endTextColor',
+      'Start': 'startColor',
+      'End': 'endColor',
       'Task': 'taskColor', 'Gateway': 'gatewayColor',
       'Parallel': 'parallelColor', 'Subprocess': 'subprocessColor',
       'Annotation': 'annotationColor', 'Data': 'dataColor',
       'Lane': 'laneColor', 'Axis': 'axisColor',
       'Line': 'lineColor', 'Text': 'textColor', 'Panel': 'panelColor',
-      'Label': 'labelFontSize', 'Node': 'nodeFontSize'
     };
     return map[slot] || undefined;
   }

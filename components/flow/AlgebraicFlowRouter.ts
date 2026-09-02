@@ -7,6 +7,9 @@ export type Port = 'T' | 'B' | 'L' | 'R';
 export type Point = { x: number; y: number };
 export type Box = { x0: number; y0: number; x1: number; y1: number };
 
+/** 回边/驳回标签（中文业务词表）。未命中时仍可用几何 dx<-40 判定逆流。 */
+export const BACK_EDGE_LABELS = new Set(['驳回', '不达标', '整改', '否', '不通过', '退回']);
+
 export const PORT_NORMALS: Record<Port, Point> = {
   T: { x: 0, y: -1 },
   B: { x: 0, y: 1 },
@@ -201,8 +204,8 @@ export function solveAlgebraicPorts(
     if (!u || !v) return 9999;
 
     const dx = v.x - u.x, dy = v.y - u.y;
-    // 显式回退流 (带驳回/不达标/整改等否定标签) 或 大幅度向左逆流
-    const isExplicitBack = (e.label === '驳回' || e.label === '不达标' || e.label === '整改' || e.label === '否');
+    // 显式回退流：否定词表（可扩展）或大幅度向左逆流
+    const isExplicitBack = !!(e.label && BACK_EDGE_LABELS.has(e.label));
     const isPhysicalBack = isExplicitBack || (dx < -40);
     
     // 纯同轴正向直连 (如同列垂直向上/向下直通，或同行水平直通)
@@ -450,5 +453,17 @@ export function solveAlgebraicRoute(
     return all[0].pts;
   }
 
-  return cleanOrthogonalPath(horiz0 ? [p0, { x: pk.x, y: p0.y }, pk] : [p0, { x: p0.x, y: pk.y }, pk]);
+  // A4：无碰撞通道时的 L 兜底若穿盒，改走代价最低的外侧走廊（允许外侧未过 hits 过滤的候选）
+  const fallback = cleanOrthogonalPath(horiz0 ? [p0, { x: pk.x, y: p0.y }, pk] : [p0, { x: p0.x, y: pk.y }, pk]);
+  if (!hitsObstacle(fallback)) return fallback;
+  const outerAny: { pts: Point[]; cost: number }[] = [];
+  for (const raw of outerOps) {
+    const p = cleanOrthogonalPath(raw);
+    outerAny.push({ pts: p, cost: computeCost(p) + (hitsObstacle(p) ? 5000 : 0) });
+  }
+  if (outerAny.length > 0) {
+    outerAny.sort((a, b) => a.cost - b.cost);
+    return outerAny[0].pts;
+  }
+  return fallback;
 }

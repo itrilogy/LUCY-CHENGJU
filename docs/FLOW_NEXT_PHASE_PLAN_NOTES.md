@@ -213,3 +213,34 @@ npm run test:flow
 
 - 独立 `lint_flow` MCP 工具（可选，未膨胀 catalog）
 - 外部模型抽检成功率（需人工接 MCP 客户端）
+
+---
+
+## 2026-09-02 · M-Fix（A4 穿盒兜底 / Color 槽 / 默认边往返 / A1 护栏；本地提交，不 push）
+
+### 1. 基线
+
+- `3abc2c2`（M-MCP）之上。
+
+### 2. 改动
+
+| 文件 | 性质 | 验证 |
+|:---|:---|:---|
+| `AlgebraicFlowRouter.ts` | L 兜底若穿盒改走外侧走廊；回边词表抽 `BACK_EDGE_LABELS` | svg 既有 + a1 |
+| `FlowDiagram.tsx` | `getSvgSize(data, finalStyles)` 与绘制共用 styles | tsc |
+| `FlowParser.ts` | Color 槽只写入 FlowChartStyles 已有键；非法槽 warning | parser |
+| `FlowEditor.tsx` `flowToDsl` | 跳过声明序相邻、无标签的自动顺序流（parser 会再生） | 往返不膨胀 |
+| `assert_flow_svg.ts` | A1：入出端口互斥 | svg 61→62 |
+| SPEC/手册/LAYOUT | 断言口径 154→155 | 人读 |
+
+### 3. 验证
+
+- `npx tsc --noEmit` 0 errors
+- `npm run test:flow` **155 全绿**（60+62+17+8+8）
+
+### 4. 未做
+
+- A1b 抽 ExcelLayout.ts / 共用 scc.ts（结构搬迁，可单独开）
+- M-Ord MainlineOrder 接 autoSeq
+- M-T2 守护位移
+- M-Man 手动页可编辑表单

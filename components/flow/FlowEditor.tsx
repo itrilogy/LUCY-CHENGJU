@@ -115,12 +115,26 @@ export function flowToDsl(data: FlowData): string {
   lines.push('');
   lines.push('// ===== 连线 =====');
   const innerNodes = new Set(data.nodes.filter((n) => n.parent).map((n) => n.id));
+  const siblingsOf = (id: string) => {
+    const parent = data.nodes.find((x) => x.id === id)?.parent;
+    return data.nodes.filter((n) => n.parent === parent);
+  };
+  const isAutoSeq = (e: { from: string; to: string; label: string | null; condition: string | null; default: boolean; parent?: string }) => {
+    if (e.parent) return false;
+    if (e.label || e.condition) return false;
+    if (e.default) return false;
+    if (gatewayNodes.has(e.from)) return false;
+    const sib = siblingsOf(e.from);
+    const i = sib.findIndex((n) => n.id === e.from);
+    return i >= 0 && sib[i + 1]?.id === e.to;
+  };
   for (const e of data.edges) {
     if (e.parent) continue;
     if (gatewayNodes.has(e.from)) continue;
     if (innerNodes.has(e.from) && !subNodes.has(e.from) && data.nodes.find((x) => x.id === e.from)?.parent) continue;
     const dup = data.edges.some((x) => x !== e && x.from === e.from && x.to === e.to);
     if (dup) continue;
+    if (isAutoSeq(e)) continue; // parser 会按声明序再生，避免往返膨胀
     lines.push(`${e.from} → #${e.to}`);
   }
   return lines.join('\n');
