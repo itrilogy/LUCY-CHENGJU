@@ -13,7 +13,7 @@ import { parseFlowDSL } from './FlowParser';
 import { generateLogicDSL, getAIStatus } from '../../services/aiService';
 import {
   Sparkles, Code, HelpCircle, X, Loader2, Database, ChevronRight,
-  Cpu, RotateCcw
+  Cpu, RotateCcw, Plus, Trash2
 } from 'lucide-react';
 
 interface FlowEditorProps {
@@ -168,6 +168,25 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
     applyDsl(val);
   };
 
+  const upsertHeader = (src: string, key: 'Title' | 'Layout', value: string) => {
+    const re = new RegExp(`^${key}:.*$`, 'mi');
+    if (re.test(src)) return src.replace(re, `${key}: ${value}`);
+    return `${key}: ${value}\n${src}`;
+  };
+
+  const replaceDictLine = (src: string, name: string, values: string[]) => {
+    const re = new RegExp(`^Dict:\\s*${name}\\[[^\\]]*\\]\\s*$`, 'm');
+    const line = `Dict: ${name}[${values.join(',')}]`;
+    if (re.test(src)) return src.replace(re, line);
+    const lines = src.split('\n');
+    let last = -1;
+    lines.forEach((l, i) => { if (/^Dict:/i.test(l.trim())) last = i; });
+    if (last >= 0) { lines.splice(last + 1, 0, line); return lines.join('\n'); }
+    return `${line}\n${src}`;
+  };
+
+  const commitDsl = (next: string) => { setDsl(next); applyDsl(next); };
+
   const handleReset = () => {
     setDsl(INITIAL_FLOW_DSL);
     applyDsl(INITIAL_FLOW_DSL);
@@ -264,9 +283,26 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                 <ChevronRight size={14} className="text-teal-500" />
                 <span className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">分析课题</span>
               </div>
-              <div className="w-full min-h-14 px-6 py-4 logic-terminal-input text-sm font-bold bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--sidebar-text)] rounded-lg shadow-sm">
-                {data.title || '（未命名流程）'}
-                <span className="ml-3 text-[10px] font-black uppercase tracking-widest text-[var(--sidebar-muted)]">Layout {data.layout || 'H'}</span>
+              <input
+                value={data.title || ''}
+                onChange={(e) => commitDsl(upsertHeader(dsl, 'Title', e.target.value))}
+                className="w-full h-14 px-6 logic-terminal-input text-sm font-bold bg-[var(--input-bg)] border border-[var(--input-border)] text-[var(--sidebar-text)] rounded-lg focus:border-teal-500 outline-none shadow-sm"
+                placeholder="流程标题…"
+              />
+              <div className="flex gap-2">
+                {(['H', 'V'] as const).map((dir) => (
+                  <button
+                    key={dir}
+                    onClick={() => commitDsl(upsertHeader(dsl, 'Layout', dir))}
+                    className={`flex-1 h-10 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
+                      (data.layout || 'H') === dir
+                        ? 'bg-teal-600 text-white border-teal-500'
+                        : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)]'
+                    }`}
+                  >
+                    Layout {dir} {dir === 'H' ? '横向' : '纵向'}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -295,10 +331,35 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {(data.dicts[k] || []).map((v, i) => (
-                        <span key={`${k}-${i}`} className="px-2 py-1 rounded bg-[var(--input-bg)] border border-[var(--input-border)] text-[11px] font-mono text-[var(--sidebar-text)]">
-                          <span className="text-[var(--sidebar-muted)] mr-1">{i}</span>{v}
+                        <span key={`${k}-${i}`} className="group flex items-center gap-1 px-2 py-1 rounded bg-[var(--input-bg)] border border-[var(--input-border)] text-[11px] font-mono text-[var(--sidebar-text)]">
+                          <span className="text-[var(--sidebar-muted)]">{i}</span>
+                          <input
+                            value={v}
+                            onChange={(e) => {
+                              const vals = [...(data.dicts[k] || [])];
+                              vals[i] = e.target.value;
+                              commitDsl(replaceDictLine(dsl, k, vals));
+                            }}
+                            className="bg-transparent outline-none w-24 text-[var(--sidebar-text)]"
+                          />
+                          <button
+                            title="删除此项"
+                            onClick={() => {
+                              const vals = (data.dicts[k] || []).filter((_, j) => j !== i);
+                              commitDsl(replaceDictLine(dsl, k, vals));
+                            }}
+                            className="opacity-0 group-hover:opacity-100 text-[var(--sidebar-muted)] hover:text-red-400"
+                          >
+                            <Trash2 size={12} />
+                          </button>
                         </span>
                       ))}
+                      <button
+                        onClick={() => commitDsl(replaceDictLine(dsl, k, [...(data.dicts[k] || []), '新项']))}
+                        className="px-2 py-1 rounded border border-dashed border-[var(--sidebar-border)] text-[10px] font-black uppercase tracking-widest text-[var(--sidebar-muted)] hover:text-teal-400 hover:border-teal-500/50"
+                      >
+                        <Plus size={12} className="inline mr-1" />添加
+                      </button>
                     </div>
                   </div>
                 ))
@@ -334,6 +395,27 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                     <span className="ml-auto text-[9px] font-mono text-[var(--sidebar-muted)]">{n.id}</span>
                   </div>
                 ))}
+                <button
+                  onClick={() => {
+                    const used = new Set((data.nodes || []).map((n) => n.id));
+                    let i = used.size + 1;
+                    while (used.has(`w${i}`)) i++;
+                    commitDsl(`${dsl.replace(/\s+$/, '')}\nW: w${i}: 新活动`);
+                  }}
+                  className="w-full h-12 border border-dashed border-[var(--sidebar-border)] rounded-lg flex items-center justify-center gap-2 text-[var(--sidebar-muted)] hover:text-teal-400 hover:border-teal-500/50 text-[10px] font-black uppercase tracking-widest"
+                >
+                  <Plus size={16} /> 添加节点（W 行）
+                </button>
+                <button
+                  onClick={() => {
+                    let n = 1;
+                    while (data.dicts[`extra${n}`]) n++;
+                    commitDsl(replaceDictLine(dsl, `extra${n}`, ['项1']));
+                  }}
+                  className="w-full h-10 text-[10px] font-black uppercase tracking-widest text-[var(--sidebar-muted)] hover:text-teal-400"
+                >
+                  + 添加自定义字典
+                </button>
               </div>
             </div>
 

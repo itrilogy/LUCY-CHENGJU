@@ -302,3 +302,30 @@ npm run test:flow
 - M-Man 手动页可编辑表单
 - scc.ts 抽取（Parser / MainlineOrder 仍各有一份 Tarjan）
 - T2 可视化黄金 SVG 快照（以断言 Φ 不增 + 既有几何为护栏）
+
+---
+
+## 2026-09-02 · M-Man（手动页可编辑 Title/Layout/Dict/节点；本地提交，不 push）
+
+### 1. 基线
+
+- `33fd37f`（A1b+T2）之上。
+
+### 2. 改动
+
+| 文件 | 性质 | 验证 |
+|:---|:---|:---|
+| `FlowEditor.tsx` | 手动页：标题输入、Layout H/V、Dict 芯片改/删/增、添加 W 行与自定义字典；全部 patch DSL 再 parse（单一数据源） | tsc |
+
+网关出口/子流程折叠/Location 下拉仍引导去 DSL（方案 B2）。
+
+### 3. 验证
+
+- `npx tsc --noEmit` 0 errors
+- 引擎断言未改；`test:flow` 仍以 159 为准
+
+### 4. 未做
+
+- 节点 Type/Location/属性表单、泳道索引多选（可再增一档）
+- scc.ts 抽取
+- T2 像素黄金快照
