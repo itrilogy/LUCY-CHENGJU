@@ -1,30 +1,33 @@
-<p align="center">
-  <img src="./docs/assets/readme-banner.svg" alt="Intelligent QC Studio — IQS" width="920" />
-</p>
-
-<p align="center">
-  <img src="./docs/assets/iqs-mark.svg" width="72" height="72" alt="IQS 产品标识" />
-  &nbsp;&nbsp;&nbsp;
-  <img src="./docs/assets/luxi-lab.svg" width="72" height="72" alt="鹿溪联合创新实验室 LUXI LAB" />
-</p>
+<div align="center">
+  <img src="./docs/assets/iqs-mark.svg" width="64" height="64" alt="澄矩 · ChengJu 产品标" />
+  &nbsp;&nbsp;
+  <img src="./docs/assets/luxi-lab.svg" width="64" height="64" alt="鹿溪联合创新实验室 LUXI LAB" />
+</div>
 
 <h1 align="center">澄矩 · ChengJu（IQS）</h1>
 
 <p align="center">
-  <strong>澄矩 · 工业智能质量控制工作站</strong><br/>
-  <em>源清流澈，行止应矩</em><br/>
+  <strong>源清流澈，行止应矩</strong><br/>
+  <em>Purity in quality stream, precision within bounded rules.</em><br/>
   自研 <strong>IQS-DSL</strong> + AI 推理 + MCP 渲染 · 工业级 QC 图表平台
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.5.3--ildr-0D5E42?style=flat-square" alt="version" />
-  <img src="https://img.shields.io/badge/IQS--DSL-v1.1-00D2FF?style=flat-square" alt="dsl" />
-  <img src="https://img.shields.io/badge/CORE-14%20kinds-0D5E42?style=flat-square" alt="core" />
-  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white" alt="react" />
-  <img src="https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite&logoColor=white" alt="vite" />
-  <img src="https://img.shields.io/badge/MCP-CORE%20%2B%20RELIEF-orange?style=flat-square" alt="mcp" />
-  <img src="https://img.shields.io/badge/license-Proprietary-red?style=flat-square" alt="license" />
+  <img src="https://img.shields.io/badge/Matrix-工坊%C2%B7一法-0D5E42" alt="matrix" />
+  <img src="https://img.shields.io/badge/Product-澄矩%20ChengJu-0D5E42" alt="product" />
+  <img src="https://img.shields.io/badge/Lab-鹿溪联合创新实验室-047538" alt="lab" />
+  <img src="https://img.shields.io/badge/Version-v3.5.3--ildr-f1c40f" alt="version" />
+  <img src="https://img.shields.io/badge/IQS--DSL-v1.1-00D2FF" alt="dsl" />
+  <img src="https://img.shields.io/badge/Stack-React%2019%20%7C%20Vite%206-61DAFB" alt="stack" />
+  <img src="https://img.shields.io/badge/license-Proprietary-red" alt="license" />
 </p>
+
+<p align="center">
+  <b>鹿溪联合创新实验室</b>（LUXI Joint Innovation Lab）出品 · 著作权人：江西省上饶市烟草专卖局（公司）<br/>
+  仓库：<a href="https://github.com/itrilogy/LUCY-CHENGJU">itrilogy/LUCY-CHENGJU</a>
+</p>
+
+---
 
 <p align="center">
   <a href="#快速开始">快速开始</a> ·
@@ -38,21 +41,22 @@
 
 ---
 
-## 产品标识
+## 🎨 产品标识
 
-| | 标识 | 路径 |
-|:---:|:---|:---|
-| **产品** | <img src="./docs/assets/iqs-mark.svg" width="48" alt="IQS" /> | [`public/brand/iqs-mark.svg`](./public/brand/iqs-mark.svg) · favicon：[`public/favicon.svg`](./public/favicon.svg) |
-| **出品方** | <img src="./docs/assets/luxi-lab.svg" width="48" alt="LUXI LAB" /> | [`public/brand/luxi-lab.svg`](./public/brand/luxi-lab.svg) |
-| **横版字锁** | <img src="./docs/assets/iqs-logo.svg" width="280" alt="IQS Logo" /> | [`public/brand/iqs-logo.svg`](./public/brand/iqs-logo.svg) |
+| 标识 | 预览 | 说明 | 源文件 |
+| :---: | :---: | :--- | :--- |
+| **产品方标** | <img src="./docs/assets/iqs-mark.svg" width="32" alt="IQS" /> | 控制图折线 + 限线（QC/SPC）· S 形溪流 · 源启星 | `public/brand/iqs-mark.svg` |
+| **横版字锁** | <img src="./docs/assets/iqs-logo.svg" width="200" alt="IQS Logo" /> | 横版产品字锁 | `public/brand/iqs-logo.svg` |
+| **实验室主标** | <img src="./docs/assets/luxi-lab.svg" width="32" alt="LUXI LAB" /> | 官方 LUXI LAB | `public/brand/luxi-lab.svg` |
 
-**色板（与见鹿 / 听默对齐）**
+**色板（LUXI CI）**
 
-| 名称 | 色值 | 用途 |
-|:---|:---|:---|
+| Token | 色值 | 用途 |
+| :--- | :--- | :--- |
 | 鹿溪绿 | `#0D5E42` | 产品标底、品牌主色 |
 | 源启白 | `#F5F7FA` | 面板反白 |
 | 进化蓝 | `#00D2FF` | 溪流、源启星、强调 |
+| 标题金 | `#F1C40F` | 落点、显著信号 |
 
 **IQS 方标语义**：控制图折线 + 限线（QC/SPC）· S 形溪流（数据流动）· 源启星（智能生成）。
 
@@ -68,7 +72,6 @@
 - **CORE（14）**：鱼骨、排列、直方、控制、散点、雷达、关联、矢线、PDPC、矩阵、图矩阵、亲和、基础图、**企业流程图（IQS-Flow）**
 - **RELIEF**：Mermaid / VChart 类型外救济（**不替代** QC / 体系文件终稿）
 - 出品标识：**鹿溪联合创新实验室** · 著作权人见文末
-- 仓库：<https://github.com/itrilogy/LUCY-CHENGJU>
 
 ---
 
@@ -168,7 +171,7 @@ W: q1: 金额超过5000? Type[?] Location(D[0],P[1])
 
 ---
 
-## 快速开始
+## 🚀 快速开始
 
 ### 环境
 
@@ -260,7 +263,7 @@ AI_ACTIVE_PROFILE=deepseek_public
 
 ---
 
-## 项目结构
+## 📁 项目结构
 
 ```text
 LUCY-CHENGJU/
@@ -288,7 +291,7 @@ LUCY-CHENGJU/
 
 ---
 
-## 文档
+## 📚 文档
 
 | 文档 | 说明 |
 |:---|:---|
@@ -307,7 +310,7 @@ LUCY-CHENGJU/
 
 ---
 
-## 知识产权与版权
+## ⚖️ 知识产权与版权
 
 | 类型 | 内容 | 状态 |
 |:---|:---|:---|
@@ -329,15 +332,9 @@ LUCY-CHENGJU/
 
 ---
 
-<p align="center">
-  <img src="./docs/assets/iqs-mark.svg" width="40" alt="IQS" />
-  &nbsp;
-  <img src="./docs/assets/luxi-lab.svg" width="40" alt="LUXI LAB" />
-</p>
-
-<p align="center">
-  <sub>
-    © 2026 江西省上饶市烟草专卖局（公司）信息中心<br/>
-    澄矩 · ChengJu v3.5.3-ildr · 鹿溪联合创新实验室 · 源清流澈，行止应矩
-  </sub>
-</p>
+<div align="center">
+  <img src="./docs/assets/luxi-lab.svg" width="48" height="48" alt="LUXI LAB" />
+  <p><strong>澄矩 · ChengJu</strong> · 源清流澈，行止应矩</p>
+  <p>© 2026 江西省上饶市烟草专卖局（公司）信息中心 · 鹿溪联合创新实验室 · LUXI Joint Innovation Lab</p>
+  <p><em>林深见鹿，源启清溪 · Deep Insights, Evolutionary Origin.</em></p>
+</div>
