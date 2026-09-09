@@ -68,7 +68,7 @@
 - **CORE（14）**：鱼骨、排列、直方、控制、散点、雷达、关联、矢线、PDPC、矩阵、图矩阵、亲和、基础图、**企业流程图（IQS-Flow）**
 - **RELIEF**：Mermaid / VChart 类型外救济（**不替代** QC / 体系文件终稿）
 - 出品标识：**鹿溪联合创新实验室** · 著作权人见文末
-- 仓库：<https://github.com/itrilogy/smart-qc-studio>
+- 仓库：<https://github.com/itrilogy/LUCY-CHENGJU>
 
 ---
 
@@ -179,8 +179,8 @@ W: q1: 金额超过5000? Type[?] Location(D[0],P[1])
 ### 开发模式
 
 ```bash
-git clone https://github.com/itrilogy/smart-qc-studio.git
-cd smart-qc-studio
+git clone https://github.com/itrilogy/LUCY-CHENGJU.git
+cd LUCY-CHENGJU
 npm install
 cp .env.example .env          # 填写 API_KEY（勿提交）
 npm run validate:dsl
@@ -263,7 +263,7 @@ AI_ACTIVE_PROFILE=deepseek_public
 ## 项目结构
 
 ```text
-smart-qc-studio/
+LUCY-CHENGJU/
 ├── App.tsx / index.tsx              # 应用入口与编排
 ├── components/                      # *Diagram + *Editor
 │   └── flow/                        # IQS-Flow：解析 / 布局 / 路由 / SVG / 编辑器
