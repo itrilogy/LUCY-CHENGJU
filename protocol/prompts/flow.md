@@ -30,30 +30,48 @@
 ## 范式（照此结构，不要照抄内容）
 
 ```dsl
-Title: 采购申请审批流程
+Title: 卷烟生产批次质量追溯与放行流程
 Layout: H
-Dict: D[信息中心,综合计划科,办公室]
-Dict: P[申请阶段,审批阶段,执行阶段,归档阶段]
-Dict: R[申请员,部门经理,财务岗]
-Dict: worker[提交采购申请,填写申请单,金额超过5000?,部门经理审批,直接执行,财务付款,归档]
-Lane from D[0,1,2] Layout H
-Lane from P[0,1,2,3] Layout V
-AxisX: 职能部门 Align C
-AxisY: 推进阶段 Align C
-Attr active [Role,SOP,Lv,Time]
-W: w1: worker[0] Type[S] Location(D[0],P[0])
-W: w2: worker[1] Location(D[0],P[0]) SOP(XX-CX-04) Role(R[0]) Lv(重要)
-W: q1: worker[2] Type[?] Location(D[0],P[1])
-   是 → #w4
-   否 → #w5
+Grid: dashed
+Dict: D[制丝车间,卷包车间,质检中心,技术中心,档案室]
+Dict: P[批次创建,参数采集,并行检测,异常处置,放行归档]
+Dict: R[操作员,质检员,技术员,档案员]
+Dict: worker[创建生产批次,录入工艺参数,质量指标是否合规?,物理指标检测,化学指标检测,偏差分析与处置,技术中心复核,编制批次报告,质量放行,资料归档,复核评审记录,检测数据集]
+Lane from D[0,1,2,3,4] Layout H
+Lane from P[0,1,2,3,4] Layout V
+AxisX: 责任部门 Align C
+AxisY: 流程阶段 Align C
+Axis: 卷烟批次质量追溯 AxisY
+Attr active [Role,SOP,Lv,Time,KPI,M]
+W: w1: worker[0] Type[S] Location(D[0],P[0]) Role(R[0]) SOP(ZZ-PC-01) Lv(一般) Time(0.5h)
+W: w2: worker[1] Location(D[0],P[1]) Role(R[0]) SOP(ZZ-PC-02) Time(1h)
+W: g1: worker[2] Type[?] Location(D[2],P[1]) Role(R[1]) KPI(一次合格率)
+   合规 → #p1
+   不合规 → #w5
    End
-W: w4: worker[3] Location(D[1],P[1]) Role(R[1]) Time(24h)
-W: w5: worker[4] Location(D[0],P[2])
-W: w6: worker[5] Location(D[2],P[2]) Role(R[2])
-W: w7: worker[6] Type[E] Location(D[1],P[3])
-w4 → #w6
-w5 → #w6
-w6 → #w7
+W: p1: worker[3] Type[+] Location(D[1],P[1]) Role(R[1]) SOP(ZD-JC-05)
+   物理检测 → #w3
+   化学检测 → #w4
+   End
+W: w3: worker[3] Location(D[1],P[2]) Role(R[1]) Time(2h) Lv(重要)
+W: w4: worker[4] Location(D[2],P[2]) Role(R[1]) Time(3h) Lv(重要)
+W: sub1: worker[6] Type[SUB] Location(D[3],P[2]) Role(R[2]) Time(4h)
+   W: s1: 受理复核 Type[S] Role(R[2]) SOP(JS-FH-01)
+   W: s2: 出具意见 Type[E] Role(R[2]) SOP(JS-FH-02)
+   End
+W: w5: worker[5] Location(D[3],P[2]) Role(R[2]) SOP(JS-YC-11) Lv(关键) M(强制项)
+W: w8: worker[7] Location(D[2],P[3]) Role(R[1]) SOP(ZD-BG-08) Time(1h)
+W: w9: worker[8] Location(D[1],P[4]) Role(R[1]) Lv(关键) KPI(放行及时率)
+W: w10: worker[9] Type[E] Location(D[4],P[4]) Role(R[3]) Time(0.5h)
+W: n1: worker[10] Type[N] Attach(#w8)
+W: d1: worker[11] Type[DATA] Attach(#p1)
+w2 → #g1
+w3 → #w8
+w4 → #w8
+w5 → #sub1
+sub1 → #w8
+w8 → #w9
+w9 → #w10
 ```
 
 ## 语法
