@@ -1,3 +1,20 @@
+---
+doc_id: IQS-COMP-DESIGN-MATRIX
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: COMP
+type: DESIGN
+authority: L4
+freshness: ⚪未审计
+first_commit: 2026-02-05
+last_commit: 2026-02-05
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # Smart QC Tools - 矩阵图 (Matrix Diagram) 工程实施预研
 
 ## 1. 矩阵图必要知识与工程定义

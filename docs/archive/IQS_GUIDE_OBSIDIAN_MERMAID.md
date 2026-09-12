@@ -1,3 +1,20 @@
+---
+doc_id: IQS-GUIDE-OBSIDIAN-MERMAID
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: COMP
+type: GUIDE
+authority: L4
+freshness: 🔵历史快照
+first_commit: 2026-02-26
+last_commit: 2026-02-26
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # Obsidian中的Mermaid培训教程
 
 ## 课程概述

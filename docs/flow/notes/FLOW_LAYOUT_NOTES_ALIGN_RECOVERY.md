@@ -5,7 +5,7 @@
 > **修复日期**: 2026-08-31  
 > **设计意图（用户明示）**: 流程图必须**绝对对齐、工整**——XY 矩阵统一扩展、节点居中、行列齐平、连线走格子通道，不得因功能补丁打乱网格。  
 > **覆盖范围**: `components/flow/flowToSVG.ts`、`scripts/assert_flow_svg.ts`、`scripts/_flow_probe.ts`  
-> **前置**: P0 正确性已闭环（见 `docs/FLOW_P0_RECOVERY_NOTES.md`，`getSvgSize` / 单维索引 / 缺省落格 / 结束节点不出默认流）  
+> **前置**: P0 正确性已闭环（见 `docs/flow/notes/FLOW_LAYOUT_NOTES_RECOVERY_P0.md`，`getSvgSize` / 单维索引 / 缺省落格 / 结束节点不出默认流）  
 > **本轮定位**: P0 之后仍破坏「整齐网格」的布局与排版问题；不是新功能堆砌。
 
 ---

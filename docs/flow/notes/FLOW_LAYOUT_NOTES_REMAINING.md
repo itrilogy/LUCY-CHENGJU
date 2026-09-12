@@ -2,7 +2,7 @@
 
 > **文档状态**: 执行记录 / 归档
 > **执行日期**: 2026-08-31
-> **对应规划**: `docs/FLOW_REMAINING_PLAN.md`（R1–R6 / 里程碑 M0–M3）
+> **对应规划**: `docs/flow/notes/FLOW_LAYOUT_PLAN_REMAINING.md`（R1–R6 / 里程碑 M0–M3）
 > **基线**: `main @ 9246131`（规划落盘）→ 执行后 `main` 含 M0–M3
 > **原则**: 每里程碑独立 commit + 断言，全量回归；不触碰核心绘画引擎。
 

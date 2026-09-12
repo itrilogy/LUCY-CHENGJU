@@ -1,3 +1,20 @@
+---
+doc_id: IQS-GUIDE-TROUBLESHOOTING
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: MCP
+type: GUIDE
+authority: L4
+freshness: ⚪未审计
+first_commit: 2026-02-05
+last_commit: 2026-02-05
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # 故障排查记录 (Troubleshooting Log)
 
 本文档记录项目中遇到的关键技术问题及其解决方案，作为开发团队的经验沉淀与调试指引。

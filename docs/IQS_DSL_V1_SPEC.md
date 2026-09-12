@@ -465,7 +465,7 @@ Dataset: 产量, [120, 145, 138], #3b82f6, Y
 - **Directives**: `Title`, `Layout` (H/V), `Dict`, `Lane from`, `AxisX`/`AxisY`/`Axis`, `Attr active`, `Color[Slot]`, `Grid` (`dashed`\|`solid`，泳道线型；与图表 `Grid: true`→ShowGrid 分 kind 解释), `W:` 节点（`Type[S|E|T|?|+|SUB|N|DATA]`、`Location`、`Attach`、`V|H|D`）  
 - **红线**: Dict 必须先于 Lane/W；判断/并行必须分支行 + `End`；N/DATA 不作流转目标  
 
-完整文法：`docs/IQS_FLOW_DSL_SPEC.md`；协议切片：`protocol/segments/flow.md`。
+完整文法：`docs/flow/spec/IQS_FLOW_DSL_SPEC.md`；协议切片：`protocol/segments/flow.md`。
 
 ```dsl
 Title: 采购申请审批流程

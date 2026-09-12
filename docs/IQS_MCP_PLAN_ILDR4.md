@@ -1,3 +1,20 @@
+---
+doc_id: IQS-MCP-PLAN-ILDR4
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: MCP
+type: PLAN
+authority: L4
+freshness: ⚪未审计
+first_commit: 2026-03-26
+last_commit: 2026-03-26
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # MCP 架构进化：ILDR 4.0 (子类型增强的声明式清单)
 
 ## 1. 核心愿景：全链路子类型对齐 (Sub-type Alignment)

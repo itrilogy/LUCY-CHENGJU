@@ -130,7 +130,7 @@ W: q2: 来料检验 Type[SUB] Location(D[0])
 - 编辑器支持自然语言生成 DSL（DeepSeek 等通道，复用 `kind=flow`）。
 - `npm run test:flow` 一键运行 **184 项**（parser 66 + svg 85 + bpmn 17 + mainline 8 + cell_order 8）端到端断言回归。
 - MCP 工具 `render_flow` 注册（自研 SVG 引擎）。外部大模型应先读 `protocol://segments/iqs_native/flow`，不要用 Mermaid `flowchart TD` 冒充本模块。
-- 最优性承诺见 `docs/FLOW_OPTIMALITY_FRAMEWORK.md` §0：一般图不承诺全局最优。
+- 最优性承诺见 `docs/flow/math/FLOW_OPTIMALITY_FRAMEWORK.md` §0：一般图不承诺全局最优。
 
 ---
 

@@ -1,3 +1,20 @@
+---
+doc_id: IQS-REQ-SPEC-PRODUCT
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: PROTOCOL
+type: REQ
+authority: L4
+freshness: 🟡部分过时
+first_commit: 2026-02-05
+last_commit: 2026-02-05
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # QC小组活动图表工具 (Smart QC Chart Tools) 需求说明书
 
 ## 1. 产品概述

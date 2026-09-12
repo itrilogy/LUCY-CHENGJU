@@ -3,7 +3,7 @@
 > **文档状态**: 分析结论 + 改进方案（供评审，默认不改代码）
 > **日期**: 2026-09-02
 > **基线**: 本地 `ca9dac4`（方案主线已落地；相对 `origin/main` 未 push）
-> **过程记录**: `docs/FLOW_NEXT_PHASE_PLAN_NOTES.md` 本节对应追加
+> **过程记录**: `docs/flow/notes/FLOW_LAYOUT_NOTES_PHASE2.md` 本节对应追加
 > **密钥**: DeepSeek 实测已做；**密钥不入库、不写入本文**
 
 ---
@@ -103,7 +103,7 @@ Project "两部门采购审批" { Lane "采购部" { Start "申请采购" -> Dec
 
 当前帮助是硬编码 10 行，相对权威源严重缩水：
 
-- 人读全量：`docs/IQS_FLOW_DSL_SPEC.md`、`protocol/segments/flow.md`
+- 人读全量：`docs/flow/spec/IQS_FLOW_DSL_SPEC.md`、`protocol/segments/flow.md`
 - 模型编译卡：`protocol/segments/flow.agent.md`（BNF、8 红线、2 正例、3 反例）
 
 缺失块：六属性值域、`Attr active`、默认顺序流断点、校验 18 条、子流程块、并行 `+`、`否则`、Color 槽、禁止 Mermaid。

@@ -1,3 +1,6 @@
+> ⚠️ **重复副本**：根目录 `IQS_DSL_AGENT_MANIFESTO.md` 与 `docs/IQS_DSL_AGENT_MANIFESTO.md` 内容重叠，
+> 本文件已归档至 `docs/archive/`。**权威版本为 `docs/IQS_DSL_AGENT_MANIFESTO.md`**。
+
 # IQS DSL 代理人宣示录 (IQS DSL Agent Manifesto) 🚀🏗️
 **Version 3.0 | 2026.03.16**
 
@@ -15,7 +18,7 @@
 
 ## 2. 全量语法标准基底 (Total Syntax Base)
 
-本部分全量引用自 `DSL_SYNTAX_MANUAL.md` 核心内容。
+本部分全量引用自 `IQS_DSL_MANUAL_LEGACY.md` 核心内容。
 
 ### 2.1 全局视觉基座 (Global UI Foundation)
 | 指令 | 深度规格 |

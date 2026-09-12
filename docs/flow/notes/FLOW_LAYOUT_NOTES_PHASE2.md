@@ -1,7 +1,7 @@
 # IQS-Flow 下一阶段综合方案 · 过程记录
 
 > **文档状态**: 过程留痕（只追加、不覆盖历史）
-> **对应方案**: `docs/FLOW_NEXT_PHASE_PLAN.md`
+> **对应方案**: `docs/flow/notes/FLOW_LAYOUT_PLAN_PHASE2.md`
 > **约定**: 后续凡修订 FLOW 代码 / 编辑器 / MCP 声明 / 本方案正文，必须在本文追加一节（基线 commit、文件表、验证、未做项）。见方案 §10。
 
 ---
@@ -71,8 +71,8 @@
 
 | 文件 | 性质 | 验证 |
 |:---|:---|:---|
-| `docs/FLOW_NEXT_PHASE_PLAN.md` | **独立详细方案**（审阅 + A 代码 + B 编辑器 + C MCP + 里程碑 + 治理约定） | 人读评审；无代码 |
-| `docs/FLOW_NEXT_PHASE_PLAN_NOTES.md` | 本过程记录（本节） | — |
+| `docs/flow/notes/FLOW_LAYOUT_PLAN_PHASE2.md` | **独立详细方案**（审阅 + A 代码 + B 编辑器 + C MCP + 里程碑 + 治理约定） | 人读评审；无代码 |
+| `docs/flow/notes/FLOW_LAYOUT_NOTES_PHASE2.md` | 本过程记录（本节） | — |
 
 方案拍板摘要（详见正文，此处只留索引）：
 
@@ -374,7 +374,7 @@ npm run test:flow
 
 | 文件 | 性质 |
 |:---|:---|
-| `docs/FLOW_PANEL_MATH_DOCKER_REVIEW.md` | 分析结论 + S0–S6 改进顺序 |
+| `docs/flow/review/FLOW_PANEL_MATH_DOCKER_REVIEW.md` | 分析结论 + S0–S6 改进顺序 |
 
 未改引擎/Editor 行为。密钥未写入任何仓库文件。
 

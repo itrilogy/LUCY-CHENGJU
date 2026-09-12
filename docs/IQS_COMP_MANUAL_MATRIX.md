@@ -1,3 +1,20 @@
+---
+doc_id: IQS-COMP-MANUAL-MATRIX
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: COMP
+type: MANUAL
+authority: L4
+freshness: 🟡部分过时
+first_commit: 2026-02-05
+last_commit: 2026-03-16
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # 智能矩阵分析图 (Smart Matrix Diagram) 用户手册 🕸️🏆
 
 矩阵图（Matrix Diagram）是质量管理中用于分析两组或多组因素之间相互关系强弱的强力工具。它不仅能直观展示“是什么影响了什么”，还能通过**量化评分**体系，帮助决策者锁定系统中的核心变量。

@@ -77,7 +77,7 @@
 ---
 
 ## 6. 阶段三d：文档 + BPMN 交换（`5ccc52a`）
-- 新建 `docs/USER_MANUAL_FLOW.md`（使用手册：概述/快速上手/语法/概念/AI/FAQ）。
+- 新建 `docs/flow/manual/USER_MANUAL_FLOW.md`（使用手册：概述/快速上手/语法/概念/AI/FAQ）。
 - `docs/IQS_DSL_V1_SPEC.md` 场景矩阵：新增 `flow → FlowGraph | Core（BPMN 子集）`，流程/时序/架构保留 mermaid 救济。
 - 新增 `components/flow/FlowBpmn.ts`：`flowToBpmnXml` 导出 BPMN 2.0 XML（process + startEvent/task/gateway/subProcess + sequenceFlow(含 isDefault) + laneSet），可被专业工具导入。
 - 新增 `scripts/assert_flow_bpmn.ts`（12 项）+ 接入 `test:flow`。

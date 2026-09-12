@@ -5,7 +5,7 @@
 > **首次审计日期**: 2026-08-30  
 > **审计对象**: IQS-DSL 第 14 个 Core Kind (`flow`) 规范文档与核心代码实现  
 > **覆盖范围**: 
-> - 规范文档: `docs/IQS_FLOW_DSL_SPEC.md`、`docs/FLOW_LAYOUT_ENGINE_DESIGN.md`、`docs/FLOW_DIAGRAM_RENDER_QA.md`
+> - 规范文档: `docs/flow/spec/IQS_FLOW_DSL_SPEC.md`、`docs/flow/design/FLOW_LAYOUT_ENGINE_DESIGN.md`、`docs/flow/review/FLOW_RENDER_REVIEW_QA.md`
 > - 解析器: `components/flow/FlowParser.ts`
 > - 布局渲染引擎: `components/flow/flowToSVG.ts`
 > - 视图组件: `components/flow/FlowDiagram.tsx`
@@ -35,7 +35,7 @@
 | **BUG-02** | 中 | 格式还原缺陷 | `components/flow/FlowEditor.tsx` | `flowToDsl` 反序列化将分支边扁平化至文末，丢失网关块级上下文 | ✅ 已修复 (`a0c95e7`) |
 | **UI-01**   | 低 | 视觉规范对齐 | `components/flow/flowToSVG.ts` | `Type[N]` 折角纸与 `Type[DATA]` 纸带图形未做特定 SVG Path 渲染 | ✅ 已优化 (`a0c95e7`) |
 | **UI-02**   | 低 | 文字排版 | `components/flow/flowToSVG.ts` | 超长节点文本仅加底板未做多行 `<tspan>` 折行 | ✅ 已优化 (`a0c95e7`) |
-| **DOC-01**  | 低 | 文档滞后 | `docs/IQS_FLOW_DSL_SPEC.md` | 规范文档状态标头仍显示“尚未实现” | ✅ 已更新 (`a55f2d2`) |
+| **DOC-01**  | 低 | 文档滞后 | `docs/flow/spec/IQS_FLOW_DSL_SPEC.md` | 规范文档状态标头仍显示“尚未实现” | ✅ 已更新 (`a55f2d2`) |
 
 ---
 
@@ -133,7 +133,7 @@ flowchart TD
 3. **阶段三（视觉打磨）**:
    - 优化 `Type[N]` / `Type[DATA]` 形状与长文本自动折行。
 4. **阶段四（文档与规范同步）**:
-   - 更新 `docs/IQS_FLOW_DSL_SPEC.md` 的状态标注与同步说明。
+   - 更新 `docs/flow/spec/IQS_FLOW_DSL_SPEC.md` 的状态标注与同步说明。
 
 ---
 *记录人: 智能体辅助审计*  

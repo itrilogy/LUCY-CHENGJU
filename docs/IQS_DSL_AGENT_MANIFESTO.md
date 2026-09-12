@@ -183,7 +183,7 @@
 ## 5. 工程哲学与演进准则 (Engineering Philosophy & Evolution)
 
 ### 5.1 增补唯一定律 (The Law of Persistent Augmentation)
-- **核心准则**: 针对 `DSL_SYNTAX_MANUAL.md` 与本宣示录的所有修订，必须严格遵循“只增不减”原则。
+- **核心准则**: 针对 `IQS_DSL_MANUAL_LEGACY.md` 与本宣示录的所有修订，必须严格遵循“只增不减”原则。
 - **演进逻辑**: 历史语法是系统兼容性的基石。任何新功能的加入都应作为现有体系的超集，严禁删除、重命名或篡改已定义的有效指令，确保知识仓库的持续累积与长期可读性。
 
 ### 5.2 专家知识注入 (Expert Knowledge Injection)

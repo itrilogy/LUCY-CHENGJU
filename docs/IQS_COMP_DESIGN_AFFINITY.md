@@ -1,3 +1,20 @@
+---
+doc_id: IQS-COMP-DESIGN-AFFINITY
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: COMP
+type: DESIGN
+authority: L4
+freshness: ⚪未审计
+first_commit: 2026-02-05
+last_commit: 2026-02-05
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # 亲和图 (Affinity Diagram / KJ法) 组件设计方案
 
 ## 背景概述

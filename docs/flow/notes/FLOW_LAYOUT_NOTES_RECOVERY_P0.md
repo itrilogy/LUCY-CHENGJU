@@ -4,7 +4,7 @@
 > **归档时点**: 文中断言数字以当时为准；现行口径见 `FLOW_NEXT_PHASE_PLAN.md`（154 = 60+61+17+8+8）
 > **修复日期**: 2026-09
 > **覆盖范围**: `components/flow/FlowParser.ts`、`components/flow/flowToSVG.ts`、`scripts/_flow_probe.ts`
-> **关联文档**: `docs/IQS_FLOW_DSL_SPEC.md`（规范）、`docs/FLOW_ENGINEERING_AUDIT_NOTES.md`（审计）、`docs/FLOW_LAYOUT_ENGINE_DESIGN.md`（布局算法）、`docs/FLOW_DIAGRAM_RENDER_QA.md`（渲染 QA）
+> **关联文档**: `docs/flow/spec/IQS_FLOW_DSL_SPEC.md`（规范）、`docs/flow/review/FLOW_ENGINEERING_AUDIT_NOTES.md`（审计）、`docs/flow/design/FLOW_LAYOUT_ENGINE_DESIGN.md`（布局算法）、`docs/flow/review/FLOW_RENDER_REVIEW_QA.md`（渲染 QA）
 > **提交**: `a540fc8`（P0 四修复）、`964b1d6`（探针脚本）、`42b413f`（审计笔记 §5 结项）
 
 ---
@@ -136,7 +136,7 @@ if (a.type === 'exclusiveGateway' || a.type === 'parallelGateway'
 - **P2**: 字典重复定义覆盖无警告；`Attr active` 非法键被接受；孤立节点为 warning 非 error（部分条目已在 P0-4 改善）；flowToDsl 往返丢条件/出口名。
 - **P3**: 连线仍是端口几何正交（Liang-Barsky 避节点盒），非沿泳道/格子通道走线；折行按字符计数（会切断数字）；单维按全图节点数扩列（空列过多）。
 
-> 对齐/工整续修见 `docs/FLOW_ALIGN_RECOVERY_NOTES.md`（2026-08-31）：单维按最大链长扩格、子流程内部退出主网格、N/DATA 不占格、按字宽折行、连线拐点吸附格子通道。
+> 对齐/工整续修见 `docs/flow/notes/FLOW_LAYOUT_NOTES_ALIGN_RECOVERY.md`（2026-08-31）：单维按最大链长扩格、子流程内部退出主网格、N/DATA 不占格、按字宽折行、连线拐点吸附格子通道。
 
 ---
 

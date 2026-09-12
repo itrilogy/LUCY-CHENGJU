@@ -1,3 +1,20 @@
+---
+doc_id: IQS-QA-NOTES-CONTROL-CHART
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: QA
+type: NOTES
+authority: L4
+freshness: ⚪未审计
+first_commit: 2026-02-05
+last_commit: 2026-02-05
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 ### 控制图概述
 
 控制图（Control Chart），也称为管制图或Shewhart控制图，是质量控制（Quality Control，简称QC）领域中最核心的统计工具之一。它是QC七大工具（也称初级统计工具）中的关键组成部分，由美国贝尔实验室的沃尔特·A·休哈特（Walter A. Shewhart）于1924年发明，主要用于监测生产或服务过程的稳定性，区分正常边异（Common Cause Variation）和异常变异（Special Cause Variation）。

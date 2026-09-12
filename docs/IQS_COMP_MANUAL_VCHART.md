@@ -1,3 +1,20 @@
+---
+doc_id: IQS-COMP-MANUAL-VCHART
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: COMP
+type: MANUAL
+authority: L4
+freshness: 🟡部分过时
+first_commit: 2026-03-24
+last_commit: 2026-03-24
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # VChart (VisActor) 引擎用户手册
 
 VChart 引擎是 Smart QC Studio 中功能最强大的图表组件，它直接集成了字节跳动开源的 [VisActor VChart](https://www.visactor.io/vchart) 渲染引擎。通过该组件，您可以突破基础图表的限制，实现任何复杂的定制化数据可视化方案。

@@ -1,3 +1,20 @@
+---
+doc_id: IQS-COMP-MANUAL-BASIC
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: COMP
+type: MANUAL
+authority: L4
+freshness: 🟡部分过时
+first_commit: 2026-02-06
+last_commit: 2026-03-16
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # 基础图表 (Basic Chart) 全量使用手册 🏆📊
 
 ## 1. 概述 (Overview)

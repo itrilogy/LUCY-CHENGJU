@@ -1,3 +1,20 @@
+---
+doc_id: IQS-MCP-PLAN-TOKEN-OPTIMIZATION
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: MCP
+type: PLAN
+authority: L4
+freshness: ⚪未审计
+first_commit: 2026-03-26
+last_commit: 2026-03-26
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # IQS MCP Server Token 消耗优化方案 (ILDR 2.0 预研) 🚀
 
 ## 1. 背景与问题诊断 (Context & Diagnosis)

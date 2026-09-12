@@ -1,3 +1,20 @@
+---
+doc_id: IQS-QA-CASES-MATRIX
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: QA
+type: CASES
+authority: L4
+freshness: ⚪未审计
+first_commit: 2026-02-05
+last_commit: 2026-02-05
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # 矩阵图高压测试用例 (High-Density Test Cases)
 
 这些示例旨在测试大量数据下的渲染压力和自动缩放表现。

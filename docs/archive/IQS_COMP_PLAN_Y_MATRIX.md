@@ -1,3 +1,20 @@
+---
+doc_id: IQS-COMP-PLAN-Y-MATRIX
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: COMP
+type: PLAN
+authority: L4
+freshness: 🔵历史快照
+first_commit: 2026-03-31
+last_commit: 2026-03-31
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # Y-Matrix 深度精简与画布填充方案 (Y-Matrix Refinement & Canvas Fill Plan)
 
 本方案旨在移除绘图区的显示标题，并彻底优化画布的自动填充比例，同时固定 Y 型图的视图视角。

@@ -12,7 +12,7 @@
 | **配套** | 概要权威：`docs/IQS_DSL_V1_SPEC.md` · 注册表：`dsl/kinds.json` · 治理：`protocol/governance.md` |
 | **落盘日期** | 2026-08-11 |
 
-> **落盘声明**：本文是 IQS-DSL v1 范式的**完整落盘修订稿**。旧文档 `DSL_SYNTAX_MANUAL.md` / `docs/DSL_SYNTAX_MANUAL.md` 仅作历史参考；冲突一律以 **本手册 + 解析器** 为准。
+> **落盘声明**：本文是 IQS-DSL v1 范式的**完整落盘修订稿**。旧文档 `IQS_DSL_MANUAL_LEGACY.md` / `docs/archive/IQS_DSL_MANUAL_LEGACY.md` 仅作历史参考；冲突一律以 **本手册 + 解析器** 为准。
 
 ---
 
@@ -1610,8 +1610,8 @@ Dataset: v, [1, 2], #3b82f6, Y
 
 | 旧路径 | 状态 |
 |:---|:---|
-| `DSL_SYNTAX_MANUAL.md`（根） | **Redirect 到本手册** |
-| `docs/DSL_SYNTAX_MANUAL.md` | 历史 V2.0；冲突以本手册为准 |
+| `IQS_DSL_MANUAL_LEGACY.md`（根） | **Redirect 到本手册** |
+| `docs/archive/IQS_DSL_MANUAL_LEGACY.md` | 历史 V2.0；冲突以本手册为准 |
 | Editor 内联 Docs 弹窗 | 应逐步与本手册对齐 |
 
 ---

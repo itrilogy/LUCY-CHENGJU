@@ -17,11 +17,11 @@
 | 4 | `components/flow/flowToSVG.ts`（清理） | 删除旧引擎死代码：`nodeBoxes` / `getMidpointPort` / `getCorridorPort` / `segIntersectsBox` / `routeHits` / `isPortBlocked`（主路径早已由 `AlgebraicFlowRouter` 承接，grep 确认无调用链）；保留 `type Port/Box`（`allBoxes` 等仍用）；留清理注释 | tsc 0 错误 + 全量断言（行为不变证明） |
 | 5 | `scripts/assert_flow_parser.ts` | 新增 3 条对角断言（D 解析 / V 保持 / Z 不误吞） | 运行通过 |
 | 6 | `scripts/assert_flow_svg.ts` | 新增 4 条对角断言（无解析错误 / B 相对 A 对角右下 / C 相对 B 正下同槽 / 行高被 ny≥3 推动） | 运行通过 |
-| 7 | `docs/FLOW_OPTIMALITY_FRAMEWORK.md` | 新建：最优性完备框架设计（§0 分层结论表 / §1 统一泛函 / §2 公理 A1-A6 / §3 引理 L0-L2 / §4 定理 T1-T4 / §5 文档修正 / §6 实施路线 P1-P6 / §7 验收） | 设计文档（评审对象） |
-| 8 | `docs/FLOW_ROUTING_MATH_AND_IMPLEMENTATION.md` | **勘误**：§2.2.3「线路合并已接入」标注代码未实现（J\* 合并零命中，仅端口复用+箭头去重近似承接 A3） | grep `merge\|合并` components/flow 零命中（勘误依据） |
-| 9 | `docs/FLOW_LAYOUT_ENGINE_DESIGN.md` | ② 交叉格排布表补 D 行 + 尾注断言数 40/41 → 60/61/17=138（消除过时失真） | 与实测一致 |
-| 10 | `docs/IQS_FLOW_DSL_SPEC.md` | §11 渲染规格第 3 条「格子内排布」补 D 标识语义 | 与 parser 实现一致 |
-| 11 | `docs/FLOW_OPTIMALITY_EXECUTION_NOTES.md` | 本文件（过程记录） | — |
+| 7 | `docs/flow/math/FLOW_OPTIMALITY_FRAMEWORK.md` | 新建：最优性完备框架设计（§0 分层结论表 / §1 统一泛函 / §2 公理 A1-A6 / §3 引理 L0-L2 / §4 定理 T1-T4 / §5 文档修正 / §6 实施路线 P1-P6 / §7 验收） | 设计文档（评审对象） |
+| 8 | `docs/flow/math/FLOW_ROUTING_MATH_AND_IMPLEMENTATION.md` | **勘误**：§2.2.3「线路合并已接入」标注代码未实现（J\* 合并零命中，仅端口复用+箭头去重近似承接 A3） | grep `merge\|合并` components/flow 零命中（勘误依据） |
+| 9 | `docs/flow/design/FLOW_LAYOUT_ENGINE_DESIGN.md` | ② 交叉格排布表补 D 行 + 尾注断言数 40/41 → 60/61/17=138（消除过时失真） | 与实测一致 |
+| 10 | `docs/flow/spec/IQS_FLOW_DSL_SPEC.md` | §11 渲染规格第 3 条「格子内排布」补 D 标识语义 | 与 parser 实现一致 |
+| 11 | `docs/flow/notes/FLOW_OPTIMALITY_EXECUTION_NOTES.md` | 本文件（过程记录） | — |
 
 ## 2. 验证记录（全量实证）
 

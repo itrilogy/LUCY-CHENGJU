@@ -1,3 +1,20 @@
+---
+doc_id: IQS-DSL-MANUAL-LEGACY
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: DSL
+type: LEGACY
+authority: L4
+freshness: 🔴过时
+first_commit: 2026-02-05
+last_commit: 2026-08-30
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # Smart QC Studio DSL 权威指南 (V2.0) — 历史文档
 
 > ⚠️ **现行完整语法以 IQS-DSL v1.1 为准：**  

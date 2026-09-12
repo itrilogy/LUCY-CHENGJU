@@ -56,7 +56,7 @@ DSL → 解析 → **canonical JSON**（校验/图谱抽取）→ **BPMN 2.0 XML
 | 单条边（端口+同伦固定） | 分级候选近似最短正交路 | 已实现；非 Dijkstra |
 | 一般图 · 全局最优 | **不承诺** | — |
 
-权威上限：`docs/FLOW_OPTIMALITY_FRAMEWORK.md` §0。旧文「合并+迭代 → 全局最优」「B≥3 无条件位移」作废。
+权威上限：`docs/flow/math/FLOW_OPTIMALITY_FRAMEWORK.md` §0。旧文「合并+迭代 → 全局最优」「B≥3 无条件位移」作废。
 
 ---
 

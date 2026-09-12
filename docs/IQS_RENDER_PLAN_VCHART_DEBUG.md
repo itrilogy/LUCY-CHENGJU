@@ -1,3 +1,20 @@
+---
+doc_id: IQS-RENDER-PLAN-VCHART-DEBUG
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: RENDER
+type: PLAN
+authority: L4
+freshness: ⚪未审计
+first_commit: 2026-03-26
+last_commit: 2026-03-26
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # VChart 渲染故障排查计划 (IQS-VCHART-DEBUG)
 
 针对 VChart 渲染空白（白屏）问题，我将执行以下排查与加固方案：

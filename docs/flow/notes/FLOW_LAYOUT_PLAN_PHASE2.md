@@ -4,8 +4,8 @@
 > **日期**: 2026-09-02
 > **基线**: `main` HEAD `6b805d9`（交叉格内排序 `computeCellOrder`）
 > **断言口径**: `npm run test:flow` → parser 60 + svg 61 + bpmn 17 + mainline 8 + cell_order 8 = **154**
-> **权威数学上限**: `docs/FLOW_OPTIMALITY_FRAMEWORK.md` §0 分层结论表（不以旧文口号为准）
-> **过程记录**: `docs/FLOW_NEXT_PHASE_PLAN_NOTES.md`（本轮调研/落盘；后续每次修订必须追加）
+> **权威数学上限**: `docs/flow/math/FLOW_OPTIMALITY_FRAMEWORK.md` §0 分层结论表（不以旧文口号为准）
+> **过程记录**: `docs/flow/notes/FLOW_LAYOUT_NOTES_PHASE2.md`（本轮调研/落盘；后续每次修订必须追加）
 > **关联**: `IQS_FLOW_DSL_SPEC.md` · `FLOW_LAYOUT_ENGINE_DESIGN.md` · `FLOW_OPTIMALITY_FRAMEWORK.md` · `protocol/segments/flow.md`
 
 ---
@@ -548,7 +548,7 @@ L0  list_tools 薄描述（路由卡，≤ 500 字）
 L1  protocol://segments/iqs_native/flow   （编译卡：完整可写文法 + 2 正例 + 3 反例）
       ↓ 复杂场景可选
 L2  protocol://segments/flow              （protocol/segments/flow.md 全文，不再拼接 governance）
-L3  docs/IQS_FLOW_DSL_SPEC.md             （人读规范，不进 MCP 默认路径）
+L3  docs/flow/spec/IQS_FLOW_DSL_SPEC.md             （人读规范，不进 MCP 默认路径）
 ```
 
 原则：**L0 负责选对工具；L1 负责写出能 parse 的 DSL；L2 负责进阶；调用循环靠 parser 诊断，不靠把校验 18 条提前灌进 context。**
@@ -668,7 +668,7 @@ const getConstraint5 = () => {
 | `docs/IQS_DSL_V1_MANUAL.md` | 身份卡已有；补最小示例与反例 |
 | `docs/IQS_DSL_AGENT_MANIFESTO.md` | 补 Flow 专节 |
 | `docs/IQS_CHART_MCP_DESIGN.md` | core 列表加入 `render_flow` |
-| `docs/USER_MANUAL_FLOW.md` §5 | MCP 段写清：外部模型应 read kind 资源，不要凭记忆写 Mermaid |
+| `docs/flow/manual/USER_MANUAL_FLOW.md` §5 | MCP 段写清：外部模型应 read kind 资源，不要凭记忆写 Mermaid |
 
 ### 8.8 模型可执行的「绘制契约」（给接入方的一页纸）
 
@@ -729,7 +729,7 @@ npx tsc --noEmit
 npm run test:flow          # 只增断言，不改旧语义
 npm run build              # 含 validate:dsl + sync-tools
 独立 commit: feat(flow): Mx …
-追加 docs/FLOW_NEXT_PHASE_PLAN_NOTES.md
+追加 docs/flow/notes/FLOW_LAYOUT_NOTES_PHASE2.md
 ```
 
 T2 / autoSeq 额外：黄金样例 SVG 目视 + Φ 统计，不降即回滚。
@@ -754,8 +754,8 @@ T2 / autoSeq 额外：黄金样例 SVG 目视 + Φ 统计，不降即回滚。
 
 ### 10.1 过程文件
 
-- **本方案**：`docs/FLOW_NEXT_PHASE_PLAN.md`（本文）。方案本身的修订在文头改日期，并在 NOTES 记一笔「方案修订」。
-- **过程记录**：`docs/FLOW_NEXT_PHASE_PLAN_NOTES.md`。每个里程碑、每次回滚、每次拍板追加一节，禁止覆盖历史。
+- **本方案**：`docs/flow/notes/FLOW_LAYOUT_PLAN_PHASE2.md`（本文）。方案本身的修订在文头改日期，并在 NOTES 记一笔「方案修订」。
+- **过程记录**：`docs/flow/notes/FLOW_LAYOUT_NOTES_PHASE2.md`。每个里程碑、每次回滚、每次拍板追加一节，禁止覆盖历史。
 - **数学框架**：仍以 `FLOW_OPTIMALITY_FRAMEWORK.md` 为上限；T2 落地后在 FRAMEWORK §6 把 P3/P4 标 ✅，不要另起炉灶。
 
 ### 10.2 每节 NOTES 必含
@@ -821,4 +821,4 @@ T2 / autoSeq 额外：黄金样例 SVG 目视 + Φ 统计，不降即回滚。
 
 *方案作者: 智能体辅助审阅（对照文档数学方法、commit 演进、组件对照、MCP 实装）*
 *状态: 方案完稿，待按 M-Doc → M-UI → M-MCP 起执行*
-*过程记录: `docs/FLOW_NEXT_PHASE_PLAN_NOTES.md`*
+*过程记录: `docs/flow/notes/FLOW_LAYOUT_NOTES_PHASE2.md`*

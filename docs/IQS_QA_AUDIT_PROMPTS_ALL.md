@@ -1,3 +1,20 @@
+---
+doc_id: IQS-QA-AUDIT-PROMPTS-ALL
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: QA
+type: AUDIT
+authority: L4
+freshness: 🔵历史快照
+first_commit: 2026-03-26
+last_commit: 2026-03-26
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # IQS Logic Tools System Prompts Audit Report (Universal)
 
 Generated on: 2026-03-26

@@ -1,3 +1,20 @@
+---
+doc_id: IQS-MCP-GUIDE-CONFIG
+title: 
+project: 澄矩 · ChengJu (IQS)
+version: v1.0
+domain: MCP
+type: GUIDE
+authority: L4
+freshness: ⚪未审计
+first_commit: 2026-03-16
+last_commit: 2026-09-02
+supersedes: []
+superseded_by: []
+related:
+  - docs/PROJECT_INDEX.md
+---
+
 # IQS Chart Rendering MCP Server 配置指南 🛠️
 
 本指南将指导您如何在支持 Model Context Protocol (MCP) 的 AI 客户端中集成 Smart QC Studio 的图表渲染服务。新版本支持 **40+ 个专项工具**，并提供 SSE 渲染增强方案。
