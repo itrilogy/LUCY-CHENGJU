@@ -317,8 +317,13 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
     const a = orderNodes[j];
     const b = orderNodes[j + 1];
     if (a.parent !== b.parent) continue;
+    // 源侧跳过集合：网关出边必须用分支行；end / N / DATA 不作源。
+    // AUD-139：`subprocess` 亦须列入 —— 子流程的出边必须显式写
+    // `SUBid → #下一节点`（AUD-119 同源机制），不能靠声明序自动补边。
+    // 当前因 `a.parent !== b.parent` 多数情况已拦住，但语义上必须显式声明。
     if (a.type === 'exclusiveGateway' || a.type === 'parallelGateway'
-      || a.type === 'end' || a.type === 'annotation' || a.type === 'dataObject') continue;
+      || a.type === 'end' || a.type === 'annotation' || a.type === 'dataObject'
+      || a.type === 'subprocess') continue;
     if (b.type === 'annotation' || b.type === 'dataObject') continue;
     if (branchTargets.has(b.id)) continue;
     if (explicitTargets.has(b.id)) continue;

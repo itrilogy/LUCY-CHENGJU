@@ -3,7 +3,7 @@
  * 内部用 flowToSVG(纯函数) 生成确定性 SVG；支持 pan/zoom、导出 PNG。
  * 保留 props/ref/getDataURL/exportPNG 接口（对齐 BaseDiagramRef）。
  */
-import React, { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useImperativeHandle, forwardRef, useState } from 'react';
 import { FlowData, FlowChartStyles, DEFAULT_FLOW_STYLES, BaseDiagramRef } from '../../types';
 import { flowToSVG, getSvgSize } from './flowToSVG';
 
@@ -22,9 +22,23 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
   const [view, setView] = useState({ scale: 1, tx: 0, ty: 0 });
   const dragRef = useRef<{ startX: number; startY: number; tx: number; ty: number } | null>(null);
 
-  const finalStyles = { ...DEFAULT_FLOW_STYLES, ...styles };
-  const svg = flowToSVG(data, finalStyles);
-  const size = getSvgSize(data, finalStyles);
+  /**
+   * `finalStyles` 必须先 memo：它原本每次 render 都新建对象，
+   * 若直接拿它当依赖，下游 useMemo 会永远失效。
+   */
+  const finalStyles = useMemo(() => ({ ...DEFAULT_FLOW_STYLES, ...styles }), [styles]);
+  /**
+   * `flowToSVG` 含布局 + 端口优化路由（实测单图 ~0.3s）。
+   * 原为裸调用 —— 拖拽画布时 setView 会触发 render，于是每帧重算一次，
+   * 而 data/styles 根本未变。这是「渲染缓慢」的第一层根因。
+   */
+  const svg = useMemo(() => flowToSVG(data, finalStyles), [data, finalStyles]);
+  const size = useMemo(() => getSvgSize(data, finalStyles), [data, finalStyles]);
+  /** 去外壳后的内联 SVG —— 与 view 无关，只随 svg 变化 */
+  const innerSvg = useMemo(
+    () => svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, ''),
+    [svg],
+  );
 
   const buildPNG = async (pixelRatio: number, background: string, width?: number, height?: number): Promise<string> => {
     const outW = width || size.width;
@@ -144,6 +158,17 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
   // 导出当前 SVG 为字符串（供无头/测试）
   const svgString = svg;
 
+  /**
+   * 第二层根因：原用 `dangerouslySetInnerHTML` 把整段 SVG 写进 <svg>。
+   * 该属性在**每次 render 都会重新解析并写入 DOM** —— 拖拽画布（setView）
+   * 时每帧一次，与 view 无关的内容被反复重写。
+   * 改为仅当 `innerSvg` 变化时用 ref 写入一次；view 变化只剩一个 CSS transform。
+   */
+  const innerRef = useRef<SVGGElement>(null);
+  useEffect(() => {
+    if (innerRef.current) innerRef.current.innerHTML = innerSvg;
+  }, [innerSvg]);
+
   return (
     <div className={className} style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div
@@ -168,8 +193,10 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
             cursor: dragRef.current ? 'grabbing' : 'grab',
             userSelect: 'none',
           }}
-          dangerouslySetInnerHTML={{ __html: svgString.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') }}
-        />
+        >
+          {/* 内容只由 innerSvg 驱动写入，不随 view 变化 */}
+          <g ref={innerRef} />
+        </svg>
       </div>
     </div>
   );

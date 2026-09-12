@@ -45,7 +45,7 @@
 | `→:` | 显式边（源在左、目标在右，目标必须已定义） 形如 `<源id> → #<目标id>` ⚠️部分支持 | `w5 → #w6` |
 | `分支行:` | 网关出口声明（Type[?]/Type[+] 必须写） 形如 `<标签> [(<出口名>)] [<条件>] → #<目标>[, #<目标>]*` **必填** ⚠️部分支持 | `   合格 (pass) → #w2` |
 | `End:` | 显式闭合分支块 / 子流程块 形如 `End` **必填** | `   End` |
-| `SUB:` | 子流程块（内嵌子图） 形如 `W: <id>: <标签> Type[SUB] …\n   W: <内嵌节点>…\n   End` ⚠️部分支持 | `W: q2: worker[4] Type[SUB] Location(D[0])\n   W: s1: worker[5] Type[S]\n   W: s2: worker[6] Type[E]\n   End` |
+| `SUB:` | 子流程块（内嵌子图） 形如 `W: <id>: <标签> Type[SUB] …\n   W: <内嵌节点>…\n   End` ⚠️部分支持 | `W: q2: worker[5] Type[SUB] Location(D[0])\n   W: s1: worker[6] Type[S]\n   W: s2: worker[7] Type[E]\n   End` |
 | `Attach:` | N/DATA 依附目标节点（仅修饰类可用） 形如 `Attach(#id) \| Attach(id)` ⚠️部分支持 | `W: n1: 评审记录 Type[N] Attach(#w10)` |
 | `SOP:` | 标准编号（如体系文件号） 形如 `SOP(<值>)` | `SOP(XX-CX-04)` |
 | `Role:` | 岗位（**不占格**，用于节点右下角标注与岗位图例） 形如 `Role(<R[i]> \| <字典引用> \| <字面量>)` | `Role(R[0])` |
@@ -118,7 +118,7 @@ Grid: dashed
 Dict: D[制丝车间,卷包车间,质检中心,技术中心,档案室]
 Dict: P[批次创建,参数采集,并行检测,异常处置,放行归档]
 Dict: R[操作员,质检员,技术员,档案员]
-Dict: worker[创建生产批次,录入工艺参数,质量指标是否合规?,物理指标检测,化学指标检测,偏差分析与处置,技术中心复核,编制批次报告,质量放行,资料归档,复核评审记录,检测数据集]
+Dict: worker[创建生产批次,录入工艺参数,质量指标是否合规?,物理/化学并行检测,物理指标检测,化学指标检测,偏差分析与处置,技术中心复核,编制批次报告,质量放行,资料归档,复核评审记录,检测数据集]
 Lane from D[0,1,2,3,4] Layout H
 Lane from P[0,1,2,3,4] Layout V
 AxisX: 责任部门 Align C
@@ -135,18 +135,18 @@ W: p1: worker[3] Type[+] Location(D[1],P[1]) Role(R[1]) SOP(ZD-JC-05)
    物理检测 → #w3
    化学检测 → #w4
    End
-W: w3: worker[3] Location(D[1],P[2]) Role(R[1]) Time(2h) Lv(重要)
-W: w4: worker[4] Location(D[2],P[2]) Role(R[1]) Time(3h) Lv(重要)
-W: sub1: worker[6] Type[SUB] Location(D[3],P[2]) Role(R[2]) Time(4h)
+W: w3: worker[4] Location(D[1],P[2]) Role(R[1]) Time(2h) Lv(重要)
+W: w4: worker[5] Location(D[2],P[2]) Role(R[1]) Time(3h) Lv(重要)
+W: sub1: worker[7] Type[SUB] Location(D[3],P[2]) Role(R[2]) Time(4h)
    W: s1: 受理复核 Type[S] Role(R[2]) SOP(JS-FH-01)
    W: s2: 出具意见 Type[E] Role(R[2]) SOP(JS-FH-02)
    End
-W: w5: worker[5] Location(D[3],P[2]) Role(R[2]) SOP(JS-YC-11) Lv(关键) M(强制项)
-W: w8: worker[7] Location(D[2],P[3]) Role(R[1]) SOP(ZD-BG-08) Time(1h)
-W: w9: worker[8] Location(D[1],P[4]) Role(R[1]) Lv(关键) KPI(放行及时率)
-W: w10: worker[9] Type[E] Location(D[4],P[4]) Role(R[3]) Time(0.5h)
-W: n1: worker[10] Type[N] Attach(#w8)
-W: d1: worker[11] Type[DATA] Attach(#p1)
+W: w5: worker[6] Location(D[3],P[2]) Role(R[2]) SOP(JS-YC-11) Lv(关键) M(强制项)
+W: w8: worker[8] Location(D[2],P[3]) Role(R[1]) SOP(ZD-BG-08) Time(1h)
+W: w9: worker[9] Location(D[1],P[4]) Role(R[1]) Lv(关键) KPI(放行及时率)
+W: w10: worker[10] Type[E] Location(D[4],P[4]) Role(R[3]) Time(0.5h)
+W: n1: worker[11] Type[N] Attach(#w8)
+W: d1: worker[12] Type[DATA] Attach(#p1)
 w2 → #g1
 w3 → #w8
 w4 → #w8

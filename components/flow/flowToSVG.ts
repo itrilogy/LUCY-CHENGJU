@@ -155,14 +155,22 @@ function renderSubprocessInner(
   st: FlowChartStyles,
   p: { x: number; y: number; W: number; H: number },
 ): string {
-  const pad = 10, miniH = 20, fs = 8;
+  const pad = 10, miniH = 20, fs = 10;   // 原 8px 低于可读下限，缩略图取 10
   const availW = p.W - pad * 2;
   const availH = p.H - pad * 2 - 6; // 预留底部＋盒位置
   if (availW < 40 || availH < 20 || !inner.length) return '';
   const n = inner.length;
   const gap = 8;
-  // 内部列数 = √N（与布局 innerCols 同款），使子流程框内小图与 k×mm 整数倍框对齐
-  const colMax = Math.max(1, Math.ceil(Math.sqrt(n)));
+  /**
+   * 内部列数由**文档级 `Layout`** 决定（AUD-138）。
+   *
+   * 原实现固定 `Math.ceil(Math.sqrt(n))` —— 与 `Layout H/V` 无关，
+   * 因此 `Layout: H` 的子流程内部也不会横排，使用者感知为「子流程未继承布局」。
+   * 现改为：`H` → 尽可能一行；`V` → 一列。并以可用宽度封顶，避免溢出框体。
+   */
+  const horizontal = data.layout !== 'V';
+  const maxCols = Math.max(1, Math.floor((availW + gap) / (40 + gap)));
+  const colMax = horizontal ? Math.min(n, maxCols) : 1;
   const iw = Math.min(72, Math.max(40, Math.floor((availW - (colMax - 1) * gap) / colMax)));
   const x0 = p.x - availW / 2, y0 = p.y - availH / 2;
   const pos: Record<string, { x: number; y: number }> = {};
