@@ -1,41 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 96" role="img" aria-label="澄矩 · ChengJu (IQS)">
   <!--
-    IQS horizontal lockup
-    Left: product mark | Right: wordmark + lab credit
+    澄矩 · ChengJu (IQS) 横版字锁
+    左：产品方标（.brick 范式，与 /brand/iqs-mark.svg 同构）
+    右：中文字名 + 英文副标 + 实验室署名
+    范式：LUXI Design System v1.0 · 中文优先字体栈 · 鹿溪绿 #0D5E42
   -->
   <defs>
-    <linearGradient id="logo-bg" x1="8" y1="8" x2="88" y2="88" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#127A55"/>
-      <stop offset="100%" stop-color="#0D5E42"/>
-    </linearGradient>
-    <linearGradient id="logo-stream" x1="20" y1="68" x2="80" y2="78" gradientUnits="userSpaceOnUse">
+    <linearGradient id="iqs-logo-stream" x1="16" y1="0" x2="80" y2="0" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#00D2FF" stop-opacity="0.2"/>
-      <stop offset="50%" stop-color="#00D2FF" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="#7CF0FF" stop-opacity="0.5"/>
+      <stop offset="50%" stop-color="#00D2FF" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#7CF0FF" stop-opacity="0.55"/>
     </linearGradient>
   </defs>
 
-  <!-- mark tile -->
-  <g transform="translate(0 4)">
-    <rect x="4" y="4" width="88" height="88" rx="22" fill="url(#logo-bg)"/>
-    <circle cx="30" cy="28" r="22" fill="#ffffff" opacity="0.06"/>
-    <rect x="20" y="26" width="56" height="38" rx="6" fill="#F5F7FA" opacity="0.96"/>
-    <line x1="26" y1="34" x2="70" y2="34" stroke="#0D5E42" stroke-opacity="0.18" stroke-width="1.4" stroke-dasharray="3 2.5"/>
-    <line x1="26" y1="45" x2="70" y2="45" stroke="#0D5E42" stroke-opacity="0.28" stroke-width="1.4"/>
-    <line x1="26" y1="56" x2="70" y2="56" stroke="#0D5E42" stroke-opacity="0.18" stroke-width="1.4" stroke-dasharray="3 2.5"/>
-    <polyline points="26,48 34,42 42,46 50,36 58,44 66,40 72,46" fill="none" stroke="#0D5E42" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="34" cy="42" r="2.2" fill="#0D5E42"/>
-    <circle cx="50" cy="36" r="2.6" fill="#00D2FF"/>
-    <circle cx="66" cy="40" r="2.2" fill="#0D5E42"/>
-    <path d="M18 78 C30 73, 40 82, 50 78 C60 74, 70 77, 80 74" fill="none" stroke="url(#logo-stream)" stroke-width="3.5" stroke-linecap="round"/>
-    <g transform="translate(72 22) scale(1.15)">
-      <path d="M0-6 L1.4-1.4 L6 0 L1.4 1.4 L0 6 L-1.4 1.4 L-6 0 L-1.4-1.4 Z" fill="#00D2FF"/>
-      <circle cx="0" cy="0" r="1.4" fill="#F5F7FA"/>
+  <!-- 产品方标：48 → 88（scale 1.8333，translate 8 12） -->
+  <g transform="translate(8 12) scale(1.8333)">
+    <!-- .brick -->
+    <rect width="48" height="48" rx="12" fill="#0D5E42"/>
+    <!-- 业务图形：控制限 + 正交走线 -->
+    <g transform="translate(11 11) scale(1.0833)">
+      <path d="M4 10h16M10 4v16" fill="none" stroke="#F5F7FA" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round"/>
     </g>
+    <!-- .stream -->
+    <rect x="8" y="39" width="32" height="3" rx="1.5" fill="url(#iqs-logo-stream)"/>
+    <!-- .star -->
+    <path transform="translate(38 5)" fill="#F1C40F"
+          d="M2.5 0 L3.05 1.75 L5 1.75 L3.4 2.85 L3.95 4.55 L2.5 3.5 L1.05 4.55 L1.6 2.85 L0 1.75 L1.95 1.75 Z"/>
   </g>
 
-  <!-- wordmark -->
-  <text x="112" y="42" fill="#0D5E42" font-family="system-ui,-apple-system,PingFang SC,Segoe UI,sans-serif" font-size="28" font-weight="800" letter-spacing="-0.02em">澄矩 · ChengJu</text>
-  <text x="112" y="68" fill="#0D5E42" opacity="0.55" font-family="system-ui,-apple-system,sans-serif" font-size="13" font-weight="600" letter-spacing="0.12em">IQS · Intelligent QC Studio</text>
-  <text x="112" y="86" fill="#0D5E42" opacity="0.4" font-family="system-ui,-apple-system,PingFang SC,sans-serif" font-size="11">源清流澈，行止应矩 · 鹿溪联合创新实验室</text>
+  <!-- 字名（中文优先） -->
+  <text x="112" y="42" fill="#0D5E42"
+        font-family="PingFang SC, HarmonyOS Sans SC, Microsoft YaHei, Noto Sans SC, system-ui, sans-serif"
+        font-size="28" font-weight="700" letter-spacing="-0.02em">澄矩 · ChengJu</text>
+  <text x="112" y="68" fill="#0D5E42" opacity="0.55"
+        font-family="JetBrains Mono, SF Mono, Menlo, Consolas, monospace"
+        font-size="13" font-weight="600" letter-spacing="0.06em">IQS · Intelligent QC Studio</text>
+  <text x="112" y="86" fill="#0D5E42" opacity="0.4"
+        font-family="PingFang SC, HarmonyOS Sans SC, Microsoft YaHei, system-ui, sans-serif"
+        font-size="11">源清流澈，行止应矩 · 鹿溪联合创新实验室</text>
 </svg>

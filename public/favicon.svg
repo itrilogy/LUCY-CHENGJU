@@ -1,66 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="澄矩 · ChengJu">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="澄矩 · ChengJu (IQS)">
   <!--
-    IQS product favicon — aligned with 鹿溪联合实验室 / 见鹿 brand system
-    - 鹿溪绿底 #0D5E42：实验室品牌色
-    - 控制图折线 + 限线：专业 QC / SPC
-    - S 形溪流：数据与质量在 DSL 中流动
-    - 源启星点 #00D2FF：灵感 / 源启
-    Palette: 鹿溪绿 #0D5E42 · 进化蓝 #00D2FF · 源启白 #F5F7FA
+    澄矩 favicon —— 与 /brand/iqs-mark.svg 同源（唯一真源：产品方标）
+    范式：LUXI Design System v1.0 · .brick + glyph + .stream + .star
   -->
   <defs>
-    <linearGradient id="iqs-bg" x1="4" y1="2" x2="28" y2="30" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#127A55"/>
-      <stop offset="100%" stop-color="#0D5E42"/>
-    </linearGradient>
-    <linearGradient id="iqs-stream" x1="6" y1="22" x2="26" y2="26" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#00D2FF" stop-opacity="0.15"/>
-      <stop offset="50%" stop-color="#00D2FF" stop-opacity="0.95"/>
+    <linearGradient id="iqs-stream" x1="8" y1="0" x2="40" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00D2FF" stop-opacity="0.2"/>
+      <stop offset="50%" stop-color="#00D2FF" stop-opacity="1"/>
       <stop offset="100%" stop-color="#7CF0FF" stop-opacity="0.55"/>
     </linearGradient>
   </defs>
 
-  <!-- rounded brand tile -->
-  <rect x="1" y="1" width="30" height="30" rx="8" fill="url(#iqs-bg)"/>
+  <rect width="48" height="48" rx="12" fill="#0D5E42"/>
 
-  <!-- soft upper glow -->
-  <circle cx="10" cy="9" r="8" fill="#ffffff" opacity="0.06"/>
-
-  <!-- chart panel -->
-  <rect x="6.2" y="8.5" width="19.6" height="13.2" rx="2.2" fill="#F5F7FA" opacity="0.96"/>
-  <rect x="6.2" y="8.5" width="19.6" height="13.2" rx="2.2" fill="none" stroke="#0A3F2D" stroke-opacity="0.12"/>
-
-  <!-- UCL / CL / LCL dashed guides -->
-  <line x1="8" y1="11.2" x2="24" y2="11.2" stroke="#0D5E42" stroke-opacity="0.18" stroke-width="0.55" stroke-dasharray="1.2 1"/>
-  <line x1="8" y1="15.1" x2="24" y2="15.1" stroke="#0D5E42" stroke-opacity="0.28" stroke-width="0.55"/>
-  <line x1="8" y1="18.9" x2="24" y2="18.9" stroke="#0D5E42" stroke-opacity="0.18" stroke-width="0.55" stroke-dasharray="1.2 1"/>
-
-  <!-- process polyline (control chart) -->
-  <polyline
-    points="8.4,16.4 11.2,14.2 13.8,15.6 16.6,12.4 19.2,14.8 21.8,13.6 24,15.2"
-    fill="none"
-    stroke="#0D5E42"
-    stroke-width="1.35"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
-
-  <!-- sample points -->
-  <circle cx="11.2" cy="14.2" r="0.85" fill="#0D5E42"/>
-  <circle cx="16.6" cy="12.4" r="0.95" fill="#00D2FF"/>
-  <circle cx="21.8" cy="13.6" r="0.85" fill="#0D5E42"/>
-
-  <!-- flowing stream: quality data under chart -->
-  <path
-    d="M5.5 25.2 C9.5 23.6, 12.8 26.4, 16.2 25.1 C19.4 23.9, 22.2 24.8, 26.5 23.9"
-    fill="none"
-    stroke="url(#iqs-stream)"
-    stroke-width="1.6"
-    stroke-linecap="round"
-  />
-
-  <!-- source spark (源启) -->
-  <g transform="translate(24.2 7.2)">
-    <path d="M0-2.4 L0.55-0.55 L2.4 0 L0.55 0.55 L0 2.4 L-0.55 0.55 L-2.4 0 L-0.55-0.55 Z" fill="#00D2FF"/>
-    <circle cx="0" cy="0" r="0.55" fill="#F5F7FA"/>
+  <g transform="translate(11 11) scale(1.0833)">
+    <path d="M4 10h16M10 4v16"
+          fill="none" stroke="#F5F7FA" stroke-width="1.7"
+          stroke-linecap="round" stroke-linejoin="round"/>
   </g>
+
+  <rect x="8" y="39" width="32" height="3" rx="1.5" fill="url(#iqs-stream)"/>
+
+  <path transform="translate(38 5)"
+        fill="#F1C40F"
+        d="M2.5 0 L3.05 1.75 L5 1.75 L3.4 2.85 L3.95 4.55 L2.5 3.5 L1.05 4.55 L1.6 2.85 L0 1.75 L1.95 1.75 Z"/>
 </svg>

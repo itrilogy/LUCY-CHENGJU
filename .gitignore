@@ -31,3 +31,6 @@ mcp-server/renders/*.png
 
 # Local agent / IDE session metadata
 .reasonix/
+
+# 卡片生成器产物（S0 试点：仅用于差异对比，不入库）
+build/

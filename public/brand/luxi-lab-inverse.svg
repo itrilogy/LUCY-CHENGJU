@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="鹿溪联合创新实验室 LUXI LAB">
+  <!--
+    实验室符号标 · 反白版
+    用于：鹿溪绿底 / 深色底（范式 §1.3：底为绿则标为白）。
+    形态与 luxi-lab.svg 同构，仅 Y 形取色不同：
+      · Y 形分叉 → 源启白 #F5F7FA
+      · 清溪横线 → 进化蓝 #00D2FF（角本位强调保持一致）
+  -->
+  <g fill="none" stroke="#F5F7FA" stroke-width="6" stroke-linecap="butt">
+    <path d="M23 24C22 15 16 9 8 8"/>
+    <path d="M25 24C26 15 32 9 40 8"/>
+    <path d="M24 22V39"/>
+  </g>
+  <path d="M14 25H34" fill="none" stroke="#00D2FF" stroke-width="7" stroke-linecap="butt"/>
+</svg>

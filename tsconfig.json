@@ -26,5 +26,11 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "build",
+    "dist",
+    "node_modules",
+    "mcp-server/renders"
+  ]
 }

@@ -10,63 +10,253 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="apple-touch-icon" href="/brand/iqs-mark.svg" />
 
+  <!--
+    令牌（--luxi-* / 语义别名）统一由 /index.css 提供，此处不再重复声明 :root，
+    避免与范式令牌层出现两套真相（LUXI Design System v1.0）。
+  -->
   <style>
-    :root {
-      --primary: #2563eb;
-      --bg-page: #fcfdfe;
-    }
-
-  </style>
-
-  <style>
-    :root {
-      --primary: #2563eb;
-      --bg-page: #f8fafc;
-      --titanium: #0f172a;
-    }
-
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: var(--font-sans-zh);
       background-color: var(--bg-page);
       margin: 0;
       padding: 0;
       overflow: hidden;
     }
 
-    .mono {
-      font-family: 'JetBrains Mono', monospace;
+    .mono,
+    code,
+    pre {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
     }
 
     .dot-grid {
-      background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
+      background-image: radial-gradient(var(--border-line-r) 1.5px, transparent 1.5px);
       background-size: 32px 32px;
     }
 
     .panel-transition {
-      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all var(--dur-fast) var(--ease-standard);
     }
 
     .glass-panel {
       background: rgba(255, 255, 255, 0.7);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.4);
+      backdrop-filter: blur(20px) saturate(140%);
+      -webkit-backdrop-filter: blur(20px) saturate(140%);
+      border: 1px solid var(--border-subtle-r);
     }
 
-    .logic-terminal-input {
-      background: rgba(30, 41, 59, 0.6);
-      border: 1px solid rgba(51, 65, 85, 1);
-      border-radius: 1.5rem;
-      color: #e2e8f0;
+    /* 复选框 / 单选：强调色统一取鹿溪绿（一处定义，全局生效） */
+    input[type="checkbox"],
+    input[type="radio"] {
+      accent-color: var(--luxi-green);
+    }
+
+    /* ── 范式输入控件（DESIGN.md §6.1：描边统一 1px；选中态用颜色而非加粗）──
+       .logic-terminal-input 保留为兼容别名：此前它是「深色终端」风（写死
+       rgba(26,36,40,.6) 深灰底），与范式「源启白卡片 + 绿系描边」冲突，且各
+       Editor 又各叠字号 / focus 色 / 阴影，同一控件衍生出 8 种形态。现统一收敛。 */
+    /* .iqs-input —— 默认按 lg 档（44px）定高，**不再依赖调用方写 h-***
+       加 h-8 / h-9 / h-11 可覆盖档位；textarea 自动回落为自适应高度。 */
+    .logic-terminal-input,
+    .iqs-input {
+      width: 100%;
+      height: var(--control-lg);          /* 44px：默认档，避免漏写 h-* 时失控 */
+      background: var(--input-bg);
+      color: var(--text-main);
+      border: 1px solid var(--input-border);
+      border-radius: var(--radius-md);
+      font-family: var(--font-mono);
+      font-size: var(--fs-small);
+      line-height: 1.7;
+      padding: 0 16px;                    /* 单行：垂直居中靠 height + line-height */
       outline: none;
-      transition: all 0.3s ease;
-      font-family: 'JetBrains Mono', monospace;
+      transition: border-color var(--dur-fast) var(--ease-standard),
+                  box-shadow var(--dur-fast) var(--ease-standard);
     }
 
-    .logic-terminal-input:focus {
-      border-color: #3b82f6;
-      background: rgba(30, 41, 59, 0.9);
-      box-shadow: 0 0 40px rgba(37, 99, 235, 0.1);
+    /* 多行输入：高度自适应，恢复纵向内边距 */
+    textarea.logic-terminal-input,
+    textarea.iqs-input {
+      height: auto;
+      padding: 12px 16px;
+    }
+
+    /* 默认高度用 :where() 包裹 → specificity = 0，
+       调用方的 h-8 / h-9 / h-11 可随时覆盖，不会被 CSS 反压。 */
+    :where(input.iqs-input, select.iqs-input):not(textarea) {
+      height: var(--control-lg);
+    }
+
+    select.iqs-input {
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 36px;
+      background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+                        linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+      background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+    }
+
+    .logic-terminal-input:focus,
+    .iqs-input:focus {
+      border-color: var(--luxi-cyan);
+      box-shadow: var(--shadow-focus);
+    }
+
+    .logic-terminal-input::placeholder,
+    .iqs-input::placeholder {
+      color: var(--text-muted);
+      opacity: 1;
+    }
+
+    /* .iqs-field —— 紧凑型自绘输入框的**色调层**
+       只统一「配色 + 焦点态 + placeholder」，**不定尺寸**：
+       尺寸/内边距/圆角仍由调用方的 Tailwind 类决定（保持既有密度）。
+       用法：<input className="iqs-field w-16 rounded px-2 py-1 text-[11px]" />
+       透明内联编辑：<input className="iqs-field iqs-field--plain …" /> */
+    /* 全部属性用 :where() 包裹（specificity=0）→ 调用方的 Tailwind 类
+       （如 text-[var(--text-ok)]、bg-transparent）**必定能覆盖**，本类只提供规范默认值。 */
+    :where(.iqs-field) {
+      background: var(--input-bg);
+      color: var(--text-main);
+      border: 1px solid var(--input-border);
+      outline: none;
+      transition: border-color var(--dur-fast) var(--ease-standard),
+                  box-shadow var(--dur-fast) var(--ease-standard);
+    }
+
+    :where(.iqs-field:focus) {
+      border-color: var(--luxi-cyan);
+      box-shadow: var(--shadow-focus);
+    }
+
+    :where(.iqs-field)::placeholder {
+      color: var(--text-muted);
+      opacity: 1;
+    }
+
+    /* 无底无边的内联编辑态（如列表行内改名） */
+    :where(.iqs-field--plain),
+    :where(.iqs-field--plain:focus) {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+    }
+
+    /* select 走同一色调层时保留自绘箭头 */
+    select.iqs-field {
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    /* 紧凑尺寸档（供 .iqs-field 选配，非强制） */
+    .iqs-field-xs { height: var(--control-xs); padding: 0 8px; }
+    .iqs-field-sm { height: var(--control-sm); padding: 0 10px; }
+
+    /* 输入框外壳（包裹 input/span 的容器，保持输入框外观但不含输入框行为） */
+    .iqs-input-shell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: var(--radius-md);
+      padding: 8px 12px;
+      color: var(--text-main);
+    }
+
+    /* 可编辑代码区（DSL 编辑器）：等宽 + 不折行 */
+    .iqs-code {
+      white-space: pre;
+      overflow: auto;
+      tab-size: 2;
+    }
+
+    /* 禁用原因提示（范式 §7.1「乐观且诚实」：控件的不可用必须可解释） */
+    .iqs-hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ── 范式提示条（中性底 + 强调文字；替代散落的 bg-*-900/10 异色卡）── */
+    .iqs-note {
+      background: var(--input-bg);
+      border: 1px solid var(--border-line-r);
+      border-radius: var(--radius-md);
+      padding: 16px;
+    }
+
+    /* ── 范式主按钮（§6.2：鹿溪绿实底 + 白字，每屏 ≤ 1 个）── */
+    .iqs-btn-primary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 44px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: var(--luxi-green);
+      color: #FFFFFF;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+      transition: background var(--dur-fast) var(--ease-standard),
+                  transform var(--dur-fast) var(--ease-standard);
+    }
+
+    .iqs-btn-primary:hover { background: var(--primary-hover); }
+    .iqs-btn-primary:active { background: var(--primary-active); transform: scale(0.99); }
+    .iqs-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* 生成中态（与主按钮同形，仅降饱和；替代各 Editor 的 --sidebar-muted / border / slate-800 三种写法）*/
+    .iqs-btn-pending {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 44px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: var(--input-bg);
+      color: var(--text-muted);
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: progress;
+      border: 1px solid var(--input-border);
+    }
+
+    /* ── 范式状态徽章（替代散落的 bg-*-500/10 + border-*-500/20 异色胶囊）── */
+    .iqs-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+      background: color-mix(in srgb, var(--state-up) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--state-up) 26%, transparent);
+      color: var(--text-ok);   /* 文字专用色（--state-up 作文字仅 2.12:1，不达 AA） */
+      font-size: var(--fs-micro);
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* 滑杆 / 进度：强调色统一取鹿溪绿（一处定义，全局生效） */
+    input[type="range"] {
+      accent-color: var(--luxi-green);
     }
 
     ::-webkit-scrollbar {
@@ -79,8 +269,8 @@
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 10px;
+      background: var(--border-line-r);
+      border-radius: var(--radius-pill);
     }
   </style>
   <link rel="stylesheet" href="/index.css">

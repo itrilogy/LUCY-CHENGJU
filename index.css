@@ -1,46 +1,260 @@
 @import "tailwindcss";
 
-:root {
-    --primary: #2563eb;
-    --bg-page: #fcfdfe;
-    --text-main: #0f172a;
-    --text-muted: #64748b;
-    --border-light: #f1f5f9;
-    --panel-bg: rgba(255, 255, 255, 0.4);
-    --card-bg: #ffffff;
-    --grid-color: #cbd5e1;
-    --header-bg: rgba(255, 255, 255, 0.7);
-    --sidebar-bg: #ffffff;
-    --sidebar-border: #f1f5f9;
-    --sidebar-text: #1e293b;
-    --sidebar-muted: #64748b;
-    --input-bg: #f8fafc;
-    --input-border: #e2e8f0;
+/* 澄矩 = light 主题为默认，深色走 .dark（Tailwind v4 需显式声明 class 变体） */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================================
+   LUXI Design System v1.0 · Tailwind v4 主题层（@theme）
+   范式来源：LUCY-DESIGN（鹿溪设计范式 LUXI Design System v1.0）
+             tokens.json §color/§radius/§shadow/§typography + DESIGN.md §3–§6
+   产品定位：工坊·一法 · accent #0D5E42 鹿溪绿 / #00D2FF 进化蓝 · light · compact
+
+   ⚠️ Tailwind v4 是 CSS-first：`tailwind.config.js` 不会被自动读取，
+      色板/圆角/字体必须在此用 `@theme` 声明，否则类名不生成或沿用内置默认值。
+   ============================================================================ */
+
+@theme {
+    /* ── 范式 core 四色（DESIGN.md §3.1，不可覆写）────────────────────── */
+    --color-luxi-green: #0D5E42;
+    --color-origin-white: #F5F7FA;
+    --color-luxi-cyan: #00D2FF;
+    --color-luxi-gold: #F1C40F;
+
+    /* ── 范式支持 / 状态色（§3.2）────────────────────────────────────── */
+    --color-alert-red: #E74C3C;
+    --color-info-blue: #3498DB;
+    --color-state-up: #22C55E;
+    --color-state-down: #EF4444;
+    --color-state-flat: #94A3B8;
+
+    /* ── 语义别名 → 生成 bg-primary / text-primary / border-primary 等 ── */
+    --color-primary: #0D5E42;
+    --color-primary-hover: #127A55;
+    --color-primary-active: #0A4A33;
+    --color-accent: #00D2FF;
+    --color-highlight: #F1C40F;
+
+    /* ── 内置色板覆写：使既有数千处类名零改动归位范式 ──────────────────
+       收敛规则：主色族 → 鹿溪绿；强调族 → 进化蓝；成功族 → state-up；
+                 警示族 → 标题金；危险族 → alert-red；中性族不覆写。
+      ─────────────────────────────────────────────────────────────────── */
+    /* blue / teal → 鹿溪绿阶 */
+    --color-blue-50: #E8F2ED;   --color-blue-100: #C9E2D8;  --color-blue-200: #9BC9B8;
+    --color-blue-300: #6BAF97;  --color-blue-400: #3E9174;  --color-blue-500: #0D5E42;
+    --color-blue-600: #0A4A33;  --color-blue-700: #083B29;  --color-blue-800: #062D1F;
+    --color-blue-900: #041F15;  --color-blue-950: #02120C;
+
+    --color-teal-50: #E8F2ED;   --color-teal-100: #C9E2D8;  --color-teal-200: #9BC9B8;
+    --color-teal-300: #6BAF97;  --color-teal-400: #3E9174;  --color-teal-500: #0D5E42;
+    --color-teal-600: #0A4A33;  --color-teal-700: #083B29;  --color-teal-800: #062D1F;
+    --color-teal-900: #041F15;  --color-teal-950: #02120C;
+
+    /* indigo / cyan / purple → 进化蓝阶 */
+    --color-indigo-50: #E5FAFF; --color-indigo-100: #BFF4FF; --color-indigo-200: #8AEBFF;
+    --color-indigo-300: #55E1FF; --color-indigo-400: #1AD8FF; --color-indigo-500: #00D2FF;
+    --color-indigo-600: #00A8CC; --color-indigo-700: #008099; --color-indigo-800: #005A6B;
+    --color-indigo-900: #003640; --color-indigo-950: #001F26;
+
+    --color-cyan-50: #E5FAFF;   --color-cyan-100: #BFF4FF;  --color-cyan-200: #8AEBFF;
+    --color-cyan-300: #55E1FF;  --color-cyan-400: #1AD8FF;  --color-cyan-500: #00D2FF;
+    --color-cyan-600: #00A8CC;  --color-cyan-700: #008099;  --color-cyan-800: #005A6B;
+    --color-cyan-900: #003640;  --color-cyan-950: #001F26;
+
+    --color-purple-50: #E5FAFF; --color-purple-100: #BFF4FF; --color-purple-200: #8AEBFF;
+    --color-purple-300: #55E1FF; --color-purple-400: #1AD8FF; --color-purple-500: #00D2FF;
+    --color-purple-600: #00A8CC; --color-purple-700: #008099; --color-purple-800: #005A6B;
+    --color-purple-900: #003640; --color-purple-950: #001F26;
+
+    /* emerald → state-up 阶（成功 / 通过 / 上涨） */
+    --color-emerald-50: #ECFDF3; --color-emerald-100: #D1FAE0; --color-emerald-200: #A7F3C6;
+    --color-emerald-300: #6EE7A8; --color-emerald-400: #4ADE88; --color-emerald-500: #22C55E;
+    --color-emerald-600: #16A34A; --color-emerald-700: #15803D; --color-emerald-800: #166534;
+    --color-emerald-900: #14532D; --color-emerald-950: #052E16;
+
+    /* amber → 标题金阶（落点 / 显著信号 / 警示替代） */
+    --color-amber-50: #FEFBEB;  --color-amber-100: #FDF3C4;  --color-amber-200: #FCE88A;
+    --color-amber-300: #FAD749;  --color-amber-400: #F7C81F;  --color-amber-500: #F1C40F;
+    --color-amber-600: #D0A50A;  --color-amber-700: #A67F08;  --color-amber-800: #7E6009;
+    --color-amber-900: #5A440B;  --color-amber-950: #332604;
+
+    /* red / rose → alert-red 阶（危险 / 异常） */
+    --color-red-50: #FDF0EE;    --color-red-100: #FBDDD9;   --color-red-200: #F7BCB4;
+    --color-red-300: #F09185;   --color-red-400: #EC6A5B;   --color-red-500: #E74C3C;
+    --color-red-600: #CF3A2B;   --color-red-700: #A92C20;   --color-red-800: #7F2219;
+    --color-red-900: #571812;   --color-red-950: #300D0A;
+
+    --color-rose-50: #FDF0EE;   --color-rose-100: #FBDDD9;  --color-rose-200: #F7BCB4;
+    --color-rose-300: #F09185;  --color-rose-400: #EC6A5B;  --color-rose-500: #E74C3C;
+    --color-rose-600: #CF3A2B;  --color-rose-700: #A92C20;  --color-rose-800: #7F2219;
+    --color-rose-900: #571812;  --color-rose-950: #300D0A;
+
+    /* ── 排版（§4.1 中文优先）──────────────────────────────────────────── */
+    --font-sans: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+    --font-serif: "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+    --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+
+    /* ── 字号阶梯（§4.2；最小 micro=11px）─────────────────────────────── */
+    --text-micro: 11px;   --text-micro--line-height: 1.4;
+    --text-caption: 12px; --text-caption--line-height: 1.45;
+    --text-small: 13px;   --text-small--line-height: 1.5;
+    --text-body: 14px;    --text-body--line-height: 1.6;
+    --text-h3: 17px;      --text-h3--line-height: 1.4;
+    --text-h2: 22px;      --text-h2--line-height: 1.3;
+    --text-h1: 28px;      --text-h1--line-height: 1.25;
+
+    /* ── 圆角（§5）────────────────────────────────────────────────────── */
+    --radius-xs: 4px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-tile: 12px;
+
+    /* ── 阴影（§5，仅 5 档）────────────────────────────────────────────── */
+    --shadow-xs: 0 1px 2px rgba(13, 94, 66, 0.05);
+    --shadow-sm: 0 2px 8px rgba(13, 94, 66, 0.08);
+    --shadow-md: 0 8px 24px rgba(13, 94, 66, 0.10);
+    --shadow-lg: 0 16px 48px rgba(13, 94, 66, 0.14);
+    --shadow-xl: 0 16px 48px rgba(13, 94, 66, 0.14);
+    --shadow-2xl: 0 16px 48px rgba(13, 94, 66, 0.14);
 }
 
-.dark {
-    --bg-page: #020617;
-    --text-main: #f8fafc;
-    --text-muted: #94a3b8;
-    --border-light: #1e293b;
-    --panel-bg: rgba(15, 23, 42, 0.6);
-    --card-bg: #0f172a;
-    --grid-color: rgba(30, 41, 59, 0.5);
-    --header-bg: rgba(15, 23, 42, 0.7);
-    --sidebar-bg: #0f172a;
-    --sidebar-border: rgba(30, 41, 59, 0.6);
-    --sidebar-text: #f8fafc;
-    --sidebar-muted: #94a3b8;
-    --input-bg: rgba(0, 0, 0, 0.4);
-    --input-border: #1e293b;
+/* ============================================================================
+   运行时令牌（:root）：主题可切换的语义层（工程别名，桥接既有 var() 用法）
+   ============================================================================ */
+
+:root {
+    --luxi-green: #0D5E42;
+    --origin-white: #F5F7FA;
+    --luxi-cyan: #00D2FF;
+    --luxi-gold: #F1C40F;
+
+    --alert-red: #E74C3C;
+    --info-blue: #3498DB;
+    --state-up: #22C55E;
+    --state-down: #EF4444;
+    --state-flat: #94A3B8;
+
+    --border-subtle-r: rgba(13, 94, 66, 0.10);
+    --border-line-r: rgba(13, 94, 66, 0.18);
+    --border-strong-r: rgba(13, 94, 66, 0.32);
+
+    --radius-pill: 999px;
+
+    /* 控件高度档（R-UI-16，鱼骨图即基准）——供 .iqs-input 等直接引用 */
+    --control-xs: 28px;
+    --control-sm: 32px;
+    --control-md: 36px;
+    --control-lg: 44px;
+    --control-xl: 48px;
+    --shadow-xs-p: 0 1px 2px rgba(13, 94, 66, 0.05);
+    --shadow-sm-p: 0 2px 8px rgba(13, 94, 66, 0.08);
+    --shadow-md-p: 0 8px 24px rgba(13, 94, 66, 0.10);
+    --shadow-lg-p: 0 16px 48px rgba(13, 94, 66, 0.14);
+    --shadow-focus: 0 0 0 3px rgba(0, 210, 255, 0.35);
+
+    --fs-display: 40px;
+    --fs-h1: 28px; --fs-h2: 22px; --fs-h3: 17px;
+    --fs-body: 14px; --fs-small: 13px; --fs-caption: 12px; --fs-micro: 11px;
+
+    --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+    --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+    --space-12: 48px;
+
+    --font-sans-zh: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+    --font-serif-zh: "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+    --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    --header-h: 56px;
+    --sidebar-w: 240px;
+    --dur-fast: 160ms;
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+    /* 语义别名（= --color-primary，供内联 style 的 var(--primary) 使用） */
+    --primary: var(--luxi-green);
+    --primary-hover: #127A55;
+    --primary-active: #0A4A33;
+    --accent-color: var(--luxi-cyan);
+    --accent-blue: var(--info-blue);
+    --product-accent: var(--luxi-green);
+
+    --bg-page: var(--origin-white);
+    --bg-main: var(--origin-white);
+    --text-main: #1A2428;
+    --text-secondary: #42525C;
+    --text-muted: #5A6B80;
+    /* 文字专用色（浅底实测 ≥4.5:1；装饰/底色仍用 --state-* / --alert-red 等原值） */
+    --text-ok: #15803D;
+    --text-danger: #A92C20;
+    --text-info: #1D6FA5;
+    --text-warn: #8A6A05;
+    --border-light: var(--border-subtle-r);
+    --panel-bg: rgba(255, 255, 255, 0.4);
+    --card-bg: #FFFFFF;
+    --grid-color: var(--border-line-r);
+    --header-bg: rgba(255, 255, 255, 0.7);
+    --sidebar-bg: var(--origin-white);
+    --sidebar-border: var(--border-subtle-r);
+    --sidebar-text: #1A2428;
+    --sidebar-muted: var(--text-muted);   /* 与 --text-muted 同源，消除双灰 */
+    --input-bg: #EEF2F5;
+    --input-border: var(--border-line-r);
+    --nav-bg: #EEF2F5;
+}
+
+/* ═══ 主题：深色（数据场景增强；鹿溪绿按范式提亮至 #14805C，对比度 ≥4.5:1）═══ */
+.dark,
+[data-theme="dark"] {
+    --primary: #14805C;
+    --primary-hover: #17946B;
+    --primary-active: #0D5E42;
+
+    --bg-page: #121A17;
+    --bg-main: #121A17;
+    --text-main: #E6EFEA;
+    --text-secondary: #C3D3CB;
+    --text-muted: #8FA3BF;
+    --border-light: rgba(245, 247, 250, 0.08);
+    --panel-bg: rgba(34, 48, 43, 0.6);
+    --card-bg: #1A2428;
+    --grid-color: rgba(245, 247, 250, 0.14);
+    --header-bg: rgba(26, 36, 40, 0.72);
+    --sidebar-bg: #121A17;
+    --sidebar-border: rgba(245, 247, 250, 0.08);
+    --sidebar-text: #E6EFEA;
+    --sidebar-muted: #8FA3BF;
+    /* 文字专用色 · 深底版（实测 ≥4.5:1） */
+    --text-ok: #4ADE88;
+    --text-danger: #F09185;
+    --text-info: #8AEBFF;
+    --text-warn: #FAD749;
+    --input-bg: #0E1613;
+    --input-border: rgba(245, 247, 250, 0.14);
+    --nav-bg: #0E1613;
 }
 
 body {
     color: var(--text-main);
     background: var(--bg-page);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-sans-zh);
+    font-size: var(--fs-body);
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+/* 数据 / 代码 / DSL 一律等宽 + 数字对齐（范式 §4.1） */
+code, pre, .font-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* 键盘焦点环必须可见（范式 §5 / §7.1，强制项） */
+:focus-visible {
+    outline: 2px solid var(--luxi-cyan);
+    outline-offset: 2px;
+}
+
+::selection {
+    background: rgba(0, 210, 255, 0.28);
 }
 
 @layer utilities {
@@ -54,30 +268,75 @@ body {
         background-size: 24px 24px;
     }
 
+    .shadow-luxi-xs { box-shadow: var(--shadow-xs-p); }
+    .shadow-luxi-sm { box-shadow: var(--shadow-sm-p); }
+    .shadow-luxi-md { box-shadow: var(--shadow-md-p); }
+    .shadow-luxi-lg { box-shadow: var(--shadow-lg-p); }
+
     .shadow-industrial {
-        box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.03),
-            0 4px 12px -2px rgba(0, 0, 0, 0.01);
+        box-shadow: var(--shadow-md-p);
     }
 
     .panel-transition {
-        transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: all var(--dur-fast) var(--ease-standard);
     }
 
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #e2e8f0;
-        border-radius: 10px;
+        background: var(--border-line-r);
+        border-radius: var(--radius-pill);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: var(--border-strong-r);
     }
 
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #cbd5e1;
+    /* 产品方标 .brick 范式（48×48 鹿溪绿圆角砖 + 溪流 + 源启星）
+       —— 与 LUCY-DESIGN Sample/luxi-scenario-kit-final.html §VI 完全同构 */
+    .brick {
+        width: 48px;
+        height: 48px;
+        border-radius: var(--radius-tile);
+        background: var(--luxi-green);
+        color: var(--origin-white);
+        display: grid;
+        place-items: center;
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .brick > svg {
+        width: 26px;
+        height: 26px;
+    }
+
+    .brick .stream {
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: 6px;
+        height: 3px;
+        border-radius: var(--radius-pill);
+        background: linear-gradient(90deg, rgba(0, 210, 255, 0.2), #00D2FF 50%, rgba(124, 240, 255, 0.55));
+    }
+
+    .brick .star {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        width: 5px;
+        height: 5px;
+        background: var(--luxi-gold);
+        clip-path: polygon(50% 0, 61% 35%, 100% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 0 35%, 39% 35%);
+    }
+
+    /* 動效降级（范式 §8，强制项） */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: var(--dur-fast) !important;
+        }
     }
 }
