@@ -209,6 +209,8 @@ related:
 
 > 已于 2026-09-12 单独整理：按「权威层级 × 领域 × 类型」组织，含标签体系与漂移审计指针。
 > 本轮新增/更新的 FLOW 文档：`review/FLOW_AGENT_CARD_AUDIT.md`（AI 推理卡审计）、`review/FLOW_AUDIT_FINDINGS.md`（R20 / AUD-116..137）、`notes/FLOW_ROUTING_WORKLOG.md`（W12–W17）。
+>
+> **R21（使用者实测驱动）**：`review/FLOW_COMPONENT_AUDIT_R21.md` —— 渲染缓慢（AUD-140，P0）· 子流程不继承 `Layout`（AUD-138）· 连线缺目标（AUD-139）。台账已同步至 R1–R21 / 140 条。
 
 ### 3.9 其他
 
