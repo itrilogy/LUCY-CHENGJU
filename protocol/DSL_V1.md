@@ -1,16 +1,26 @@
 # IQS-DSL v1 协议入口（MCP Resource）
 
+## 生成前的标准流程（推荐）
+
+```
+① read  protocol://intents            ← 按用户意图定位 kind（含关键词与资源 URI）
+② read  protocol://segments/<parent>/<sub>   ← 取该 kind 的完整语法
+③ read  protocol://prompts/<kind>     ← 取该 kind 的具体生成提示词
+④ call  render_<kind>(dsl)            ← 渲染
+```
+
+> `<kind>` = 工具名去掉 `render_` 前缀（master 卡去掉 `_master`）：`flow` / `affinity` / `matrix_plot` / `mermaid` / `vchart` …
+> 三个入口的数据**同源**（均由 `dsl/cards/*.card.ts` 生成），不会互相矛盾。
+
 ## 权威文档（请按序阅读）
 
 | 优先级 | 路径 | 内容 |
 |:---:|:---|:---|
-| 1 | **docs/IQS_DSL_V1_MANUAL.md** | **完整细粒度语法手册**（14 kind 全指令表 / Body / 示例 / 反例） |
-| 2 | docs/IQS_DSL_V1_SPEC.md | 架构、分层、代数、权威序 |
-| 3 | dsl/kinds.json | 机器可读 kind 表 |
-| 4 | protocol/governance.md | Core vs Relief |
-
-URI：`protocol://dsl/v1` 返回本摘要；Agent 生成 DSL 前应 `read` 对应  
-`protocol://segments/iqs_native/{kind}`。
+| 1 | `protocol://intents` | **意图路由目录**（先读这个） |
+| 2 | **docs/IQS_DSL_V1_MANUAL.md** | **完整细粒度语法手册**（14 kind 全指令表 / Body / 示例 / 反例） |
+| 3 | docs/IQS_DSL_V1_SPEC.md | 架构、分层、代数、权威序 |
+| 4 | dsl/kinds.json | 机器可读 kind 表 |
+| 5 | protocol/governance.md | Core vs Relief |
 
 ## 快速红线
 

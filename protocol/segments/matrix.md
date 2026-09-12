@@ -1,89 +1,120 @@
-# Matrix (矩阵图) 协议切片
+# matrix (相关性识别/矩阵图) 协议切片
 
 ## 1. 专家灵魂 (The Soul)
 
 ### 矩阵图分析 (Matrix Diagram)
-矩阵图是从多维度的交叉点寻找解决问题线索的方法。它通过行与列的交点，展现各因素间的相关程度（强、中、弱）。
 
-#### 常见矩阵选型：
-- **L 型**: 两个维度 (A x B)，最常用。
-- **T 型**: 三个维度 (A x B, A x C)，A 为关联中心。
-- **Y 型**: 三个维度 (A x B, B x C, C x A)，形成闭环关联。
-- **X 型**: 四个维度 (A x B, B x C, C x D, D x A)。
-- **C 型**: 三维立体空间关联（或自相关）。
+矩阵图是从多维度的交叉点寻找解决问题线索的方法。它通过行与列的交点，展现各因素间的相关程度（强 / 中 / 弱）。
 
-#### 符号与评分系统：
-- **◎ (Strong)**: 强相关，默认权重 9。
-- **○ (Medium)**: 中等相关，默认权重 3。
-- **△ (Weak)**: 弱相关，默认权重 1。
+#### 常见矩阵选型
 
-### 专家建议
+- **L 型**：两个维度 (A × B)，最常用。
+- **T 型**：三个维度 (A × B, A × C)，A 为关联中心。
+- **Y 型**：三个维度 (A × B, B × C, C × A)，形成闭环关联。
+- **X 型**：四个维度两两交叉；**C 型**：立方体（三维）。
+
+#### 符号与评分系统
+
+- **S (Strong)**：强相关，默认权重 **9**。
+- **M (Medium)**：中等相关，默认权重 **3**。
+- **W (Weak)**：弱相关，默认权重 **1**。
+- 符号写在关系行里（`a1: b1:S`），权重可用 `Weight[...]` 覆盖。
+
+#### 两条渲染规则（重要）
+
+- **绘图区净化**：为最大化画布利用率，绘图区内部**不绘制标题**。`Title:` 仅作元数据、导出文件名与导出 PNG/PDF 时的外部标注。
+- **Y 型视角标准化**：Y 型矩阵固定采用 Top-Down（俯视）透视，不支持旋转 —— 保证指标标签始终正向且向上放射。
+
 > [!TIP]
-> 矩阵图不仅用于展示现状，更在于通过“评分模式”发现薄弱环节。启用 `ShowScores: true` 可以自动计算各维度的加权得分，帮助识别核心影响因子。
+> 矩阵图不仅用于展示现状，更在于通过「评分模式」发现薄弱环节。启用 `ShowScores: true` 可识别核心影响因子。
 
 ---
 
 ## 2. 语法血肉 (The Flesh)
 
-### 基础配置
+### IQS-DSL v1 — matrix (Matrix)
+
 | 语法 | 说明 | 示例 |
 | :--- | :--- | :--- |
-| `Title:` | 图表标题 | `Title: 零件与故障模式矩阵` |
-| `Type:` | 矩阵类型 (`L` / `T` / `Y` / `X` / `C`) | `Type: L` |
-| `CellSize:` | 单元格像素大小 | `CellSize: 60` |
-| `ShowScores:` | 是否显示加权得分统计 | `ShowScores: true` |
+| `Title:` | 图表标题（**仅作元数据与导出标注，不在绘图区渲染**） 形如 `<文本>` **必填** | `Title: 零部件与故障模式矩阵` |
+| `Type:` | 矩阵类型（几何形态）（L / T / Y / X / C） **必填** | `Type: L` |
+| `ShowScores:` | 是否显示加权得分统计（true / false） | `ShowScores: true` |
+| `CellSize:` | 单元格像素边长 形如 `<整数>` | `CellSize: 40` |
+| `Weight[Strong | Medium | Weak]` | 符号权重（默认 9 / 3 / 1） | `Weight[Strong]: 9` |
+| `Color[Title]` | #HEX 颜色（标题等） | `Color[Title]: #1A2428` |
+| `Font[Title | Base]` | px 字号（标题 / 正文） | `Font[Base]: 10` |
+| `Axis:` | 定义一条轴（维度） 形如 `<AxisID>, <轴标题>` **必填** | `Axis: A, 零部件` |
+| `轴项行:` | 轴下的条目（紧跟所属 `Axis:` 之后） 形如 `- <项ID>, <标签> [, <权重>]` **必填** | `- a1, 活塞销, 0.8` |
+| `Matrix:` | 声明要渲染哪两条轴的交叉矩阵 形如 `<RowAxisID> x <ColAxisID>` **必填** | `Matrix: A x B` |
+| `关系行:` | 声明某行项与各列项的相关关系 形如 `<行项ID>: <列项ID>:<符号>[, …]` | `a1: b1:S, b2:M` |
 
-### 权重与色彩
-- `Weight[Strong | Medium | Weak]`: 数字权重。
-- `Color[Strong | Medium | Weak]`: #HEX 符号颜色。
-- `Color[Axis | Grid]`: #HEX 轴与网格颜色。
+### 边界说明
 
-### 核心语法
-#### 1. 轴定义 (Axis)
-```dsl
-Axis: [AxisID], [Label]
-- [ItemID], [Label], [OptionalWeight]
-```
+- **`Type`**：大写字母；缺省为 `L`。选定后应给出与之匹配的轴数量（L=2 轴，T=3 轴，Y=3 轴闭环）。
+- **`CellSize`**：缺省按画布自适应；格子很多时应显式调小。
+- **`Axis`**：AxisID 用单字母（A/B/C…），供 `Matrix:` 与关系行引用。
+- **`轴项行`**：第三个字段为**可选的项权重**（用于加权得分），不是相关符号。
+- **`Matrix`**：`x` 为半角小写字母 x，两侧留空格。
+- **`关系行`**：符号取 `S` / `M` / `W`（也可写中文 ◎ / ○ / △）；一行可写多组，用**半角逗号**分隔。
 
-#### 2. 矩阵定义 (Matrix Block)
-```dsl
-Matrix: [RowAxisID] x [ColAxisID]
-[RowItemID]: [ColItemID1]:[Symbol], [ColItemID2]:[Symbol]
-```
-*符号简写支持：S/9/◎ (强), M/3/○ (中), W/1/△ (弱)*
+### 反例（错 → 对）
+
+- 错：`a1: b1, b2:S`
+  对：`a1: b1:S, b2:S`
+  因：每个列项都要带符号（`S`/`M`/`W`）；漏写符号的关系不会被渲染。
+- 错：`Matrix: A x C   （但未定义 Axis: C）`
+  对：`Axis: C, 环境因素\nMatrix: A x C`
+  因：`Matrix:` 引用的两条轴都必须先由 `Axis:` 定义。
+- 错：`Type: T   （但只定义了 2 条轴）`
+  对：`Type: L   （两条轴）或补第三条轴`
+  因：矩阵类型与轴数量必须匹配：L/K = 2 轴，T/Y = 3 轴，X = 4 轴。
+- 错：````dsl\nTitle: xxx\n````
+  对：`Title: xxx`
+  因：禁止 Markdown 代码围栏 —— 只输出纯文本 DSL。
+- 错：`{"Title": "xxx"}`
+  对：`Title: xxx`
+  因：`dsl` 必须是纯文本字符串，不是 JSON 对象。
+- 错：`这是根据您的需求生成的图表：\nTitle: xxx`
+  对：`Title: xxx`
+  因：禁止解释性前后缀。
 
 ---
 
 ## 3. 官方示例 (The Seed)
 
-### 场景：L 型矩阵 - 零部件与故障模式关联分析
+### 场景：零部件与故障模式关联分析
+
 ```dsl
 Title: 零部件与故障模式关联分析
 Type: L
 ShowScores: true
+CellSize: 40
 Weight[Strong]: 9
 Weight[Medium]: 3
 Weight[Weak]: 1
 
-# A轴: 零部件 (行)
+// A 轴（行）：零部件，第三列为该行权重
 Axis: A, 零部件
 - a1, 活塞销, 0.8
 - a2, 连杆, 0.9
 - a3, 轴瓦, 1.0
 
-# B轴: 故障模式 (列)
+// B 轴（列）：故障模式
 Axis: B, 故障模式
 - b1, 磨损
 - b2, 裂纹
 - b3, 泄漏
 - b4, 异响
 
-# 关系定义
+// 关系定义：<行项ID>: <列项ID>:<符号>
 Matrix: A x B
 a1: b1:S, b2:M
 a2: b2:S, b4:W
 a3: b1:M, b3:S, b4:S
 ```
 
+> L 型矩阵：A 轴 3 行 × B 轴 4 列，权重用 `Weight[...]` 覆盖默认 9/3/1。
+
 ---
-**权威性声明**: 本文档内容 with `MatrixEditor.tsx` 及 `chart_spec.json` 保持同步。 Riverside,
+
+**权威性声明**：本切片由 `dsl/cards/matrix.card.ts` 生成（卡片版本 1.1），请勿手工编辑；改动请修改真源后重跑 `node --experimental-strip-types scripts/build_cards.ts`。

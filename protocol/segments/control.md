@@ -1,67 +1,94 @@
-# Control (SPC 控制图) 协议切片
+# control (SPC 过程控制图) 协议切片
 
 ## 1. 专家灵魂 (The Soul)
 
 ### SPC 统计过程控制原理
-控制图（Control Chart）是用于区分过程中的**偶然波动**与**异常波动**的重要工具。Smart QC Studio 遵循 ISO 7870 与 GB/T 4091 标准进行计算。
 
-### 控制图选型指南
-| 数据性质 | 子组大小 | 推荐类型 |
-| :--- | :--- | :--- |
-| 计量型 (长度/重量) | n=1 | I-MR |
-| 计量型 (连续生产) | 2≤n≤10 | X-bar-R |
-| 计件型 (不合格数) | 恒定 | NP |
-| 计点型 (缺陷数) | 不恒定 | U |
+控制图（Control Chart）是用于区分过程中的**偶然波动**与**异常波动**的重要工具。计算遵循 ISO 7870 与 GB/T 4091 标准。
 
-### 判异规则 (Rules)
-系统支持 Nelson 规则与 WE (Western Electric) 规则。常见异常包括：
-- 1 个点落在 $3\sigma$ 区外。
+#### 控制图选型指南
+
+- **计量型（子组 n=1）**：I-MR（单值—移动极差）
+- **计量型（2 ≤ n ≤ 10）**：X-bar-R（均值—极差）
+- **计量型（n > 10）**：X-bar-S（均值—标准差）
+- **计件型（不合格品数 / 率）**：NP / P
+- **计点型（缺陷数 / 单位缺陷数）**：C / U
+
+#### 判异规则 (Rules)
+
+支持 `Basic`（3σ 越界）、`Western-Electric`、`Nelson` 三套规则，可**逗号并列多套**。常见异常：
+
+- 1 个点落在 3σ 控制限外。
 - 连续 9 点落在中心线同一侧。
 - 连续 6 点持续上升或下降。
+
+> [!TIP]
+> 控制图必须先有**足够的数据量**（一般 ≥ 20–25 个子组）再解读控制限；数据太少时控制限本身不可靠。
 
 ---
 
 ## 2. 语法血肉 (The Flesh)
 
-### 基础配置
+### IQS-DSL v1 — control (Series)
+
 | 语法 | 说明 | 示例 |
 | :--- | :--- | :--- |
-| `Title:` | 图表主标题 | `Title: 关键尺寸控制图` |
-| `Type:` | 控制图类型 | `Type: X-bar-R` |
-| `Size:` | 子组样本容量 (n) | `Size: 5` |
-| `Rules:` | 判异规则 (Basic/Western-Electric/Nelson) | `Rules: Nelson` |
-| `Decimals:` | 数值显示精度 | `Decimals: 3` |
-| `ShowValues:` | 是否显示数据标记标签 | `ShowValues: true` |
+| `Title:` | 图表主标题 形如 `<文本>` **必填** | `Title: 关键尺寸控制图` |
+| `Type:` | 控制图类型（SPC 图种）（I-MR / X-bar-R / X-bar-S / P / NP / C / U） **必填** | `Type: X-bar-R` |
+| `Size:` | 子组样本容量 n（计量型专用） 形如 `<整数>` | `Size: 5` |
+| `Rules:` | 判异规则；可**逗号并列多套**（Basic / Western-Electric / Nelson） | `Rules: Nelson` |
+| `Decimals:` | 数值显示精度 形如 `<整数>` | `Decimals: 3` |
+| `Color[Line | Point | UCL | CL | LCL]` | #HEX 颜色：折线 / 数据点 / 上控制限 / 中心线 / 下控制限 | `Color[UCL]: #E74C3C` |
+| `[series]:` | 数据块**开始**（本 kind 唯一的数据录入方式）；`[series]: <标题>` 可带块标题 形如 `[series]: <可选标题>` **必填** | `[series]: 孔径测量值 (mm)` |
+| `[/series]:` | 数据块**结束** 形如 `[/series]` **必填** | `[/series]` |
+| `数据行:` | 块内每行一组观测值，**半角逗号**分隔；计量型每行个数应等于 `Size` 形如 `<数值>, <数值>, …` **必填** | `12.01, 12.02, 11.99, 12.00, 12.01` |
 
-### 视觉样式配置
-- `Color[Line]`: #HEX 折线颜色 (默认 `#3b82f6`)
-- `Color[Point]`: #HEX 数据点颜色 (默认 `#1d4ed8`)
-- `Color[UCL]`: #HEX 控制上限颜色 (默认 `#ef4444`)
-- `Color[CL]`: #HEX 中心线颜色 (默认 `#22c55e`)
+### 边界说明
 
-### 数据录入规范
-使用 `[series]` 块定义数据。
-```dsl
-[series]: 熔体温度
-12.5, 12.8, 12.1, 12.4, 12.6
-12.3, 12.5, 12.7, 12.2, 12.9
-[/series]
-```
+- **`Type`**：取值**区分大小写**，须与上表完全一致（如 `X-bar-R` 不能写 `XbarR`）。
+- **`Size`**：必须与实际每行数据个数一致，否则均值与极差计算错位。
+- **`Rules`**：多套并列写法：`Rules: Western-Electric,Nelson`。
+- **`[series]`**：必须与 `[/series]` 成对出现。
+
+### 反例（错 → 对）
+
+- 错：`12.01, 12.02, 11.99\n12.03, 11.98, 12.01`
+  对：`[series]: 孔径测量值\n12.01, 12.02, 11.99\n[/series]`
+  因：数据必须包在 `[series]` … `[/series]` 块内；裸数据行不会被采集。
+- 错：`Type: X-bar-R\nSize: 3\n12.01, 12.02, 11.99, 12.00, 12.01`
+  对：`Type: X-bar-R\nSize: 5\n12.01, 12.02, 11.99, 12.00, 12.01`
+  因：`Size` 必须等于每行观测值个数，否则子组均值/极差错位。
+- 错：`Type: XbarR`
+  对：`Type: X-bar-R`
+  因：图种取值区分大小写且含连字符，须与值域完全一致。
+- 错：`Type: X-bar-R   （用于计件数据「不合格品率」）`
+  对：`Type: P`
+  因：计量型与计件/计点型不可混用；不合格品率应选 `P`。
+- 错：````dsl\nTitle: xxx\n````
+  对：`Title: xxx`
+  因：禁止 Markdown 代码围栏 —— 只输出纯文本 DSL。
+- 错：`{"Title": "xxx"}`
+  对：`Title: xxx`
+  因：`dsl` 必须是纯文本字符串，不是 JSON 对象。
+- 错：`这是根据您的需求生成的图表：\nTitle: xxx`
+  对：`Title: xxx`
+  因：禁止解释性前后缀。
 
 ---
 
 ## 3. 官方示例 (The Seed)
 
-### 场景：均值极差图 (X-bar-R) 监控
+### 场景：缸盖螺栓孔径 X-bar-R 控制图
+
 ```dsl
 Title: 缸盖螺栓孔径 X-bar-R 控制图
 Type: X-bar-R
 Size: 5
 Rules: Nelson
 Decimals: 3
-Color[Line]: #2563eb
-Color[Point]: #1d4ed8
-Color[UCL]: #ef4444
+Color[Line]: #0D5E42
+Color[Point]: #0A4A33
+Color[UCL]: #E74C3C
 
 [series]: 孔径测量值 (mm)
 12.01, 12.02, 11.99, 12.00, 12.01
@@ -72,5 +99,8 @@ Color[UCL]: #ef4444
 [/series]
 ```
 
+> 5 个子组 × 每组 5 个观测值（`Size: 5`）；控制限由引擎按 GB/T 4091 计算。
+
 ---
-**权威性声明**: 本文档内容与 `ControlChartEditor.tsx` 及 `chart_spec.json` 保持同步。 Riverside,
+
+**权威性声明**：本切片由 `dsl/cards/control.card.ts` 生成（卡片版本 1.1），请勿手工编辑；改动请修改真源后重跑 `node --experimental-strip-types scripts/build_cards.ts`。

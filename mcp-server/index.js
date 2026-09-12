@@ -199,6 +199,7 @@ function createServer() {
 
   /** ILDR thin catalog — minimize list_tools tokens; full grammar via resources */
   function buildThinDescription(tool) {
+    const slug = String(tool.name).replace(/^render_/, '');
     if (tool.name === "render_flow") {
       return [
         "[CORE] IQS 企业流程图/泳道图",
@@ -206,7 +207,7 @@ function createServer() {
         "intents: 流程图, 泳道图, 程序文件, 跨部门流程, BPMN, swimlane",
         "NOT mermaid: 企业泳道/审批/程序文件必须用本工具，禁止 render_mermaid_flowchart。",
         "must: Dict 先于 Lane 与 W；Type[?]/[+] 必须分支行并以 End 闭合；纯文本非 JSON。",
-        "read: protocol://segments/iqs_native/flow",
+        `read: protocol://segments/iqs_native/flow | prompt: protocol://prompts/${slug}`,
         "dsl: IQS-DSL v1 pure text (not JSON)"
       ].join(" | ");
     }
@@ -221,7 +222,7 @@ function createServer() {
       tool.description,
       intents ? `intents: ${intents}` : '',
       extra,
-      `read: protocol://segments/${tool.parent_type}/${tool.sub_type}`,
+      `read: protocol://segments/${tool.parent_type}/${tool.sub_type} | prompt: protocol://prompts/${slug}`,
       tier === 'core' ? 'dsl: IQS-DSL v1 pure text (not JSON)' : 'dsl: dialect text (not bare JSON object)'
     ].filter(Boolean).join(' | ');
   }
@@ -265,6 +266,13 @@ function createServer() {
         name: "IQS Segment Index",
         mimeType: "text/markdown",
         description: "Index of protocol segment files and kind URIs."
+      },
+      {
+        uri: "protocol://intents",
+        name: "IQS 意图路由目录 (Intent Router)",
+        mimeType: "text/markdown",
+        description:
+          "ROUTING ENTRY. 按用户意图定位 kind（含关键词与资源 URI），并给出全局输出红线。生成前建议先读本文。"
       }
     ];
 
@@ -291,6 +299,26 @@ function createServer() {
       return { contents: [{ uri, mimeType: "text/markdown", text: governance }] };
     }
 
+    // ── 意图路由目录 ──────────────────────────────────────────────
+    // 由 dsl/cards/*.card.ts 的 meta.intents 生成（npm run build:cards）。
+    // 这是「先路由到意图层面」的入口：读一个资源即可完成选型，无需遍历 55 条 tool description。
+    if (uri === "protocol://intents") {
+      const intents = getProtocolFile("intents.md");
+      if (!intents) throw new Error("protocol/intents.md 不存在 —— 请先运行 npm run build:cards");
+      return { contents: [{ uri, mimeType: "text/markdown", text: intents }] };
+    }
+
+    // ── 具体提示词：protocol://prompts/<kind> ─────────────────────
+    // 由各卡片的 soul + syntax + example + outputControls 生成。
+    // <kind> = mcpName 去掉 render_ 前缀（master 卡去掉 _master）：flow / affinity / matrix_plot / mermaid / vchart …
+    const promptMatch = uri.match(/^protocol:\/\/prompts\/([^/]+)$/);
+    if (promptMatch) {
+      const kind = promptMatch[1];
+      const prompt = getProtocolFile(`prompts/${kind}.md`);
+      if (!prompt) throw new Error(`Prompt not found: ${uri} —— 可用 kind 见 protocol://intents`);
+      return { contents: [{ uri, mimeType: "text/markdown", text: prompt }] };
+    }
+
     if (uri === "protocol://dsl/v1") {
       const text = [
         dslV1 || "# IQS-DSL v1",
@@ -311,10 +339,14 @@ function createServer() {
         }
       });
       allContent += "\n## Kind resources (prefer these for generation)\n\n";
+      allContent += "> 每行给出该 kind 的**语法切片**与**生成提示词**两个 URI。路由入口见 `protocol://intents`。\n\n";
       allTools
         .filter((t) => t.sub_type !== "master")
         .forEach((t) => {
-          allContent += `- [${t.name}](protocol://segments/${t.parent_type}/${t.sub_type}) tier=${t.tier || "?"}\n`;
+          const slug = t.name.replace(/^render_/, "");
+          allContent +=
+            `- [${t.name}](protocol://segments/${t.parent_type}/${t.sub_type}) tier=${t.tier || "?"}` +
+            ` · prompt: \`protocol://prompts/${slug}\`\n`;
         });
       return { contents: [{ uri, mimeType: "text/markdown", text: allContent }] };
     }

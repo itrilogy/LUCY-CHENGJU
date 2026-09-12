@@ -6,10 +6,17 @@
     "display_name": "IQS 原生组件总纲",
     "description": "IQS 逻辑图表组件协议总纲。定义了所有非 VChart/Mermaid 原生图表的共有专家逻辑与 DSL 包裹红线。",
     "expertise": "质量工具标准化, 逻辑模型统一化",
-    "expert_logic": "### 🟢 IQS-DSL v1 核心红线 (The Soul)\n- **分层**: `iqs_native` 为 QC 核心语言；Mermaid/VChart 仅为类型外救济，不得冒充 SPC/排列图等终稿。\n- **外壳**: 首行 `Title:`；样式用 `Color[Slot]:` / `Font[Slot]:`；行注释仅 `//`。\n- **`#` 规则**: `#/##/###` 仅用于鱼骨图 TreeBody；亲和图必须用 `Item: id, label, parentId`。\n- **Type 消歧**: `Type:` 按工具解释——控制图=SPC 图种；矩阵=L/T/Y/X/C；亲和=Card/Label；基础图=bar/line/pie。禁止跨工具混用取值。\n- **代码块禁令**: 严禁 Markdown 围栏与解释性前后缀；只输出纯文本 DSL。\n- **完整规范**: 阅读资源 protocol://dsl/v1 与 protocol://segments/{parent}/{sub}。\n\n### 权威手册\n- 细粒度语法：仓库 `docs/IQS_DSL_V1_MANUAL.md`（IQS-DSL v1.1）\n- 架构规范：`docs/IQS_DSL_V1_SPEC.md`\n- MCP 资源：`protocol://dsl/v1` + `protocol://segments/iqs_native/{sub_type}`",
-    "syntax_rules": "### 🏗️ IQS-DSL v1 外壳 (Global Shell)\n- `Title: [标题]`（推荐首行）\n- `Color[Slot]: #RRGGBB` / `Font[Slot]: N` / `Show*: true|false` / `Decimals: N`\n- `//` 行注释（推荐）；非鱼骨图中 `#` 行仅作兼容注释\n- Body 必须严格匹配当前工具的 official_example 范式（Tree / Pairs / Series / Graph / …）\n- 详见 docs/IQS_DSL_V1_SPEC.md",
-    "official_example": "N/A",
-    "tier": "core"
+    "expert_logic": "### 分层与选用\n\n- **CORE（本层）**：`iqs_native` 的 14 个 kind —— 成果报告、专业 QC 图、可审计，**严格语言**。\n- **RELIEF**：Mermaid / VChart —— 仅作类型外制图，**不得冒充** SPC / 排列图等终稿。\n- **选用红线**：能映射标准 QC 工具 → 必须 CORE；仅当类型表外 → 才用 RELIEF。\n\n#### 共同外壳\n\n- **首行 `Title:`**（推荐必写）：承载图表主标题或待分析的问题。\n- **样式指令**：`Color[Slot]: #RRGGBB` / `Font[Slot]: <px>` / `Show*: true|false` / `Decimals: <整数>`。\n- 槽位名（`Slot`）因 kind 而异，取值见各 kind 卡片——**不要跨 kind 混用**。\n\n#### 注释与 `#` 规则（最易误用）\n\n- **行注释统一用 `//`**。\n- **`#` / `##` / `###` 仅鱼骨图（fishbone，body = Tree）可用**，作层级结构。其余 13 个 kind 中 `#` 行只是历史兼容注释，**不要模仿**。\n- **亲和图必须用 `Item:`** 建树，禁止用 `#`。\n\n#### `Type:` 消歧（**同名不同义**）\n\n- `control`：SPC 图种（`I-MR` / `X-bar-R` / …）。\n- `matrix`：矩阵几何（`L` / `T` / `Y` / `X` / `C`）。\n- `affinity`：渲染模式（`Card` / `Label`）。\n- `basic`：图表类型（`bar` / `line` / `pie`）。\n- **禁止跨 kind 混用取值**（引擎不校验时会静默降级）。\n\n> [!IMPORTANT]\n> **代码块禁令**：严禁 Markdown 围栏与解释性前后缀，只输出纯文本 DSL；`dsl` 参数不得写成 JSON 对象。",
+    "syntax_rules": "### IQS-DSL v1 — iqs_native_master (Family)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 首行标题（推荐必写） 形如 `<文本>` **必填** | `Title: 售后投诉根因分析` |\n| `Color[Slot]` | #HEX 颜色；Slot 名因 kind 而异，取值见对应卡片 | `Color[Bar]: #0D5E42` |\n| `Font[Slot]` | px 字号；Slot 名因 kind 而异 | `Font[Title]: 20` |\n| `Show*:` | 显示开关族（`ShowValues` / `ShowLegend` / `ShowCurve` / `ShowScores` / `ShowCritical` …）（true / false） | `ShowValues: true` |\n| `Decimals:` | 数值显示精度（小数位） 形如 `<整数>` | `Decimals: 2` |\n| `注释:` | 行注释，**统一用 `//`** 形如 `// <注释>` | `// 主轴产量` |\n| `正文结构:` | 各 kind 的正文形态（Body）不同，必须严格匹配对应卡片的范式（Tree / ItemTree / Pairs / ScalarList / Series / TupleList / Dataset / AxisSeries / Graph / Network / Matrix / Table / ProcessGraph / FlowGraph） | `// 见示例中的逐 kind 结构对照` |\n\n### 边界说明\n\n- **`Show*`**：具体有哪些开关因 kind 而异；取值为小写布尔。\n- **`正文结构`**：**不要混用**：如 `Item:` 属 ItemTree（affinity）与 ProcessGraph（pdpc）但第三参语义不同；`- ` 列表属 Pairs / ScalarList / TupleList，但取值形态不同。",
+    "official_example": "Title: 2024年三季度产线效能\nColor[Title]: #1A2428\nFont[Title]: 20\nDecimals: 2\n\n// 以下为各 kind 的正文结构示意（实际只写一种）\n// Tree      → # 一级  /  ## 二级            （fishbone）\n// ItemTree  → Item: id, label, parentId      （affinity）\n// Pairs     → - 名称: 数值                    （pareto）\n// ScalarList→ - 数值                          （histogram）\n// Series    → [series]: 标题 … [/series]      （control）\n// TupleList → - x, y [, z]                    （scatter）\n// Dataset   → Dataset: 名称, [值], 色, 轴      （basic）\n// AxisSeries→ Axis: 名, 最大 … / Series: 名, [值]（radar）\n// Graph     → Node: id, 标签 / Rel: a -> b    （relation）\n// Network   → Event: id, 名 / a -> b: 工期, 名 （arrow）\n// Matrix    → Axis: A, 名 / Matrix: A x B     （matrix）\n// Table     → Data: / Styles:                 （matrixPlot）\n// ProcessGraph → Group: … EndGroup / a--b [NG]（pdpc）\n// FlowGraph → Dict: / Lane from / W:          （flow）",
+    "tier": "core",
+    "intent_trigger": [
+      "IQS 原生",
+      "CORE",
+      "QC 核心图",
+      "质量工具"
+    ],
+    "render_engine": "native"
   },
   {
     "name": "render_affinity",
@@ -21,13 +28,16 @@
     "intent_trigger": [
       "亲和图",
       "KJ法",
-      "affinity diagram"
+      "系统图",
+      "affinity diagram",
+      "卡片分组",
+      "语言资料归纳"
     ],
     "inference_key": "affinity",
     "render_engine": "g6",
-    "expert_logic": "### KJ 法 (Affinity Diagram)\n亲和图法，又称 KJ 法，由川喜田二郎发明。它是将收集到的事实、意见、想法等语言信息，按其相互亲和性（相近性）归纳整理，使问题条理化的方法。\n\n#### 核心步骤：\n- **发散 (Divergence)**: 收集尽可能多的原始想法。\n- **收敛 (Convergence)**: 寻找想法间的内在亲和逻辑。\n- **层级化**: 建立多级归纳。\n\n> [!IMPORTANT]\n> 当多个想法无法归入现有分组时，不要强行塞入。这可能意味着存在一个新的观察维度。",
-    "syntax_rules": "### 基础配置\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表主标题 | `Title: 市场调研整理` |\n| `Type:` | 渲染模式 (`Card` / `Label`) | `Type: Card` |\n| `Layout:` | 布局方向 (`Horizontal` / `Vertical`) | `Layout: Horizontal` |\n\n### 数据项录入语法\n格式为 `Item: [ID], [Label], [ParentID]`",
-    "official_example": "Title: 办公环境改善方案 (KJ法)\nType: Card\nLayout: Horizontal\n\nColor[TitleBg]: #4f46e5\nColor[TitleText]: #ffffff\nColor[GroupHeaderBg]: #e0e7ff\nColor[ItemBg]: #ffffff\nColor[ItemText]: #1e293b\n\n# 节点定义\nItem: root, 核心目标: 提升员工幸福感, null\nItem: g1, 空间布局, root\nItem: g2, 行政服务, root\nItem: g3, 数字化工具, root\n\n# 空间布局子项\nItem: sub1, 增加绿植覆盖, g1\nItem: sub2, 设立静默专注区, g1\nItem: sub3, 升级人体工学椅, g1\n\n# 行政服务子项\nItem: sub4, 现磨咖啡无限供应, g2\nItem: sub5, 每周五下午茶, g2\n\n# 数字化工具子项\nItem: sub6, 引入智能看板系统, g3\nItem: sub7, 简化报销流程, g3",
+    "expert_logic": "### KJ 法 (Affinity Diagram)\n\n亲和图法，又称 KJ 法，由川喜田二郎发明。它是将收集到的事实、意见、想法等语言信息，按其相互亲和性（相近性）归纳整理，使问题条理化的方法。\n\n#### 核心步骤\n\n- **发散 (Divergence)**：收集尽可能多的原始想法、反馈或观测值。\n- **收敛 (Convergence)**：寻找想法间的内在亲和逻辑，形成分组并提炼标题。\n- **层级化**：建立多级归纳，从具体到抽象，理清思路。\n\n#### 逻辑构建\n\n通过层级化的定义，亲和图可以帮助团队从混乱的信息中理出头绪。一个好的亲和图应具有清晰的因果或从属逻辑——上级是下级共同性质的提炼，而不是简单的时间顺序。\n\n> [!IMPORTANT]\n> 当多个想法无法归入现有分组时，**不要强行塞入**。这可能意味着存在一个新的观察维度，或者是未被识别的根本问题。",
+    "syntax_rules": "### IQS-DSL v1 — affinity (ItemTree)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表主标题 形如 `<文本>` **必填** | `Title: 市场调研整理` |\n| `Type:` | 渲染模式（Card / Label） | `Type: Card` |\n| `Layout:` | 布局方向（Horizontal / Vertical） | `Layout: Horizontal` |\n| `Color[TitleBg | TitleText]` | #HEX 标题背景与文字色 | `Color[TitleBg]: #4f46e5` |\n| `Color[GroupHeaderBg | GroupHeaderText]` | #HEX 分组（一级节点）样式 | `Color[GroupHeaderBg]: #e0e7ff` |\n| `Color[ItemBg | ItemText]` | #HEX 常规条目（卡片）样式 | `Color[ItemBg]: #ffffff` |\n| `Color[Line]` | #HEX 连线颜色 | `Color[Line]: #64748b` |\n| `Color[Border]` | #HEX 边框颜色 | `Color[Border]: rgba(13,94,66,0.18)` |\n| `Font[Title | GroupHeader | Item]` | px 数字字号 | `Font[Title]: 24` |\n| `Item:` | 数据项（ItemTree 唯一录入方式） 形如 `[ID], [Label], [ParentID]` **必填** | `Item: g1, 空间布局, root` |\n\n### 边界说明\n\n- **`Type`**：Card = 卡片形态；Label = 纯文字标签形态。缺省 Card。\n- **`Layout`**：注意与 flow 的 `Layout: H|V` 写法不同（此处为全称）。\n- **`Item`**：① `ID` 唯一，供 `ParentID` 引用；② `Label` 为显示文字，**内容中若需冒号请用全角「：」**，因为分隔符是半角逗号；③ `ParentID` 写上级 ID（一级节点写 `root` 或 `null`）；④ **被解析器作为虚拟根吸收**：`Item: root, …` 这一行本身不出现在图上，其 children 即为顶层——这是 affinity 独有行为，与 `#` 树无关。",
+    "official_example": "Title: 办公环境改善方案（KJ 法）\nType: Card\nLayout: Horizontal\n\n// 样式\nColor[TitleBg]: #4f46e5\nColor[TitleText]: #ffffff\nColor[GroupHeaderBg]: #e0e7ff\nColor[GroupHeaderText]: #1A2428\nColor[ItemBg]: #ffffff\nColor[ItemText]: #1A2428\nFont[Title]: 24\nFont[GroupHeader]: 16\nFont[Item]: 14\nColor[Line]: #64748b\nColor[Border]: rgba(13,94,66,0.18)\n\n// 核心主题（parentId 写 null 或不写；写 root 时该节点会被解析器作为虚拟根吸收，图上不显示）\nItem: root, 核心目标: 提升员工幸福感, null\n\n// 一级分组\nItem: g1, 空间布局, root\nItem: g2, 行政服务, root\nItem: g3, 数字化工具, root\n\n// 二级条目\nItem: sub1, 增加绿植覆盖, g1\nItem: sub2, 设立静默专注区, g1\nItem: sub3, 升级人体工学椅, g1\nItem: sub4, 现磨咖啡无限供应, g2\nItem: sub5, 每周五下午茶, g2\nItem: sub6, 引入智能看板系统, g3\nItem: sub7, 简化报销流程, g3",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -42,18 +52,20 @@
     "sub_type": "arrow",
     "display_name": "IQS 进度控制/双代号网络图",
     "description": "通过节点和箭条展示任务间的先后顺序与时间关联。识别关键路径。",
-    "expertise": "项目进度管理, 关键路径 (CPM), ADM 网格图",
+    "expertise": "项目进度管理, 关键路径 (CPM), ADM 网络图",
     "intent_trigger": [
       "矢线图",
       "双代号网络图",
       "关键路径",
-      "arrow diagram"
+      "arrow diagram",
+      "网络计划",
+      "CPM"
     ],
     "inference_key": "arrow",
     "render_engine": "g6",
-    "expert_logic": "### 双代号网络图 (Arrow Diagram Method)\n矢线图，又称双代号网络图 (ADM)，是计划管理的重要工具。它通过节点（事件）和箭条（工作）展示各项任务间的先后顺序与时间关联。\n\n#### 核心计算逻辑 (CPM):\n- **关键路径 (Critical Path)**: 项目中耗时最长的路径。任何延迟都会导致整个项目的延期。\n- **宽裕时间**: 通过 ES/LS 计算每个节点的宽裕时间。\n- **虚任务 (Dummy Task)**: 仅表示任务间逻辑依赖关系的虚线。\n\n> [!TIP]\n> **资源优化**: 识别非关键路径上的 \"时差 (Float)\"。平衡峰值期间的人力或设备资源。",
-    "syntax_rules": "### 基础配置\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 项目名称 | `Title: 新生产线建设` |\n| `ShowCritical:` | 是否高亮显示关键路径 | `ShowCritical: true` |\n\n### 元素定义\n- **节点 (Event)**: `Event: [ID], [Label]`\n- **实任务 (Task)**: `[SrcID] -> [TgtID]: [Duration], [Label]`\n- **虚任务 (Dummy)**: `[SrcID] ..> [TgtID]: 0, [Label]`",
-    "official_example": "Title: 办公软件 V1.0 开发计划\nShowCritical: true\nShowShortest: false\n\nColor[Critical]: #ef4444\nColor[Line]: #6366f1\n\n# 节点定义\nEvent: 1, 立项完成\nEvent: 2, 需求评审\nEvent: 3, 架构设计\nEvent: 4, 模块 A 开发\nEvent: 5, 模块 B 开发\nEvent: 6, 集成测试\nEvent: 7, 交付\n\n# 任务链条\n1 -> 2: 3, 需求分析\n2 -> 3: 2, 架构方案\n3 -> 4: 10, A逻辑实现\n3 -> 5: 8, B逻辑实现\n5 ..> 4: 0, 依赖同步\n4 -> 6: 5, 系统集成\n6 -> 7: 2, 验收发布",
+    "expert_logic": "### 双代号网络图 (Arrow Diagram Method)\n\n矢线图，又称双代号网络图 (ADM)，是计划管理的重要工具。它通过节点（事件）和箭条（工作）展示各项任务间的先后顺序与时间关联。\n\n#### 核心计算逻辑 (CPM)\n\n- **关键路径 (Critical Path)**：项目中耗时最长的路径。任何延迟都会导致整个项目的延期。\n- **宽裕时间 (Float)**：通过 ES/LS 计算每个节点的时差。\n- **虚任务 (Dummy Task)**：仅表示任务间逻辑依赖关系的虚线，**工期恒为 0**。\n\n> [!TIP]\n> **资源优化**：识别非关键路径上的时差 (Float)，平衡峰值期间的人力或设备资源。",
+    "syntax_rules": "### IQS-DSL v1 — arrow (Network)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 项目名称（图标题） 形如 `<文本>` **必填** | `Title: 新生产线建设` |\n| `ShowCritical:` | 是否高亮关键路径（true / false） | `ShowCritical: true` |\n| `ShowShortest:` | 是否高亮最短路径（true / false） | `ShowShortest: false` |\n| `Color[Node | Line | Critical | Shortest]` | #HEX 颜色：节点 / 连线 / 关键路径高亮 / 最短路径高亮 | `Color[Critical]: #E74C3C` |\n| `Event:` | 节点（事件）定义；ID 为**整数**，供任务行引用 形如 `<ID>, <标签>` **必填** | `Event: 1, 立项完成` |\n| `实任务:` | 带工期的实际工作（用 `->`） 形如 `<SrcID> -> <TgtID>: <工期>, <名称>` **必填** | `1 -> 2: 3, 需求分析` |\n| `虚任务:` | 仅表达逻辑依赖的虚线（用 `..>`），**工期固定 0** 形如 `<SrcID> ..> <TgtID>: 0, <名称>` | `5 ..> 4: 0, 依赖同步` |\n\n### 边界说明\n\n- **`Event`**：ID 建议用连续整数；每个 ID 只能定义一次。\n- **`实任务`**：工期为**正数**（单位自定，通常为天）；名称可省略。`->` 与 `..>` 不可混用。\n- **`虚任务`**：用于表达「同一对节点间需要多条并行逻辑」或修正跨层级依赖；工期写非 0 不报错但语义无效。",
+    "official_example": "Title: 办公软件 V1.0 开发计划\nShowCritical: true\nShowShortest: false\n\nColor[Critical]: #E74C3C\nColor[Line]: #00D2FF\n\n// 节点（事件）\nEvent: 1, 立项完成\nEvent: 2, 需求评审\nEvent: 3, 架构设计\nEvent: 4, 模块 A 开发\nEvent: 5, 模块 B 开发\nEvent: 6, 集成测试\nEvent: 7, 交付\n\n// 实任务：Src -> Tgt: 工期, 名称\n1 -> 2: 3, 需求分析\n2 -> 3: 2, 架构方案\n3 -> 4: 10, A逻辑实现\n3 -> 5: 8, B逻辑实现\n4 -> 6: 5, 系统集成\n6 -> 7: 2, 验收发布\n\n// 虚任务：仅表达逻辑依赖，工期恒为 0\n5 ..> 4: 0, 依赖同步",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -83,9 +95,9 @@
     ],
     "inference_key": "basic",
     "render_engine": "echarts",
-    "expert_logic": "### IQS 基础图表分析专家逻辑\n基础图表是统计分析最通用的核心工具。AI 必须严格对照以下三大工业分析逻辑生成 DSL：\n\n#### 1. 轴对冲与混合分析 (Multi-Axis)\n- 当两组数据量级差异巨大（如产量 vs. 百分比）时，**必须**使用 `Y2` 或 `Y3` 副轴。支持通过重复声明 `Type: line/bar` 进行混合渲染。\n\n#### 2. 多层同心圆环 (Concentric Pie)\n- **核心必填**: 无论饼图层级多少，必须首先通过 `Dataset: [维度], [标签列表], null, X` 定义扇区名称，否则数值将失去语义。\n- **叠层逻辑**: `Y` 轴定义最内层，`Y2` 定位中层，`Y3` 定位最外层。\n\n#### 3. 堆叠与平滑 (Style)\n- 使用 `Stacked: true` 进行总量及分量占比的累计分析。\n- 使用 `Smooth: true` 强化趋势图的视觉连续性。\n\n> [!IMPORTANT]\n> **标签强制**: 所有的图表类型（Bar/Line/Pie）必须显式定义一个包含 `X` 标志的 Dataset 作为分类标签。",
-    "syntax_rules": "### 基础配置清单\n| 语法 | 说明 | 可选值/示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 | `Title: 2024年产线效能` |\n| `Type:` | 核心渲染模式 | `bar` / `line` / `pie` |\n| `View:` | 布局方向 | `v` (垂直) / `h` (水平) |\n| `Stacked:` | 启用堆叠 | `true` / `false` |\n| `Smooth:` | 平滑折线 | `true` / `false` |\n| `Color[Title]:` | 标题颜色 | `#HEX` |\n\n### 数据定义 (Dataset)\n格式: `Dataset: [名称], [[值列表]], [Color], [AxisMatch]`\n- **AxisMatch**: `X` (分类标签), `Y` (主轴), `Y2/Y3` (副轴/环层)。",
-    "official_example": "Title: 2024年三季度产线效能对冲分析\nType: bar\nShowLegend: true\nGrid: true\n\n# 1. 关键分类定义 (必填)\nDataset: 月份, [7月, 8月, 9月], null, X\n\n# 2. 主轴产量对比 (柱状)\nDataset: 入库合格量, [12000, 14500, 13800], #3b82f6, Y\n\n# 3. 副轴稼动率分析 (切换为折线)\nType: line\nSmooth: true\nDataset: 设备稼动率(%), [88.5, 92.1, 91.4], #ef4444, Y2",
+    "expert_logic": "### 基础图表分析 (Bar / Line / Pie)\n\n- **柱状图 (Bar)**：强调个体之间的横向比较，适合分类数据的离散分析。\n- **折线图 (Line)**：专注于随时间或连续维度的趋势演变；`Smooth: true` 提升视觉连续性。\n- **饼图 (Pie)**：表达组成部分与整体的比例分配；多层用 `Y`/`Y2`/`Y3` 做同心圆环。\n- **混合多轴 (Multi-Axis)**：通过 `Y2` / `Y3` 绑定副轴，可在同一画布对比量级差异巨大的数据（如产量 vs 百分比）。\n\n#### 核心规则\n\n- **分类标签必填**：无论何种图型，都必须有一个含 `X` 轴匹配的 `Dataset:` 作为分类维，否则数值失去语义。\n- **混合渲染**：重复声明 `Type:` 会切换**其后** `Dataset` 的渲染类型 —— 这是 bar/line 混排的唯一方式。\n- **叠层顺序**：`Y` 为最内层，`Y2` 中层，`Y3` 最外层。\n\n> [!IMPORTANT]\n> **分类限制**：单一图表避免超过 7 个分类。分类过多时应合并为「其他」项，或改用水平柱状图（`View: h`）。",
+    "syntax_rules": "### IQS-DSL v1 — basic (Dataset)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 形如 `<文本>` **必填** | `Title: 2024年产线效能` |\n| `Type:` | 渲染模式；**重复声明可切换其后 Dataset 的类型**（混合渲染）（bar / line / pie） | `Type: bar` |\n| `View:` | 布局方向（v / h） | `View: v` |\n| `Stacked:` | 启用堆叠（分量与总量的累计分析）（true / false） | `Stacked: true` |\n| `Smooth:` | 平滑折线（仅 line 有效）（true / false） | `Smooth: true` |\n| `ShowLegend:` | 是否显示图例（true / false） | `ShowLegend: true` |\n| `ShowValues:` | 是否显示数值标签（true / false） | `ShowValues: true` |\n| `Grid:` | 是否显示网格线（**开关**，非线型）（true / false） | `Grid: true` |\n| `Decimals:` | 小数位精度 形如 `<整数>` | `Decimals: 1` |\n| `Color[Title | Bg]` | #HEX 标题色 / 背景色 | `Color[Title]: #1A2428` |\n| `Font[Title | Base]` | px 字号（标题 / 正文） | `Font[Title]: 20` |\n| `Dataset:` | 数据序列定义（本 kind 的唯一数据录入方式） 形如 `<名称>, [<值列表>], <颜色或 null>, <轴匹配>` **必填** | `Dataset: 入库合格量, [12000, 14500, 13800], #0D5E42, Y` |\n\n### 边界说明\n\n- **`Type`**：取值**小写**；`Type: Bar` 不生效。\n- **`View`**：`v` 垂直（缺省）、`h` 水平。\n- **`Grid`**：⚠️ 与 flow 的 `Grid:` 同名异义 —— flow 的取值为 `dashed` / `solid`（线型）。\n- **`Dataset`**：① 轴匹配取值 `X`（分类标签，**必须恰好一个**）/ `Y`（主轴）/ `Y2` `Y3`（副轴或同心环层）；② 颜色写 `null` 时使用内置色板；③ 值列表用**半角逗号**分隔，元素个数应与 X 轴分类数一致。",
+    "official_example": "Title: 2024年三季度产线效能对冲分析\nType: bar\nShowLegend: true\nGrid: true\n\n// 1. 分类标签（必填：必须有一个 X 轴 Dataset）\nDataset: 月份, [7月, 8月, 9月], null, X\n\n// 2. 主轴产量（柱状）\nDataset: 入库合格量, [12000, 14500, 13800], #0D5E42, Y\n\n// 3. 副轴稼动率：重新声明 Type 切换后续 Dataset 的渲染类型为折线\nType: line\nSmooth: true\nDataset: 设备稼动率(%), [88.5, 92.1, 91.4], #E74C3C, Y2",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -100,18 +112,20 @@
     "sub_type": "control",
     "display_name": "IQS SPC 过程控制图",
     "description": "统计过程控制标准工具。遵循 Nelson 判异规则。",
-    "expertise": "统计过程控制 (SPC), 判异规则 (Nelson/WE)",
+    "expertise": "统计过程控制 (SPC), 判异规则 (Nelson / Western Electric)",
     "intent_trigger": [
       "控制图",
       "SPC",
       "稳定性分析",
-      "control chart"
+      "control chart",
+      "判异",
+      "过程受控"
     ],
     "inference_key": "control",
     "render_engine": "echarts",
-    "expert_logic": "### SPC 统计过程控制原理\n控制图（Control Chart）是用于区分过程中的**偶然波动**与**异常波动**的重要工具。Smart QC Studio 遵循 ISO 7870 与 GB/T 4091 标准进行计算。\n\n### 控制图选型指南\n- **计量型 (n=1)**: I-MR\n- **计量型 (2≤n≤10)**: X-bar-R\n- **计件型**: NP / **计点型**: U\n\n### 判异规则 (Rules)\n系统支持 Nelson 规则与 WE (Western Electric) 规则。常见异常：\n- 1 个点落在 3sigma 区外。\n- 连续 9 点落在中心线同一侧。\n- 连续 6 点持续上升或下降。",
-    "syntax_rules": "### 基础配置\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表主标题 | `Title: 关键尺寸控制图` |\n| `Type:` | 控制图类型 (X-bar-R, I-MR等) | `Type: X-bar-R` |\n| `Size:` | 子组样本容量 (n) | `Size: 5` |\n| `Rules:` | 判异规则 (Basic/Western-Electric/Nelson) | `Rules: Nelson` |\n\n### 数据录入规范\n使用 `[series]` 块定义数据。",
-    "official_example": "Title: 缸盖螺栓孔径 X-bar-R 控制图\nType: X-bar-R\nSize: 5\nRules: Nelson\nDecimals: 3\nColor[Line]: #2563eb\nColor[Point]: #1d4ed8\nColor[UCL]: #ef4444\n\n[series]: 孔径测量值 (mm)\n12.01, 12.02, 11.99, 12.00, 12.01\n12.03, 11.98, 12.01, 12.02, 11.99\n12.00, 12.01, 12.04, 11.97, 12.02\n12.01, 11.99, 12.00, 12.03, 12.01\n11.98, 12.02, 12.01, 11.99, 12.00\n[/series]",
+    "expert_logic": "### SPC 统计过程控制原理\n\n控制图（Control Chart）是用于区分过程中的**偶然波动**与**异常波动**的重要工具。计算遵循 ISO 7870 与 GB/T 4091 标准。\n\n#### 控制图选型指南\n\n- **计量型（子组 n=1）**：I-MR（单值—移动极差）\n- **计量型（2 ≤ n ≤ 10）**：X-bar-R（均值—极差）\n- **计量型（n > 10）**：X-bar-S（均值—标准差）\n- **计件型（不合格品数 / 率）**：NP / P\n- **计点型（缺陷数 / 单位缺陷数）**：C / U\n\n#### 判异规则 (Rules)\n\n支持 `Basic`（3σ 越界）、`Western-Electric`、`Nelson` 三套规则，可**逗号并列多套**。常见异常：\n\n- 1 个点落在 3σ 控制限外。\n- 连续 9 点落在中心线同一侧。\n- 连续 6 点持续上升或下降。\n\n> [!TIP]\n> 控制图必须先有**足够的数据量**（一般 ≥ 20–25 个子组）再解读控制限；数据太少时控制限本身不可靠。",
+    "syntax_rules": "### IQS-DSL v1 — control (Series)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表主标题 形如 `<文本>` **必填** | `Title: 关键尺寸控制图` |\n| `Type:` | 控制图类型（SPC 图种）（I-MR / X-bar-R / X-bar-S / P / NP / C / U） **必填** | `Type: X-bar-R` |\n| `Size:` | 子组样本容量 n（计量型专用） 形如 `<整数>` | `Size: 5` |\n| `Rules:` | 判异规则；可**逗号并列多套**（Basic / Western-Electric / Nelson） | `Rules: Nelson` |\n| `Decimals:` | 数值显示精度 形如 `<整数>` | `Decimals: 3` |\n| `Color[Line | Point | UCL | CL | LCL]` | #HEX 颜色：折线 / 数据点 / 上控制限 / 中心线 / 下控制限 | `Color[UCL]: #E74C3C` |\n| `[series]:` | 数据块**开始**（本 kind 唯一的数据录入方式）；`[series]: <标题>` 可带块标题 形如 `[series]: <可选标题>` **必填** | `[series]: 孔径测量值 (mm)` |\n| `[/series]:` | 数据块**结束** 形如 `[/series]` **必填** | `[/series]` |\n| `数据行:` | 块内每行一组观测值，**半角逗号**分隔；计量型每行个数应等于 `Size` 形如 `<数值>, <数值>, …` **必填** | `12.01, 12.02, 11.99, 12.00, 12.01` |\n\n### 边界说明\n\n- **`Type`**：取值**区分大小写**，须与上表完全一致（如 `X-bar-R` 不能写 `XbarR`）。\n- **`Size`**：必须与实际每行数据个数一致，否则均值与极差计算错位。\n- **`Rules`**：多套并列写法：`Rules: Western-Electric,Nelson`。\n- **`[series]`**：必须与 `[/series]` 成对出现。",
+    "official_example": "Title: 缸盖螺栓孔径 X-bar-R 控制图\nType: X-bar-R\nSize: 5\nRules: Nelson\nDecimals: 3\nColor[Line]: #0D5E42\nColor[Point]: #0A4A33\nColor[UCL]: #E74C3C\n\n[series]: 孔径测量值 (mm)\n12.01, 12.02, 11.99, 12.00, 12.01\n12.03, 11.98, 12.01, 12.02, 11.99\n12.00, 12.01, 12.04, 11.97, 12.02\n12.01, 11.99, 12.00, 12.03, 12.01\n11.98, 12.02, 12.01, 11.99, 12.00\n[/series]",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -126,7 +140,7 @@
     "sub_type": "fishbone",
     "display_name": "IQS 因果分析/鱼骨图",
     "description": "根因分析工具。支持 5M1E (制造业) 或 4P (管理) 模型拆解质量问题。通过逐级下钻寻找核心根因节点。",
-    "expertise": "根因分析 (RCA), 5M1E/4P 因果模型, 工业质量改进",
+    "expertise": "根因分析 (RCA), 5M1E / 4P 因果模型, 工业质量改进",
     "intent_trigger": [
       "鱼骨图",
       "因果图",
@@ -135,13 +149,14 @@
       "根因分析",
       "ishikawa",
       "5M1E",
-      "4P"
+      "4P",
+      "5Why"
     ],
     "inference_key": "fishbone",
     "render_engine": "canvas",
-    "expert_logic": "### 石川图 (Ishikawa) 因果分析原理\n鱼骨图，又称因果图，是整理**问题与原因**之间关系的一种极佳工具。\n\n#### 1. 5M1E 模型 (制造业)\n最常用的分类方法，涵盖：\n- **人 (Man):** 操作员、技术、意识。\n- **机 (Machine):** 设备稳定性、精度、润滑。\n- **料 (Material):** 原材料、品质、规格。\n- **法 (Method):** 工艺标准、操作流程。\n- **环 (Environment):** 温湿度、照明、噪音。\n- **测 (Measurement):** 测量工具、抽样方法。\n\n#### 2. 4P 模型 (服务业/管理)\n- **策略 (Policies):** 规章制度、管理流程。\n- **程序 (Procedures):** 具体作业步骤。\n- **人员 (People):** 能力、态度、协作。\n- **场所 (Plant):** 办公环境、系统工具。\n\n> [!TIP]\n> 鱼骨图的深度决定了解决问题的深度。当您推导出某个原因时，请连续追问 \"为什么\" (5 Whys)，直到找到实质性的根因节点。",
-    "syntax_rules": "### 基础配置\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 定义图表核心标题 (鱼头) | `Title: 售后投诉根因分析` |\n\n### 颜色键值语法\n- `Color[Root]`: 鱼头背景 (Root Node)\n- `Color[RootText]`: 鱼头文字 (Root Text)\n- `Color[Main]`: 大骨背景 (Main Category)\n- `Color[MainText]`: 大骨文字 (Main Text)\n- `Color[Bone]`: 主脊椎线 (Spine Line)\n- `Color[Line]`: 子因连接线 (Sub-cause Line)\n- `Color[Text]`: 原因文字 (General Text)\n\n### 层级定义语法 (Markdown 风格)\n- `# [文字]`: 一级分类（大骨）\n- `## [文字]`: 二级原因（中骨）\n- `### [文字]`: 三级原因（小骨）\n*以此类推，支持多级嵌套。*",
-    "official_example": "Title: 注塑件表面缩水故障分析\nColor[Root]: #ef4444\nColor[RootText]: #ffffff\nColor[Main]: #3b82f6\nColor[MainText]: #ffffff\n\n# 人 (Man)\n## 调机参数设置不当\n### 保压压力过低\n### 保压时间不足\n## 巡检意识淡薄\n\n# 机 (Machine)\n## 料筒加热温度偏移\n## 模具冷却水道阻塞\n### 冷却水流量不足\n\n# 料 (Material)\n## 材料缩水率不均匀\n## 回料比例过高\n\n# 法 (Method)\n## 工艺标准不完善\n## 注射速度过快",
+    "expert_logic": "### 石川图 (Ishikawa) 因果分析原理\n\n鱼骨图，又称因果图，是整理**问题与原因**之间关系的一种极佳工具。鱼头是待分析的问题（写进 `Title:`），大骨是原因分类，中骨/小骨是逐级下钻的原因。\n\n#### 1. 5M1E 模型（制造业）\n\n- **人 (Man)**：操作员、技能、意识。\n- **机 (Machine)**：设备稳定性、精度、润滑。\n- **料 (Material)**：原材料、品质、规格。\n- **法 (Method)**：工艺标准、操作流程。\n- **环 (Environment)**：温湿度、照明、噪音。\n- **测 (Measurement)**：测量工具、抽样方法。\n\n#### 2. 4P 模型（服务业 / 管理）\n\n- **策略 (Policies)**：规章制度、管理流程。\n- **程序 (Procedures)**：具体作业步骤。\n- **人员 (People)**：能力、态度、协作。\n- **场所 (Plant)**：办公环境、系统工具。\n\n> [!TIP]\n> 鱼骨图的深度决定了解决问题的深度。推导出某个原因后，连续追问「为什么」(5 Whys)，直到找到可措施化的根因节点。",
+    "syntax_rules": "### IQS-DSL v1 — fishbone (Tree)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 问题陈述（渲染为**鱼头**） 形如 `<文本>` **必填** | `Title: 售后投诉根因分析` |\n| `Color[Root | RootText | Main | MainText | Bone | Line | Text | End]` | #HEX 颜色：鱼头底 / 鱼头字 / 大骨底 / 大骨字 / 主脊椎线 / 子因连接线 / 原因文字 / 末端骨 | `Color[Root]: #E74C3C` |\n| `#:` | 一级分类（**大骨**）—— 本 kind 中 `#` 是**结构**而非注释 形如 `# <分类名>` **必填** | `# 人 (Man)` |\n| `##:` | 二级原因（**中骨**） 形如 `## <原因>` | `## 调机参数设置不当` |\n| `###:` | 三级原因（**小骨**） 形如 `### <原因>` | `### 保压压力过低` |\n\n### 边界说明\n\n- **`Title`**：写\"问题\"而非\"原因\"；一个图只分析一个问题。\n- **`#`**：⚠️ **本 kind 是唯一把 `#` 用作层级结构的 kind**（body = Tree）。其余 kind 中 `#` 仅作历史兼容注释，不可用 `#` 建层级。\n- **`###`**：可继续用 `####` 等更深层级（引擎支持多级嵌套），但超过四级会显著压缩可读性。",
+    "official_example": "Title: 注塑件表面缩水故障分析\nColor[Root]: #E74C3C\nColor[RootText]: #ffffff\nColor[Main]: #0D5E42\nColor[MainText]: #ffffff\nColor[Bone]: #475569\nColor[Line]: rgba(13,94,66,0.18)\nColor[Text]: #1A2428\n\n# 人 (Man)\n## 调机参数设置不当\n### 保压压力过低\n### 保压时间不足\n## 巡检意识淡薄\n\n# 机 (Machine)\n## 料筒加热温度偏移\n## 模具冷却水道阻塞\n### 冷却水流量不足\n\n# 料 (Material)\n## 材料缩水率不均匀\n## 回料比例过高\n\n# 法 (Method)\n## 工艺标准不完善\n## 注射速度过快",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -162,13 +177,15 @@
       "分布分析",
       "Cp",
       "Cpk",
-      "histogram"
+      "histogram",
+      "正态性",
+      "工序能力"
     ],
     "inference_key": "histogram",
     "render_engine": "echarts",
-    "expert_logic": "### 正态分布分析 (Normal Distribution)\n直方图通过对大量随机样本的观察，识别生产过程是否受控。完美的生产过程通常呈现对称的“钟形”曲线。\n- **均值 (μ)**: 反映了加工的中心位置。\n- **标准差 (σ)**: 反映了加工的散差大小。\n\n### 工序能力指标 (Process Capability)\n当定义了规格限 (USL/LSL) 时，系统会自动评估工序能力：\n- **Cp / Cpk**: 指标越大，代表工序的质量保证能力越强。\n- **1.33**: 视为工业级的“合格”门槛。\n- **1.67**: 优秀水平。\n\n> [!TIP]\n> 双峰直方图通常意味着数据来源于两个不同的班次、设备或供应商，需要深入分析波动源。",
-    "syntax_rules": "### 基础配置\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 | `Title: 钢管直径分布` |\n| `USL:` | 规格上限 (Upper Limit) | `USL: 10.5` |\n| `LSL:` | 规格下限 (Lower Limit) | `LSL: 10.0` |\n| `Target:` | 目标值 (Target Value) | `Target: 11.25` |\n| `Bins:` | 分组数量 (auto 或 数字) | `Bins: 20` |\n| `ShowCurve:` | 是否显示正态分布曲线 | `ShowCurve: true` |\n\n### 视觉样式定义\n- `Color[Bar/Curve/USL/LSL/Target]`\n\n### 数据项录入\n语法格式：`- [数值]`",
-    "official_example": "Title: 产品直径分布分析\nUSL: 10.5\nLSL: 9.5\nTarget: 10.0\nColor[Bar]: #3b82f6\nColor[Curve]: #f97316\nColor[USL]: #ef4444\nColor[LSL]: #ef4444\nColor[Target]: #22c55e\nBins: auto\nShowCurve: true\n\n# 原始数据\n- 9.8\n- 10.2\n- 10.1\n- 9.9\n- 10.0\n- 10.3\n- 9.7\n- 10.1\n- 9.9\n- 10.0\n- 10.2\n- 9.8\n- 10.4\n- 9.6\n- 10.1\n- 9.9\n- 10.0\n- 10.2\n- 9.8\n- 10.1\n- 10.5\n- 9.5\n- 10.0\n- 10.3\n- 9.7\n- 10.1\n- 9.9\n- 10.2\n- 10.0\n- 9.8",
+    "expert_logic": "### 正态分布分析 (Normal Distribution)\n\n直方图通过对大量随机样本的观察，识别生产过程是否受控。稳定的生产过程通常呈现对称的「钟形」曲线。\n\n- **均值 (μ)**：反映加工的中心位置。\n- **标准差 (σ)**：反映加工的散差大小。\n- **形态**：双峰说明数据可能来自两个班次/设备/供应商；偏斜说明中心偏移或单边截尾。\n\n#### 工序能力指标 (Process Capability)\n\n当定义了规格限（`USL` / `LSL`）时，引擎自动评估工序能力：\n\n- **Cp**：仅看散布宽度与规格宽度的比值，假设中心对齐。\n- **Cpk**：同时考虑散布与中心偏移 —— **实际决策应看 Cpk**。\n- **1.33**：工业级「合格」门槛；**1.67**：优秀。\n\n> [!TIP]\n> 样本量建议 ≥ 50（QC 惯例 100 以上）再解读 Cp/Cpk；样本太少时直方图形状与控制限都不可靠。",
+    "syntax_rules": "### IQS-DSL v1 — histogram (ScalarList)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 形如 `<文本>` **必填** | `Title: 钢管直径分布` |\n| `USL:` | 规格上限 (Upper Specification Limit) 形如 `<数值>` | `USL: 10.5` |\n| `LSL:` | 规格下限 (Lower Specification Limit) 形如 `<数值>` | `LSL: 9.5` |\n| `Target:` | 目标值（渲染为规格区内的目标线） 形如 `<数值>` | `Target: 10.0` |\n| `Bins:` | 分组数（直方柱个数）（auto） | `Bins: auto` |\n| `ShowCurve:` | 是否叠加正态拟合曲线（true / false） | `ShowCurve: true` |\n| `ShowValues:` | 是否显示柱顶数值（true / false） | `ShowValues: true` |\n| `Color[Bar | Curve | USL | LSL | Target]` | #HEX 颜色：柱体 / 拟合曲线 / 规格上限线 / 规格下限线 / 目标线 | `Color[USL]: #E74C3C` |\n| `Font[Title | Base]` | px 字号（标题 / 正文） | `Font[Title]: 18` |\n| `数据行:` | 原始测量数据，**一行一个数值**（本 kind 唯一的数据录入方式） 形如 `- <数值>` **必填** | `- 9.8` |\n\n### 边界说明\n\n- **`USL`**：与 `LSL` 同时给出才会计算 Cp / Cpk；只给一个时只能评估单侧能力。\n- **`Target`**：目标值用于观察中心偏移方向，不参与 Cp/Cpk 计算。\n- **`Bins`**：可写整数（如 `Bins: 20`）或 `auto`（按样本量自动，缺省）。\n- **`数据行`**：必须是**逐条原始观测值**，不要预先把数据分箱或写成 `频数: 值`。",
+    "official_example": "Title: 产品直径分布分析\nUSL: 10.5\nLSL: 9.5\nTarget: 10.0\nColor[Bar]: #0D5E42\nColor[Curve]: #F1C40F\nColor[USL]: #E74C3C\nColor[LSL]: #E74C3C\nColor[Target]: #22c55e\nFont[Title]: 18\nFont[Base]: 12\nBins: auto\nShowCurve: true\n\n// 原始测量数据（一行一个数值）\n- 9.8\n- 10.2\n- 10.1\n- 9.9\n- 10.0\n- 10.3\n- 9.7\n- 10.1\n- 9.9\n- 10.0\n- 10.2\n- 9.8\n- 10.4\n- 9.6\n- 10.1\n- 9.9\n- 10.0\n- 10.2\n- 9.8\n- 10.1\n- 10.5\n- 9.5\n- 10.0\n- 10.3\n- 9.7\n- 10.1\n- 9.9\n- 10.2\n- 10.0\n- 9.8",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -188,13 +205,16 @@
       "矩阵图",
       "L型矩阵",
       "T型矩阵",
-      "matrix diagram"
+      "Y型矩阵",
+      "matrix diagram",
+      "相关矩阵",
+      "决策矩阵"
     ],
     "inference_key": "matrix",
     "render_engine": "canvas",
-    "expert_logic": "### 矩阵图分析 (Matrix Diagram)\n矩阵图是从多维度的交叉点寻找解决问题线索的方法。它通过行与列的交点，展现各因素间的相关程度（强、中、弱）。\n\n#### 核心规则 (Soul Rules):\n- **绘图区净化**: 为最大化画布利用率，绘图区内部不再绘制标题 (h2)。`Title:` 指令目前仅作为元数据、导出文件名，以及导出 PNG/PDF 时的外部标注使用。\n- **视角标准化 (Y-Type)**: Y 型矩阵固定采取标准的 Top-Down (俯视) 透视图。不再支持视角旋转，确保视觉一致性与指标标签永远处于正向且向上放射。\n\n#### 常见矩阵选型：\n- **L 型**: 两个维度 (A x B)，最常用。\n- **T 型**: 三个维度 (A x B, A x C)，A 为关联中心。\n- **Y 型**: 三个维度 (A x B, B x C, C x A)，形成闭环关联。\n\n#### 符号与评分系统：\n- **◎ (Strong)**: 强相关，默认权重 9。\n- **○ (Medium)**: 中等相关，默认权重 3。\n- **△ (Weak)**: 弱相关，默认权重 1。\n\n> [!TIP]\n> 矩阵图不仅用于展示现状，更在于通过“评分模式”发现薄弱环节。启用 `ShowScores: true` 识别核心影响因子。",
-    "syntax_rules": "### 基础配置\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 (Meta/Export 专用) | `Title: 零部件与故障模式矩阵` |\n| `Type:` | 矩阵类型 (`L` / `T` / `Y` / `X` / `C`) | `Type: L` |\n| `ShowScores:` | 是否显示加权得分统计 | `ShowScores: true` |\n\n> [!NOTE]\n> Y型矩阵默认应用 Top-Down 视角。所有矩阵绘图区标题均已隐藏以腾出最大画布空间。\n\n### 核心语法\n#### 1. 轴定义 (Axis)\n`Axis: [AxisID], [Label]`\n#### 2. 矩阵定义 (Matrix Block)\n`Matrix: [RowAxisID] x [ColAxisID]`\n`[RowItemID]: [ColItemID1]:[Symbol]`",
-    "official_example": "Title: 零部件与故障模式关联分析\nType: L\nShowScores: true\nWeight[Strong]: 9\nWeight[Medium]: 3\nWeight[Weak]: 1\n\n# A轴: 零部件 (行)\nAxis: A, 零部件\n- a1, 活塞销, 0.8\n- a2, 连杆, 0.9\n- a3, 轴瓦, 1.0\n\n# B轴: 故障模式 (列)\nAxis: B, 故障模式\n- b1, 磨损\n- b2, 裂纹\n- b3, 泄漏\n- b4, 异响\n\n# 关系定义\nMatrix: A x B\na1: b1:S, b2:M\na2: b2:S, b4:W\na3: b1:M, b3:S, b4:S",
+    "expert_logic": "### 矩阵图分析 (Matrix Diagram)\n\n矩阵图是从多维度的交叉点寻找解决问题线索的方法。它通过行与列的交点，展现各因素间的相关程度（强 / 中 / 弱）。\n\n#### 常见矩阵选型\n\n- **L 型**：两个维度 (A × B)，最常用。\n- **T 型**：三个维度 (A × B, A × C)，A 为关联中心。\n- **Y 型**：三个维度 (A × B, B × C, C × A)，形成闭环关联。\n- **X 型**：四个维度两两交叉；**C 型**：立方体（三维）。\n\n#### 符号与评分系统\n\n- **S (Strong)**：强相关，默认权重 **9**。\n- **M (Medium)**：中等相关，默认权重 **3**。\n- **W (Weak)**：弱相关，默认权重 **1**。\n- 符号写在关系行里（`a1: b1:S`），权重可用 `Weight[...]` 覆盖。\n\n#### 两条渲染规则（重要）\n\n- **绘图区净化**：为最大化画布利用率，绘图区内部**不绘制标题**。`Title:` 仅作元数据、导出文件名与导出 PNG/PDF 时的外部标注。\n- **Y 型视角标准化**：Y 型矩阵固定采用 Top-Down（俯视）透视，不支持旋转 —— 保证指标标签始终正向且向上放射。\n\n> [!TIP]\n> 矩阵图不仅用于展示现状，更在于通过「评分模式」发现薄弱环节。启用 `ShowScores: true` 可识别核心影响因子。",
+    "syntax_rules": "### IQS-DSL v1 — matrix (Matrix)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题（**仅作元数据与导出标注，不在绘图区渲染**） 形如 `<文本>` **必填** | `Title: 零部件与故障模式矩阵` |\n| `Type:` | 矩阵类型（几何形态）（L / T / Y / X / C） **必填** | `Type: L` |\n| `ShowScores:` | 是否显示加权得分统计（true / false） | `ShowScores: true` |\n| `CellSize:` | 单元格像素边长 形如 `<整数>` | `CellSize: 40` |\n| `Weight[Strong | Medium | Weak]` | 符号权重（默认 9 / 3 / 1） | `Weight[Strong]: 9` |\n| `Color[Title]` | #HEX 颜色（标题等） | `Color[Title]: #1A2428` |\n| `Font[Title | Base]` | px 字号（标题 / 正文） | `Font[Base]: 10` |\n| `Axis:` | 定义一条轴（维度） 形如 `<AxisID>, <轴标题>` **必填** | `Axis: A, 零部件` |\n| `轴项行:` | 轴下的条目（紧跟所属 `Axis:` 之后） 形如 `- <项ID>, <标签> [, <权重>]` **必填** | `- a1, 活塞销, 0.8` |\n| `Matrix:` | 声明要渲染哪两条轴的交叉矩阵 形如 `<RowAxisID> x <ColAxisID>` **必填** | `Matrix: A x B` |\n| `关系行:` | 声明某行项与各列项的相关关系 形如 `<行项ID>: <列项ID>:<符号>[, …]` | `a1: b1:S, b2:M` |\n\n### 边界说明\n\n- **`Type`**：大写字母；缺省为 `L`。选定后应给出与之匹配的轴数量（L=2 轴，T=3 轴，Y=3 轴闭环）。\n- **`CellSize`**：缺省按画布自适应；格子很多时应显式调小。\n- **`Axis`**：AxisID 用单字母（A/B/C…），供 `Matrix:` 与关系行引用。\n- **`轴项行`**：第三个字段为**可选的项权重**（用于加权得分），不是相关符号。\n- **`Matrix`**：`x` 为半角小写字母 x，两侧留空格。\n- **`关系行`**：符号取 `S` / `M` / `W`（也可写中文 ◎ / ○ / △）；一行可写多组，用**半角逗号**分隔。",
+    "official_example": "Title: 零部件与故障模式关联分析\nType: L\nShowScores: true\nCellSize: 40\nWeight[Strong]: 9\nWeight[Medium]: 3\nWeight[Weak]: 1\n\n// A 轴（行）：零部件，第三列为该行权重\nAxis: A, 零部件\n- a1, 活塞销, 0.8\n- a2, 连杆, 0.9\n- a3, 轴瓦, 1.0\n\n// B 轴（列）：故障模式\nAxis: B, 故障模式\n- b1, 磨损\n- b2, 裂纹\n- b3, 泄漏\n- b4, 异响\n\n// 关系定义：<行项ID>: <列项ID>:<符号>\nMatrix: A x B\na1: b1:S, b2:M\na2: b2:S, b4:W\na3: b1:M, b3:S, b4:S",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -214,13 +234,15 @@
       "矩阵散点图",
       "散点图矩阵",
       "多变量关联",
-      "matrix plot"
+      "matrix plot",
+      "pairs plot",
+      "相关矩阵图"
     ],
     "inference_key": "matrixPlot",
     "render_engine": "echarts",
-    "expert_logic": "### 矩阵散点图分析价值 (Multi-variable Correlation)\n图矩阵是多元统计分析中的核心工具，用于在单一视野内展示多变量间的两两交互关系。\n\n#### 核心逻辑与策略：\n- **Lowess 平滑**: 采用局部加权散点平滑算法。对离群点具有天然鲁棒性，能有效捕捉局部非线性趋势，是专业质量控制的标准配置。\n- **对角线分布**: 利用直方图确认各变量的分布形态（如是否正态、有无双峰），是判定采样偏置的关键。\n- **Group 分层识别**: 通过颜色与形状区分不同群组（如班次、机台）。群体分离标志着找到了问题的根本层级。\n- **降维打击**: 在 $N \\\\\timesimes N$ 的交互中快速锁定那 20% 具有强相关的关键驱动因素。\n\n> [!TIP]\n> 矩阵散点图常用于半导体或精密制造。重点关注对角线上的直方图，以识别采样偏置。",
-    "syntax_rules": "### 基础配置元数据\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表主标题 | `Title: 制程参数关联分析` |\n| `Mode:` | 布局模式 (`Matrix` 全矩阵 / `YvsX` 交叉) | `Mode: Matrix` |\n| `Dimensions:` | 变量维度列表 (Matrix 模式) | `Dimensions: [温度, 压力, 良率]` |\n| `Group:` | 分层变量名 | `Group: 批次` |\n| `Smoother:` | 平滑算法 (`Lowess` / `MovingAverage`) | `Smoother: Lowess` |\n\n### 数据定义 (Data Object)\n使用 YAML-lite 格式定义样本：\n`- { Key1: Value1, Key2: Value2, ... }`\n\n### 视觉样式 (Styles)\n- `DisplayMode`: `Full` (全显) / `Lower` (左下) / `Upper` (右上)。\n- `Diagonal`: `Histogram` / `Boxplot` / `Label` / `None`。",
-    "official_example": "Title: 封装工艺参数相关性研究\nMode: Matrix\nDimensions: [压力, 温度, 固化时间, 剥离强度]\nGroup: 晶圆批次\nSmoother: Lowess\n\nData:\n- { 压力: 102, 温度: 185, 固化时间: 45, 剥离强度: 8.2, 晶圆批次: \"W-01\" }\n- { 压力: 105, 温度: 188, 固化时间: 46, 剥离强度: 7.9, 晶圆批次: \"W-01\" }\n- { 压力: 98, 温度: 192, 固化时间: 42, 剥离强度: 9.1, 晶圆批次: \"W-02\" }\n\nStyles:\n- DisplayMode: Lower\n- Diagonal: Histogram\n- ColorPalette: Industrial",
+    "expert_logic": "### 矩阵散点图分析价值 (Multi-variable Correlation)\n\n图矩阵是多元统计分析中的核心工具，用于在单一视野内展示多变量间的两两交互关系。\n\n#### 核心逻辑与策略\n\n- **Lowess 平滑**：局部加权散点平滑，对离群点鲁棒，能捕捉局部非线性趋势。\n- **对角线分布**：用直方图确认各变量自身形态（是否正态、有无双峰）—— 判定采样偏置的关键。\n- **Group 分层识别**：用颜色/形状区分群组（班次、机台、批次）。群体分离往往标志着找到了问题的根本层级。\n- **降维定位**：在 N×N 的交互网格中快速锁定那 20% 具有强相关的关键驱动因素。\n\n> [!TIP]\n> 重点看**对角线上的直方图**：若某变量呈双峰，先怀疑采样偏置或数据混入了两个总体，再谈相关性。",
+    "syntax_rules": "### IQS-DSL v1 — matrixPlot (Table)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表主标题 形如 `<文本>` **必填** | `Title: 制程参数关联分析` |\n| `Mode:` | 布局模式（Matrix / YvsX） | `Mode: Matrix` |\n| `Dimensions:` | 参与分析的变量维度列表（`Mode: Matrix` 时使用） 形如 `[<变量1>, <变量2>, …]` **必填** | `Dimensions: [温度, 压力, 良率]` |\n| `Group:` | 分层变量名（用颜色/形状区分群组） 形如 `<字段名>` | `Group: 批次` |\n| `Smoother:` | 平滑算法（Lowess / MovingAverage / false） | `Smoother: Lowess` |\n| `Data:` | 数据块**开始**；块内每条记录为一行 YAML-lite 对象 形如 `Data:\n- { <字段>: <值>, … }` **必填** | `Data:\\n- { 压力: 102, 温度: 185, 晶圆批次: \"W-01\" }` |\n| `Styles:` | 样式块**开始**；块内为 `- <键>: <值>` 列表 形如 `Styles:\n- <键>: <值>` | `Styles:\\n- DisplayMode: Lower` |\n| `DisplayMode:` | （`Styles` 内）显示哪些三角区域（Full / Lower / Upper） | `- DisplayMode: Lower` |\n| `Diagonal:` | （`Styles` 内）对角线单元格的呈现方式（Histogram / Boxplot / Label / None） | `- Diagonal: Histogram` |\n| `ColorPalette:` | （`Styles` 内）配色方案（Industrial） | `- ColorPalette: Industrial` |\n\n### 边界说明\n\n- **`Mode`**：`Matrix` = 全矩阵（N×N 网格）；`YvsX` = 单组交叉（仅 1 个 Y 对多个 X）。\n- **`Dimensions`**：维度名必须与 `Data:` 中每条记录的字段名**逐字一致**。建议 3–6 个维度（N×N 网格增长很快）。\n- **`Group`**：该字段应同时出现在 `Data:` 的每条记录里。\n- **`Smoother`**：写 `false` 或省略即不叠趋势线。\n- **`Data`**：字段名可不加引号；字符串值（如批次号）建议加引号以免被解析为数值。**至少 10 条记录**才有统计意义。\n- **`Styles`**：键包括 `DisplayMode` / `Diagonal` / `ColorPalette` / `PointSize` / `PointOpacity`。\n- **`DisplayMode`**：`Full` 全显（N×N）；`Lower` 只显左下三角（**最常用，避免重复信息**）；`Upper` 只显右上三角。",
+    "official_example": "Title: 封装工艺参数相关性研究\nMode: Matrix\nDimensions: [压力, 温度, 固化时间, 剥离强度]\nGroup: 晶圆批次\nSmoother: Lowess\n\nData:\n- { 压力: 102, 温度: 185, 固化时间: 45, 剥离强度: 8.2, 晶圆批次: \"W-01\" }\n- { 压力: 105, 温度: 188, 固化时间: 46, 剥离强度: 7.9, 晶圆批次: \"W-01\" }\n- { 压力: 100, 温度: 186, 固化时间: 44, 剥离强度: 8.0, 晶圆批次: \"W-01\" }\n- { 压力: 98, 温度: 192, 固化时间: 42, 剥离强度: 9.1, 晶圆批次: \"W-02\" }\n- { 压力: 96, 温度: 194, 固化时间: 41, 剥离强度: 9.4, 晶圆批次: \"W-02\" }\n- { 压力: 99, 温度: 191, 固化时间: 43, 剥离强度: 9.0, 晶圆批次: \"W-02\" }\n- { 压力: 110, 温度: 180, 固化时间: 48, 剥离强度: 7.2, 晶圆批次: \"W-03\" }\n- { 压力: 112, 温度: 178, 固化时间: 49, 剥离强度: 7.0, 晶圆批次: \"W-03\" }\n- { 压力: 108, 温度: 182, 固化时间: 47, 剥离强度: 7.4, 晶圆批次: \"W-03\" }\n- { 压力: 104, 温度: 187, 固化时间: 45, 剥离强度: 8.1, 晶圆批次: \"W-01\" }\n\nStyles:\n- DisplayMode: Lower\n- Diagonal: Histogram\n- ColorPalette: Industrial",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -241,13 +263,15 @@
       "帕累托图",
       "pareto chart",
       "二八定律",
-      "80/20"
+      "80/20",
+      "ABC分析",
+      "关键少数"
     ],
     "inference_key": "pareto",
     "render_engine": "echarts",
-    "expert_logic": "### ABC 分类法 (Pareto Principle)\n排列图基于“二八定律”，旨在帮助管理者从众多的质量问题中，找出影响质量的“关键少数”。\n- **A类因素** (0% - 80%): 主要影响因素，必须重点解决。\n- **B类因素** (80% - 90%): 次次要影响因素。\n- **C类因素** (90% - 100%): 一般影响因素。\n\n### 核心算法 (Core Algorithms)\n本引擎内置严密的数理逻辑：\n1. **自动降序**：Value[i] ≥ Value[i+1]\n2. **累计百分比**：P[i] = (Σ V[0...i]) / Σ V[all]\n3. **80% 标识线**：自动寻找 P[i] ≈ 80% 的临界坐标。\n\n> [!TIP]\n> 解决排列图中最左侧的两个主要因素，通常能消除 80% 的质量成本。",
-    "syntax_rules": "### 基础配置\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 设置图表主标题 | `Title: 售后数据分析` |\n| `Decimals:` | 数值/百分比显示精度 | `Decimals: 2` |\n| `ShowValues:` | 是否显示数据标记 | `ShowValues: true` |\n\n### 视觉样式定义\n- `Color[Bar]`: #HEX 柱形颜色 (默认 `#3b82f6`)\n- `Color[Line]`: #HEX 折线颜色 (默认 `#f59e0b`)\n- `Color[MarkLine]`: #HEX 80% 线颜色 (默认 `#ef4444`)\n- `Font[Title/Base/Bar]`: 字号定义 (px)\n\n### 数据项录入\n语法格式：`- [项目名称]: [频数]`",
-    "official_example": "Title: 售后质量问题分布分析\nColor[Title]: #1e293b\nColor[Bar]: #3b82f6\nColor[Line]: #f59e0b\nColor[MarkLine]: #ef4444\nDecimals: 1\nShowValues: true\nFont[Title]: 20\nFont[Base]: 12\nFont[Bar]: 12\nFont[Line]: 12\n\n- 物流破损: 420\n- 零件缺失: 215\n- 包装老化: 89\n- 标签错误: 56\n- 其他细项: 23",
+    "expert_logic": "### ABC 分类法 (Pareto Principle)\n\n排列图基于「二八定律」，用于从众多质量问题中找出影响质量的「关键少数」。柱为各因素频数（降序），线为累计百分比。\n\n- **A 类因素 (0–80%)**：主要影响因素，必须重点解决。\n- **B 类因素 (80–90%)**：次要影响因素。\n- **C 类因素 (90–100%)**：一般影响因素。\n\n#### 引擎内置算法\n\n- **自动降序**：Value[i] ≥ Value[i+1] —— 无需用户自行排序。\n- **累计百分比**：P[i] = (Σ V[0…i]) / Σ V[all]。\n- **80% 标识线**：自动定位 P[i] ≈ 80% 的临界坐标并绘制标线。\n\n> [!TIP]\n> 解决排列图中最左侧的两三个因素，通常就能消除 80% 的质量成本 —— 这正是排列图的决策价值。",
+    "syntax_rules": "### IQS-DSL v1 — pareto (Pairs)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表主标题 形如 `<文本>` **必填** | `Title: 售后数据分析` |\n| `Decimals:` | 数值 / 百分比显示精度（小数位） 形如 `<整数>` | `Decimals: 2` |\n| `ShowValues:` | 是否显示柱顶数据标记（true / false） | `ShowValues: true` |\n| `Color[Title | Bar | Line | MarkLine]` | #HEX 颜色：标题 / 柱形（默认 #0D5E42）/ 累计折线（默认 #F1C40F）/ 80% 标线（默认 #E74C3C） | `Color[Bar]: #0D5E42` |\n| `Font[Title | Base | Bar | Line]` | px 字号：标题 / 正文 / 柱标签 / 折线标签 | `Font[Bar]: 12` |\n| `数据行:` | 一个质量因素及其频数（或成本）——本 kind 唯一的数据录入方式 形如 `- <项目名称>: <频数>` **必填** | `- 物流破损: 420` |\n\n### 边界说明\n\n- **`数据行`**：① 频数须为正数（计数或金额均可，但**同一张图内单位必须统一**）；② **不需要用户自行降序** —— 引擎自动降序；③ 项目名称内如需冒号请用全角「：」。",
+    "official_example": "Title: 售后质量问题分布分析\nColor[Title]: #1A2428\nColor[Bar]: #0D5E42\nColor[Line]: #F1C40F\nColor[MarkLine]: #E74C3C\nDecimals: 1\nShowValues: true\nFont[Title]: 20\nFont[Base]: 12\nFont[Bar]: 12\nFont[Line]: 12\n\n// 数据项：<项目名称>: <频数或成本>\n- 物流破损: 420\n- 零件缺失: 215\n- 包装老化: 89\n- 标签错误: 56\n- 其他细项: 23",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -266,13 +290,15 @@
     "intent_trigger": [
       "PDPC",
       "过程决策",
-      "风险对策"
+      "风险对策",
+      "应急预案",
+      "风险预演"
     ],
     "inference_key": "pdpc",
     "render_engine": "g6",
-    "expert_logic": "### 过程决策程序图 (Process Decision Program Chart)\nPDPC 法是在制定计划阶段，对预期可能出现的问题，预先设计好各种对策。\n\n#### 核心逻辑：\n- **目标设定**: 明确计划的起点与理想终点。\n- **路径推演**: 识别所需的各个步骤 (Step)。\n- **风险识别**: 预测异常情况 (NG)。\n- **对策制定**: 针对每个 NG 情况，预设补救措施 (Countermeasure)。\n\n> [!IMPORTANT]\n> PDPC 的价值在于 \"思维的深度\"。重点应放在那些可能导致毁灭性失败的关键环节，并为其配置 [NG] 标记。",
-    "syntax_rules": "### 基础配置\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 | `Title: 应急预案` |\n| `Layout:` | 布局方向 (`Directional` / `Standard`) | `Layout: Directional` |\n\n### 元素定义\n- **分组**: `Group: [ID], [Label], [ParentID]` (EndGroup 结束)\n- **数据项**: `Item: [ID], [Label], [Type]` (start, step, countermeasure, end)\n\n### 逻辑链条\n- `id1--id2 [OK]` 或 `id1--id2 [NG]`",
-    "official_example": "Title: 实验室火灾应急 PDPC 演练\nLayout: Directional\n\nColor[Start]: #4f46e5\nColor[Step]: #f0f9ff\nColor[Countermeasure]: #fef2f2\nColor[End]: #ecfdf5\nColor[Line]: #64748b\nLine[Width]: 2\n\n# 阶段 1: 发现\nGroup: g1, 异常发现\n  Item: n1, 烟雾报警器触发, [start]\n  Item: n2, 确认火情真实性\nEndGroup\n\n# 阶段 2: 处置\nGroup: g2, 应急处置\n  Item: n3, 拨打 119 报警\n  Item: n4, 启动自动灭火系统\n  Item: n5, 灭火系统失效, [countermeasure]\n  Item: n6, 使用手持灭火器补救, [countermeasure]\nEndGroup\n\n# 阶段 3: 疏散\nGroup: g3, 人员疏散\n  Item: n7, 全员依序撤离\n  Item: n8, 清点人数, [end]\nEndGroup\n\n# 逻辑链条\nn1--n2\nn2--n3 [OK]\nn2--n4 [OK]\nn4--n7 [OK]\nn4--n5 [NG]\nn5--n6\nn6--n7 [OK]\nn7--n8",
+    "expert_logic": "### 过程决策程序图 (Process Decision Program Chart)\n\nPDPC 法是在制定计划阶段，对预期可能出现的问题预先设计好各种对策的方法。它把每条「正常路径」与「异常路径」都画出来，从而在纸面上完成风险演练。\n\n#### 核心逻辑\n\n- **目标设定**：明确计划的起点与理想终点。\n- **路径推演**：识别所需的各个步骤 (Step)。\n- **风险识别**：预测可能导致中断的异常情况，用 `[NG]` 标记。\n- **对策制定**：针对每个 `NG` 预设补救措施 (Countermeasure)，并连回主线。\n\n> [!IMPORTANT]\n> PDPC 的价值在于「思维的深度」而非图的厚度。重点标注那些**可能导致毁灭性失败**的关键环节，并为其配置 `[NG]` 与对策。",
+    "syntax_rules": "### IQS-DSL v1 — pdpc (ProcessGraph)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 形如 `<文本>` **必填** | `Title: 应急预案` |\n| `Layout:` | 布局方向（Directional / Standard） | `Layout: Directional` |\n| `Color[Start | Step | Countermeasure | End | Line]` | #HEX 颜色：起点 / 步骤 / 对策 / 终点 / 连线 | `Color[Countermeasure]: #ECFDF5` |\n| `Color[StartText | StepText | CountermeasureText | EndText]` | #HEX 各类型节点的**文字**颜色 | `Color[StepText]: #1D4ED8` |\n| `Line[Width]` | 连线像素粗细 | `Line[Width]: 2` |\n| `Group:` | 分组（阶段）定义 形如 `<ID>, <标签>[, <父组ID>]` | `Group: g1, 异常发现` |\n| `EndGroup:` | 分组结束 形如 `EndGroup` | `EndGroup` |\n| `Item:` | 数据项（步骤/对策/起终点） 形如 `<ID>, <标签>[, [<类型>]]` **必填** | `Item: n5, 灭火系统失效, [countermeasure]` |\n| `逻辑链条:` | 用 `--` 连接两个节点 ID 形如 `<id1>--<id2> [OK\\|NG]` **必填** | `n4--n5 [NG]` |\n\n### 边界说明\n\n- **`Layout`**：注意是**全称**（`Directional` / `Standard`），与 flow 的 `H` / `V` 写法不同。\n- **`Group`**：与 `EndGroup` 成对；组内 `Item:` 建议缩进两格（仅视觉，不参与解析）。\n- **`Item`**：① 类型取值 `start` / `step`（缺省）/ `countermeasure` / `end`，写在**方括号**内；② ⚠️ 与**亲和图**的 `Item:` 同名异义 —— 亲和图的第三参是 `ParentID`（树父节点），此处是节点类型；③ 贴在组外也可以（如全局终点）。\n- **`逻辑链条`**：三种形态：① 普通 `a--b`；② 带标记 `a--b [OK]` 或 `a--b [NG]`；③ **链式直写** `a--b--c--d [OK]`（一次声明整条链，标记作用于全链）。`[NG]` 表示该环节出现异常，应连向对策节点；`[OK]` 表示顺利通过。",
+    "official_example": "Title: 实验室火灾应急 PDPC 演练\nLayout: Directional\n\nColor[Start]: #DBEAFE\nColor[Step]: #EFF6FF\nColor[Countermeasure]: #ECFDF5\nColor[End]: #FEF2F2\nColor[StartText]: #1E40AF\nColor[StepText]: #1D4ED8\nColor[CountermeasureText]: #047857\nColor[EndText]: #B91C1C\nColor[Line]: #64748B\nLine[Width]: 2\n\n// 阶段 1：发现\nGroup: g1, 异常发现\n  Item: n1, 烟雾报警器触发, [start]\n  Item: n2, 确认火情真实性\nEndGroup\n\n// 阶段 2：处置\nGroup: g2, 应急处置\n  Item: n3, 拨打 119 报警\n  Item: n4, 启动自动灭火系统\n  Item: n5, 灭火系统失效, [countermeasure]\n  Item: n6, 使用手持灭火器补救, [countermeasure]\nEndGroup\n\n// 阶段 3：疏散\nGroup: g3, 人员疏散\n  Item: n7, 全员依序撤离\n  Item: n8, 清点人数, [end]\nEndGroup\n\n// 逻辑链条：id1--id2 [OK|NG]\nn1--n2\nn2--n3 [OK]\nn2--n4 [OK]\nn4--n7 [OK]\nn4--n5 [NG]\nn5--n6\nn6--n7 [OK]\nn7--n8",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -294,13 +320,14 @@
       "多维对比",
       "radar",
       "综合评分",
-      "蜘蛛图"
+      "蜘蛛图",
+      "能力评估"
     ],
     "inference_key": "radar",
     "render_engine": "echarts",
-    "expert_logic": "### 雷达图综合评价\n- Standardize: 消除量纲后比较形态。\n- ShowAreaScore: 多边形面积反映均衡综合实力。\n- ShowSimilarity: 与首系列的形态相似度。\n尖角表示短板，面积大且圆润表示均衡。",
-    "syntax_rules": "### IQS-DSL v1 — radar (AxisSeries)\n| 语法 | 说明 |\n| :--- | :--- |\n| `Title:` | 标题 |\n| `Standardize:` / `ShowAreaScore:` / `ShowSimilarity:` / `ShowValues:` | 分析开关 |\n| `StartAngle:` / `Clockwise:` / `Closed:` | 极坐标 |\n| `Axis: name, max [, min]` | 维度轴 |\n| `Series: name, [v1,v2,...] [, color [, opacity]]` | 系列 |\n\n注释使用 `//`。",
-    "official_example": "Title: 方案多维效果对比\nStandardize: true\nShowAreaScore: true\nShowSimilarity: true\nShowValues: false\nStartAngle: -90\nClockwise: true\nClosed: true\n\n// 轴定义\nAxis: 质量, 100, 0\nAxis: 成本, 100, 0\nAxis: 交期, 100, 0\nAxis: 安全, 100, 0\nAxis: 可维护性, 100, 0\n\n// 系列\nSeries: 方案A, [85, 70, 90, 80, 75], #3b82f6, 0.4\nSeries: 方案B, [70, 85, 75, 88, 80], #ef4444, 0.3",
+    "expert_logic": "### 雷达图综合评价\n\n雷达图把对象在多个维度上的得分画成闭合多边形。**尖角**暴露短板，**面积大且圆润**表示均衡且综合实力强。\n\n#### 三个分析算子\n\n- **Standardize（标准化）**：消除量纲后比较形态。当各轴量纲不一致（一个是百分比、一个是金额）时必须开启。\n- **ShowAreaScore（面积得分）**：多边形面积反映综合实力，比平均分更能体现「短板效应」。\n- **ShowSimilarity（相似度）**：计算各系列与**首个系列**的形态相似度，用于对标。\n\n> [!TIP]\n> 看雷达图先看**形状**再看面积：极度不规则说明资源分配失衡，可能存在局部优势掩盖系统性缺陷。",
+    "syntax_rules": "### IQS-DSL v1 — radar (AxisSeries)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 形如 `<文本>` **必填** | `Title: 产品竞品对比分析` |\n| `Standardize:` | 按各轴最大值归一后比较（**量纲不一致时必须开启**）（true / false） | `Standardize: true` |\n| `ShowAreaScore:` | 显示多边形面积综合得分（true / false） | `ShowAreaScore: true` |\n| `ShowSimilarity:` | 显示各系列与**首个系列**的形态相似度（true / false） | `ShowSimilarity: true` |\n| `ShowValues:` | 在数据点旁显示原始数值（true / false） | `ShowValues: false` |\n| `StartAngle:` | 首个轴的起始角度（`-90` = 12 点钟方向） 形如 `<角度>` | `StartAngle: -90` |\n| `Clockwise:` | 轴排列方向是否为顺时针（true / false） | `Clockwise: true` |\n| `Closed:` | 网格样式：`true` 多边形，`false` 圆形（true / false） | `Closed: true` |\n| `Axis:` | 定义一条维度轴 形如 `<名称>, <最大值>[, <最小值>]` **必填** | `Axis: 质量, 100, 0` |\n| `Series:` | 定义一个对比系列 形如 `<名称>, [<值列表>][, <颜色>[, <透明度>]]` **必填** | `Series: 方案A, [85, 70, 90, 80, 75], #0D5E42, 0.4` |\n\n### 边界说明\n\n- **`Axis`**：最小值可省略（默认 0）。轴的**声明顺序**即雷达图的轴顺序。\n- **`Series`**：① 值列表元素个数必须**等于轴数量**，且与轴顺序一一对应；② 颜色可省略（用内置色板）或写 `null`；③ 透明度取 0–1，多系列重叠时建议 ≤ 0.4。",
+    "official_example": "Title: 方案多维效果对比\nStandardize: true\nShowAreaScore: true\nShowSimilarity: true\nShowValues: false\nStartAngle: -90\nClockwise: true\nClosed: true\n\n// 轴定义：Axis: <名称>, <最大值>[, <最小值>]\nAxis: 质量, 100, 0\nAxis: 成本, 100, 0\nAxis: 交期, 100, 0\nAxis: 安全, 100, 0\nAxis: 可维护性, 100, 0\n\n// 系列：Series: <名称>, [<值列表>][, <颜色>[, <透明度>]]\nSeries: 方案A, [85, 70, 90, 80, 75], #0D5E42, 0.4\nSeries: 方案B, [70, 85, 75, 88, 80], #E74C3C, 0.3",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -318,13 +345,15 @@
     "intent_trigger": [
       "关联图",
       "交叉因果",
-      "relationship diagram"
+      "relationship diagram",
+      "网状因果",
+      "多症结"
     ],
     "inference_key": "relation",
     "render_engine": "g6",
-    "expert_logic": "### 关联图 (Relationship Diagram)\n关联图是将问题及其各种因素之间的复杂因果关系，用箭头连接起来的图形分析工具。特别适用于因素交织、互为因果的网状逻辑分析。\n\n#### 核心推演逻辑 (Inference Logic)：\n- **多症结支持**: AI 应识别系统中存在的多个并列或递进的问题症结 (Sinks/Roots)，并在图中作为最终节点呈现。\n- **禁止自引用**: 严禁生成 `Rel: A -> A` 这种循环逻辑。\n- **交叉网状**: 鼓励跨分支的因果连接，以体现系统性的关联影响。\n\n#### 角色识别：\n- **主要症结 (Root/Sink)**: 最终的结果点。在绘制逻辑中呈现为「矩形」。\n- **原因因素 (Factors)**: 包括末端根因 (End) 和中间因素 (Middle)。在绘制逻辑中呈现为「椭圆」。",
-    "syntax_rules": "### 基础配置\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 定义图表主标题 | `Title: 2024年三季度质量波动分析` |\n| `Layout:` | 布局模式 (`Directional` / `Centralized` / `Free`) | `Layout: Directional` |\n\n### 核心语法\n- **节点定义**: `Node: [ID], [Label]` (系统会自动根据拓扑计算 Type，无需显式标注)\n- **关系定义**: `Rel: [SourceID] -> [TargetID]` (严禁 Source 与 Target 相同)",
-    "official_example": "Title: 多症结系统问题关联分析\nLayout: Free\n\nColor[Root]: #dc2626\nColor[RootText]: #ffffff\nColor[Middle]: #f97316\nColor[MiddleText]: #ffffff\nColor[End]: #fbbf24\nColor[EndText]: #92400e\nColor[Line]: #a1a1aa\n\n# 节点定义\nNode: root1, 症结A：项目交付延期\nNode: root2, 症结B：团队士气低落\nNode: root3, 症结C：客户投诉增加\nNode: m1, 需求频繁变更\nNode: m2, 跨部门沟通不畅\nNode: m3, 核心人员流失\nNode: m4, 技术债务累积\nNode: m5, 质量监控缺失\nNode: e1, 客户决策链过长\nNode: e2, 缺乏统一协作平台\nNode: e3, 薪酬竞争力不足\nNode: e4, 代码评审流程形同虚设\nNode: e5, 自动化测试覆盖率低\nNode: e6, 市场竞品压力传导\nNode: e7, 历史遗留系统架构\nNode: e8, 培训体系不完善\n\n# 关系定义\nRel: m1 -> root1\nRel: m2 -> root1\nRel: m4 -> root1\nRel: m3 -> root2\nRel: m2 -> root2\nRel: m5 -> root3\nRel: m1 -> root3\nRel: root1 -> root2\nRel: root1 -> root3\nRel: e1 -> m1\nRel: e6 -> m1\nRel: e2 -> m2\nRel: e8 -> m2\nRel: e3 -> m3\nRel: e7 -> m4\nRel: e4 -> m5\nRel: e5 -> m5\nRel: e8 -> m3",
+    "expert_logic": "### 关联图 (Relationship Diagram)\n\n关联图把问题及其各种因素之间的复杂因果关系用箭头连成网状。适用于因素交织、互为因果的场景 —— 这正是鱼骨图的层级结构无法表达的部分。\n\n#### 核心推演逻辑\n\n- **多症结支持**：识别系统中并列或递进的多个问题症结 (Sink)，它们作为最终的**结果点**呈现在图中。\n- **禁止自引用**：严禁 `Rel: A -> A`。\n- **交叉网状**：鼓励跨分支连接 —— 因素间的交叉影响正是关联图相对鱼骨图的价值所在。\n\n#### 角色识别（由引擎按出入度自动推断，无需显式标注）\n\n- **主要症结 (Root/Sink)**：只有入边、没有出边 → 渲染为**矩形**。\n- **末端根因 (End/Source)**：只有出边、没有入边 → 渲染为**椭圆**。\n- **中间因素 (Middle)**：既有入边也有出边 → 渲染为**椭圆**。\n\n> [!IMPORTANT]\n> **出入度分析**：入度极高 = 核心矛盾的汇聚点；出度极高 = 问题的根源所在。先解决高**出度**的末端根因，通常能同时松动多个症结。",
+    "syntax_rules": "### IQS-DSL v1 — relation (Graph)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表主标题 形如 `<文本>` **必填** | `Title: 2024年三季度质量波动分析` |\n| `Layout:` | 布局模式（Directional / Centralized / Free） | `Layout: Free` |\n| `Color[Root | RootText | Middle | MiddleText | End | EndText | Line]` | #HEX 颜色：症结底 / 症结字 / 中间因素底 / 中间因素字 / 末端根因底 / 末端根因字 / 连线 | `Color[Root]: #CF3A2B` |\n| `Node:` | 节点定义（ID, 标签） 形如 `<ID>, <标签>` **必填** | `Node: m1, 需求频繁变更` |\n| `Rel:` | 关系（有向边）定义 形如 `<源ID> -> <目标ID>` **必填** | `Rel: m1 -> root1` |\n\n### 边界说明\n\n- **`Layout`**：`Directional` = 有向分层（因果方向感最强）；`Centralized` = 中心辐射（围绕单一核心症结）；`Free` = 自由力导向（因素多、交叉多时最易读）。注意是**全称**，与 flow 的 `H`/`V` 不同。\n- **`Node`**：**节点类型不需显式标注** —— 引擎按拓扑（出入度）自动推断 Root / Middle / End 并赋予对应形状与颜色。标签内如需冒号请用全角「：」。\n- **`Rel`**：① 箭头为**半角** `->`（与 flow 的全角 `→` 不同）；② 两端 ID **必须**已由 `Node:` 定义，否则产生悬空边；③ 源与目标不得相同；④ 同一对节点可有多条不同方向的边（互为因果），但不鼓励。",
+    "official_example": "Title: 多症结系统问题关联分析\nLayout: Free\n\nColor[Root]: #CF3A2B\nColor[RootText]: #ffffff\nColor[Middle]: #F1C40F\nColor[MiddleText]: #ffffff\nColor[End]: #fbbf24\nColor[EndText]: #92400e\nColor[Line]: #a1a1aa\n\n// 节点定义（ID, 标签）——所有被 Rel 引用的 ID 都必须在此定义\nNode: root1, 症结A：项目交付延期\nNode: root2, 症结B：团队士气低落\nNode: root3, 症结C：客户投诉增加\nNode: m1, 需求频繁变更\nNode: m2, 跨部门沟通不畅\nNode: m3, 核心人员流失\nNode: m4, 技术债务累积\nNode: m5, 质量监控缺失\nNode: e1, 客户决策链过长\nNode: e2, 缺乏统一协作平台\nNode: e3, 薪酬竞争力不足\nNode: e4, 代码评审流程形同虚设\nNode: e5, 自动化测试覆盖率低\nNode: e6, 市场竞品压力传导\nNode: e7, 历史遗留系统架构\nNode: e8, 培训体系不完善\n\n// 关系定义：源 -> 目标（类型由引擎按拓扑自动推断）\nRel: m1 -> root1\nRel: m2 -> root1\nRel: m4 -> root1\nRel: m3 -> root2\nRel: m2 -> root2\nRel: m5 -> root3\nRel: m1 -> root3\nRel: root1 -> root2\nRel: root1 -> root3\nRel: e1 -> m1\nRel: e6 -> m1\nRel: e2 -> m2\nRel: e8 -> m2\nRel: e3 -> m3\nRel: e7 -> m4\nRel: e4 -> m5\nRel: e5 -> m5\nRel: e8 -> m3",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -346,13 +375,14 @@
       "相关分析",
       "回归",
       "scatter",
-      "相关性"
+      "相关性",
+      "X-Y确认"
     ],
     "inference_key": "scatter",
     "render_engine": "echarts",
-    "expert_logic": "### 相关与回归\n散点图用于验证 X 与 Y 是否存在线性/非线性相关。\n- 相关≠因果，需排除第三变量。\n- 离群点往往对应特殊原因，应优先追查。\n- ShowTrend 开启最小二乘趋势线；Show3D/3D 启用三维展示。",
-    "syntax_rules": "### IQS-DSL v1 — scatter (TupleList)\n| 语法 | 说明 |\n| :--- | :--- |\n| `Title:` | 标题 |\n| `XAxis:` / `YAxis:` / `ZAxis:` | 轴标签 |\n| `ShowTrend:` / `ShowValues:` / `Show3D:`（兼容 `3D:`） | 开关 |\n| `Color[Point|Trend]:` | 颜色 |\n| `Size[Base]:` / `Opacity:` | 点大小与透明度 |\n| `- x, y [, z]` | 数据点 |\n\n注释使用 `//`。",
-    "official_example": "Title: 注塑工艺参数相关分析\nXAxis: 模具温度(℃)\nYAxis: 注射压力(MPa)\nZAxis: 收缩率%\nColor[Point]: #3b82f6\nColor[Trend]: #f97316\nShowTrend: true\nShow3D: false\nShowValues: false\n\n// 数据点 X, Y, Z\n- 195.5, 85.2, 2.4\n- 192.0, 82.5, 2.5\n- 198.5, 88.0, 2.2\n- 215.0, 105.0, 0.6\n- 218.5, 108.2, 0.55\n- 212.0, 102.5, 0.7",
+    "expert_logic": "### 相关与回归\n\n散点图用于验证 X 与 Y 是否存在线性/非线性相关，是「确认原因」阶段的核心工具。\n\n- **相关 ≠ 因果**：观察到相关后仍需排除第三变量，或在专业上给出机理解释。\n- **离群点优先追查**：偏离主群的少数点往往对应特殊原因（特定机台、班次、批次）。\n- **趋势线**：开启 `ShowTrend` 后由引擎做最小二乘拟合。\n- **分组对比**：若疑似存在两个总体（如两台设备），它们会在图上呈现为两团 —— 这是最有价值的信息。\n\n> [!TIP]\n> 点太少（< 20）时不要解读趋势线的斜率，容易过拟合；样本点越密集，趋势线越可信。",
+    "syntax_rules": "### IQS-DSL v1 — scatter (TupleList)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 形如 `<文本>` **必填** | `Title: 注塑工艺参数相关分析` |\n| `XAxis:` | X 轴标签（**含单位**，如 `模具温度(℃)`） 形如 `<文本>` | `XAxis: 模具温度(℃)` |\n| `YAxis:` | Y 轴标签（含单位） 形如 `<文本>` | `YAxis: 注射压力(MPa)` |\n| `ZAxis:` | Z 轴标签（仅在三维模式 / 气泡图时有意义） 形如 `<文本>` | `ZAxis: 收缩率%` |\n| `ShowTrend:` | 显示最小二乘趋势线（true / false） | `ShowTrend: true` |\n| `Show3D:` | 启用三维散点视图（兼容别名 `3D` 效果相同）（true / false） | `Show3D: false` |\n| `ShowValues:` | 在点旁显示数值标签（true / false） | `ShowValues: false` |\n| `Color[Point | Trend]` | #HEX 颜色：数据点 / 趋势线 | `Color[Point]: #0D5E42` |\n| `Size[Base]` | 数据点基准像素大小（气泡模式下作为尺寸下限） 形如 `<数值>` | `Size[Base]: 8` |\n| `Opacity:` | 数据点透明度（点密集时降低可缓解叠色） 形如 `0–1 之间的数值` | `Opacity: 0.6` |\n| `数据行:` | 一个观测点 —— 本 kind 唯一的数据录入方式 形如 `- <X>, <Y>[, <Z>]` **必填** | `- 195.5, 85.2, 2.4` |\n\n### 边界说明\n\n- **`ZAxis`**：二维模式下数据行的第三个数仅作气泡尺寸，不产生 Z 轴。\n- **`Show3D`**：开启后数据行需带第三个数（Z 值）。\n- **`数据行`**：用**半角逗号**分隔；同一张图内所有行的字段数必须一致（要么都 2 个、要么都 3 个）。",
+    "official_example": "Title: 注塑工艺参数相关分析\nXAxis: 模具温度(℃)\nYAxis: 注射压力(MPa)\nZAxis: 收缩率%\nColor[Point]: #0D5E42\nColor[Trend]: #F1C40F\nShowTrend: true\nShow3D: false\nShowValues: false\n\n// 数据点：- <X>, <Y> [, <Z>]\n- 195.5, 85.2, 2.4\n- 192.0, 82.5, 2.5\n- 198.5, 88.0, 2.2\n- 215.0, 105.0, 0.6\n- 218.5, 108.2, 0.55\n- 212.0, 102.5, 0.7",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -366,10 +396,19 @@
     "sub_type": "master",
     "display_name": "Mermaid 渲染总纲 (Master Protocol)",
     "description": "Mermaid 渲染引擎的全局治理逻辑。定义了甘特图、流程图等图表的渲染纠偏规则。",
-    "expertise": "Mermaid 高级架构绘图专家",
-    "expert_logic": "### 专家灵魂 (The Soul)\n\n#### 基于文本的万能建模工具 (Mermaid Engine)\nMermaid 是一种基于文本的绘图工具，旨在通过简单的标记语言，快速构建、迭代和分享复杂的逻辑结构图。它是从“感性思维”向“结构化逻辑”转化的桥梁。\n\n#### 核心分类视角：\n- **逻辑流转类**: 获取业务流转、决策树及闭环逻辑 (flowchart, stateDiagram-v2)。\n- **时序交互类**: 刻画系统组件间的协作、调用链与消息传递 (sequenceDiagram)。\n- **结构建模类**: 描述系统架构、数据模型、组织关系 (erDiagram, classDiagram, architecture)。\n- **计划与追踪类**: 专注于时间维度、进度管理及任务分配 (gantt, kanban, timeline)。\n- **多维认知类**: 用于发散性思维梳理、体验感知分析及比例展示 (mindmap, journey, pie)。\n\n### 公共事项及说明 (Common Instructions)\n1. **纯净 DSL 范式**: AI 必须生成纯文本 DSL 指令。严禁将代码块包裹在 JSON 结构中或附加冗余解释。\n2. **符号冲突防御**: 在中文描述文字中，必须优先使用中文全角标点（如 ，、；、：）。严禁在未经过 \"\" 或 [] 包裹的文本中出现半角逗号 , 或分号 ;，以防止被解析器误认为语法分隔符。\n3. **复杂内容包裹**: 凡是包含空格、特殊符号或多行文本的节点，必须使用 [\"内容\"]（矩形）、(\"内容\")（圆角）或 {{ \"内容\" }}（六角）进行显式包裹。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n| 图表类型 | 核心约束与避坑指南 |\n| :--- | :--- |\n| **甘特图 (Gantt)** | **缩放防御**: 若当前日期不在项目周期内，必须强制设置 todayMarker off，否则时间轴会被无限拉伸导致图例不可见。 |\n| **状态图 (State)** | **语义固化**: 必须采用 state \"描述文本\" as 别名 语法。严禁直接在转移连线上书写过于复杂的逻辑描述。 |\n| **架构图 (Architecture)** | **拓扑语法**: 连线方向必须遵循 源节点:方向 --> 方向:目标节点（如 gateway:R --> L:auth）。Label 建议优先使用英文。 |\n| **需求图 (Requirement)** | **关系严谨**: 关系连接必须带箭头（如 - satisfies ->）。验证方法必须使用关键字 verifyMethod。 |\n| **实验性图表 (Beta)** | **引号强制**: 在 sankey-beta, quadrantChart, block-beta, xychart-beta 中，所有中文标签必须用双引号 \"\" 包裹。 |\n| **桑基图 (Sankey)** | **语言退避**: 当前版本 sankey-beta 解析器对非 ASCII 字符极其敏感，建议强制使用英文标注以确保渲染成功。 |",
-    "syntax_rules": "### 全量图表关键字定义\n| 分类 | 关键字 | 典型语法结构 |\n| :--- | :--- | :--- |\n| **流程图** | `graph` / `flowchart` | `A[节点] --> B{判断}` |\n| **时序图** | `sequenceDiagram` | `Alice ->> Bob: 消息` |\n| **甘特图** | `gantt` | `section [阶段]\\n 任务 :a1, 2024-01-01, 5d` |\n| **状态图** | `stateDiagram-v2` | `[*] --> State1\\n State1 --> [*]` |\n| **类图** | `classDiagram` | `class A { +attr }` |\n| **饼图** | `pie` | `title [标题]\\n \"项\" : 50` |\n| **ER图** | `erDiagram` | `ENTITY ||--o{ OTHER : rel` |\n| **旅程图** | `journey` | `section [阶段]\\n 步骤: 5: [角色]` |\n| **思维导图** | `mindmap` | `root((\"中心\"))\\n  分支` |\n| **时间线** | `timeline` | `2024 : [事件]` |\n| **看板图** | `kanban` | `[列名]\\n  [事项] @{ assigned: \"人\" }` |\n| **架构图** | `architecture` | `group 组名\\n service 服务名` |\n\n### 视觉初始化指令 (Directives)\n使用 `%%{init: {...}}%%` 定义全局风格：\n- `theme`: `default`, `forest`, `dark`, `neutral`, `base`。\n- `look`: `handDrawn` (手绘效果)。\n- `layout`: `elk` (针对复杂大图的算法优化)。",
-    "tier": "relief"
+    "expertise": "Mermaid 文本建模, 类型外制图, 语法纠偏",
+    "expert_logic": "### 救济层定位（最重要的前提）\n\nMermaid 覆盖「逻辑流转 / 时序交互 / 结构建模 / 计划追踪 / 多维认知」五类。它**只能用于标准 QC 工具无法表达的场景** —— 凡是能映射到 CORE（控制图、排列图、直方图、鱼骨图、关联图、矢线图、矩阵图、PDPC、亲和图、基础统计图、散点图、雷达图、图矩阵、流程图）的，**必须**用 CORE。\n\n> [!IMPORTANT]\n> 体系文件 / 部门泳道 / BPMN 子集终稿**必须**用 `render_flow`（IQS-Flow DSL），禁止用 Mermaid 的 `flowchart` / `graph` 冒充。\n\n#### 五类用途\n\n- **逻辑流转类**：业务流转、决策树、闭环逻辑（flowchart、stateDiagram-v2）。\n- **时序交互类**：组件协作、调用链、消息传递（sequenceDiagram）。\n- **结构建模类**：系统架构、数据模型、组织关系（erDiagram、classDiagram、architecture、block-beta）。\n- **计划与追踪类**：时间维度、进度管理、任务分配（gantt、kanban、timeline）。\n- **多维认知类**：发散思维、体验感知、比例展示（mindmap、journey、pie、quadrantChart、xychart-beta、packet-beta、requirementDiagram、sankey-beta、gitGraph）。\n\n#### 公共输出规则（全 sub_type 适用）\n\n- **纯净 DSL**：直接输出 Mermaid 原生指令，**不要** `Spec:` 外壳，**不要**包在 `{}` 里，**不要** Markdown 围栏。\n- **符号冲突防御**：中文描述里必须用**中文全角标点**（，、；：）。**禁止**在未加引号的文本中出现的半角逗号 `,` 或分号 `;` —— 它们会被解析器当作语法分隔符。\n- **复杂内容包裹**：含空格、特殊符号或多行的节点文字，必须用 `[\"内容\"]`（矩形）、`(\"内容\")`（圆角）等显式包裹。",
+    "syntax_rules": "### IQS-DSL v1 — mermaid_master (Foreign)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `初始化指令:` | 渲染前的主题/外观配置（可选，置于首行） 形如 `%%{init: {…}}%%` | `%%{init: {\"theme\": \"neutral\", \"look\": \"handDrawn\"}}%%` |\n| `图类型声明:` | 每个 sub_type 的第一行关键字（graph / flowchart / sequenceDiagram / classDiagram / stateDiagram-v2 / erDiagram / journey / gantt / pie / quadrantChart / requirementDiagram / gitGraph / mindmap / timeline / kanban / block-beta / packet-beta / architecture-beta / sankey-beta / xychart-beta） **必填** | `graph TD` |\n| `节点包裹:` | 含空格 / 特殊符号 / 多行 的节点文字必须显式包裹 形如 `A[\"内容\"] / A(\"内容\") / A{\"内容\"}` | `A[\"提交申请（含附件）\"]` |\n| `注释:` | Mermaid 自身用 `%%` 作行注释 形如 `%% <注释>` | `%% 审批主路径` |\n\n### 边界说明\n\n- **`图类型声明`**：完整的 sub_type 列表；每个的细节见同目录的 `<slug>.card.ts`。\n- **`节点包裹`**：矩形 `[]`、圆角 `()`、菱形 `{}`、圆 `(())`。不包裹时含半角标点的文字会被截断。\n- **`注释`**：⚠️ 与 IQS-DSL 的 `//` 不同 —— 本族使用 Mermaid 原生注释语法。",
+    "tier": "relief",
+    "official_example": "%%{init: {\"theme\": \"neutral\", \"look\": \"handDrawn\"}}%%\ngraph TD\n    A[提交申请] --> B{经理审批}\n    B -- \"通过\" --> C[财务放款]\n    B -- \"驳回\" --> D[退回修改]\n    D --> A\n    C --> E[流程结束]",
+    "intent_trigger": [
+      "Mermaid",
+      "救济层",
+      "类型外制图",
+      "文本建模",
+      "流程/时序/结构"
+    ],
+    "render_engine": "mermaid"
   },
   {
     "name": "render_mermaid_architecture",
@@ -386,8 +425,8 @@
     ],
     "inference_key": "architecture",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 结构建模类图表。用于刻画现代云原生或微服务架构的逻辑层级与物理拓扑。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **拓扑语法 (Critical)**: 连线方向必须遵循 `源节点:方向 --> 方向:目标节点`（例如 `gateway:R --> L:auth`）。\n- **命名建议**: Label 建议优先使用英文以确保持续兼容性。",
-    "syntax_rules": "### 全量图表关键字定义\n- `architecture-beta`: 定义架构图起始。\n- `group [ID](图标)[Label]`: 定义逻辑层级组。\n- `service [ID](图标)[Label]`: 定义具体服务节点。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"base\"}}%%` 样式渲染。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 结构建模类图表。用于刻画现代云原生或微服务架构的逻辑层级与物理拓扑。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n\n- **拓扑语法 (Critical)**: 连线方向必须遵循 `源节点:方向 --> 方向:目标节点`（例如 `gateway:R --> L:auth`）。\n- **命名建议**: Label 建议优先使用英文以确保持续兼容性。",
+    "syntax_rules": "### IQS-DSL v1 — architecture (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `architecture-beta:` | 定义架构图起始。 | `architecture-beta: <值>` |\n| `group [ID](图标)[Label]:` | 定义逻辑层级组。 | `group [ID](图标)[Label]: <值>` |\n| `service [ID](图标)[Label]:` | 定义具体服务节点。 | `service [ID](图标)[Label]: <值>` |\n",
     "official_example": "architecture-beta\n    group api(cloud)[API Layer]\n    group services(server)[Service Layer]\n    group db(database)[Database Layer]\n\n    service gateway(internet)[API Gateway] in api\n    service auth(server)[Auth Service] in services\n    service user(server)[User Service] in services\n    service mysql(database)[MySQL] in db\n\n    gateway:R --> L:auth\n    gateway:B --> T:user\n    auth:R --> L:mysql\n    user:R --> L:mysql",
     "input_schema": {
       "prompt": {
@@ -411,8 +450,8 @@
     ],
     "inference_key": "block-beta",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 结构建模类图表。用于将复杂的系统拆解为可视化的逻辑矩形块（Block）与容器。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **引号强制**: 在 `block-beta` 中，**所有中文标签必须用双引号 \"\" 包裹**。",
-    "syntax_rules": "### 全量图表关键字定义\n- `block-beta`: 定义块图起始。\n- `columns [N]`: 设置每行显示的网格列数。\n- `block:[ID]`: 定义容器块。\n- `\"Label\"`: 定义具体内容块。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 结构建模类图表。用于将复杂的系统拆解为可视化的逻辑矩形块（Block）与容器。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n\n- **引号强制**: 在 `block-beta` 中，**所有中文标签必须用双引号 \"\" 包裹**。",
+    "syntax_rules": "### IQS-DSL v1 — block-beta (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `block-beta:` | 定义块图起始。 | `block-beta: <值>` |\n| `columns[N]` | 设置每行显示的网格列数。 | `columns [N][N]: <值>` |\n| `block:[ID]:` | 定义容器块。 | `block:[ID]: <值>` |\n| `\"Label\":` | 定义具体内容块。 | `\"Label\": <值>` |\n",
     "official_example": "block-beta\n    columns 3\n    \"服务1\" \"服务2\" \"服务3\"\n    block:group1\n        columns 1\n        \"子项A\" \"子项B\"\n    end",
     "input_schema": {
       "prompt": {
@@ -437,8 +476,8 @@
     ],
     "inference_key": "classDiagram",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 结构建模类图表。专注于软件工程中的静态结构，表现类、接口及其依赖路径。",
-    "syntax_rules": "### 全量图表关键字定义\n- `classDiagram`: 定义类图起始。\n- `<|--` (继承) / `*--` (组合) / `o--` (聚合)。\n- `+` (public) / `-` (private) / `#` (protected): 访问性标识。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\"}}%%` 进行标准化结构渲染。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 结构建模类图表。专注于软件工程中的静态结构，表现类、接口及其依赖路径。",
+    "syntax_rules": "### IQS-DSL v1 — classDiagram (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `classDiagram:` | 定义类图起始。 | `classDiagram: <值>` |\n",
     "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\nclassDiagram\n    class Vehicle {\n        +move()\n    }\n    class Car {\n        -engine: String\n        +drive()\n    }\n    Vehicle <|-- Car",
     "input_schema": {
       "prompt": {
@@ -463,8 +502,8 @@
     ],
     "inference_key": "erDiagram",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 结构建模类图表。用于定义数据实体（Entities）及其相互关联（Relationships）。\n- **逻辑准则**: 刻画父子、依赖及引用关系。强调基数（Cardinality）的准确性，如 `||--o{` 代表一对多。",
-    "syntax_rules": "### 全量图表关键字定义\n- `erDiagram`: 定义 ER 图起始。\n- `||--o{` / `||--|{` / `}|--|{`: 定义基数关系。\n- `ENTITY { int id }`: 定义属性列表。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"forest\"}}%%` 适配森林工业风渲染。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 结构建模类图表。用于定义数据实体（Entities）及其相互关联（Relationships）。\n- **逻辑准则**: 刻画父子、依赖及引用关系。强调基数（Cardinality）的准确性，如 `||--o{` 代表一对多。",
+    "syntax_rules": "### IQS-DSL v1 — erDiagram (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `erDiagram:` | 定义 ER 图起始。 | `erDiagram: <值>` |\n| `||--o{:` | 定义基数关系。 | `\\|\\|--o{: <值>` |\n| `||--|{:` | 定义基数关系。 | `\\|\\|--\\|{: <值>` |\n| `}|--|{:` | 定义基数关系。 | `}\\|--\\|{: <值>` |\n| `ENTITY { int id }:` | 定义属性列表。 | `ENTITY { int id }: <值>` |\n",
     "official_example": "%%{init: {\"theme\": \"forest\"}}%%\nerDiagram\n    USER ||--o{ ORDER : \"下单\"\n    ORDER ||--|{ PRODUCT : \"包含\"\n    USER {\n        int id\n        string name\n    }",
     "input_schema": {
       "prompt": {
@@ -489,8 +528,8 @@
     ],
     "inference_key": "flowchart",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 逻辑流转类图表。专注于描述业务流转、决策分支及逻辑闭环。\n\n### 公共事项及说明 (Common Instructions)\n1. **纯净 DSL 范式**: AI 必须生成纯文本 DSL 指令。严禁将代码块包裹在 JSON 结构中或附加冗余解释。\n2. **符号冲突防御**: 在中文描述文字中，必须优先使用中文全角标点（如 ，、；、：）。严禁使用半角逗号或分号，防止解析误认。\n3. **复杂内容包裹**: 包含特殊符号或多行的节点，必须使用 [\"内容\"]（矩形）、(\"内容\")（圆角）等显式包裹。",
-    "syntax_rules": "### 全量图表关键字定义\n- `graph` / `flowchart`: 定义流程图起始。\n- `TD` (Top Down) / `LR` (Left Right): 定义布局方向。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\", \"look\": \"handDrawn\"}}%%` 进行手绘效果渲染。\n\n### 典型语法结构\n`A[节点] --> B{判断}`",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 逻辑流转类图表。专注于描述业务流转、决策分支及逻辑闭环。\n\n### 公共事项及说明 (Common Instructions)\n\n1. **纯净 DSL 范式**: AI 必须生成纯文本 DSL 指令。严禁将代码块包裹在 JSON 结构中或附加冗余解释。\n\n2. **符号冲突防御**: 在中文描述文字中，必须优先使用中文全角标点（如 ，、；、：）。严禁使用半角逗号或分号，防止解析误认。\n\n3. **复杂内容包裹**: 包含特殊符号或多行的节点，必须使用 [\"内容\"]（矩形）、(\"内容\")（圆角）等显式包裹。",
+    "syntax_rules": "### IQS-DSL v1 — flowchart (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `graph:` | 定义流程图起始。 | `graph: <值>` |\n| `flowchart:` | 定义流程图起始。 | `flowchart: <值>` |\n",
     "official_example": "%%{init: {\"theme\": \"neutral\", \"look\": \"handDrawn\"}}%%\ngraph TD\n    A[提交申请] --> B{经理审批}\n    B -- \"通过\" --> C[财务放款]\n    B -- \"驳回\" --> D[退回修改]\n    D --> A\n    C --> E[流程结束]",
     "input_schema": {
       "prompt": {
@@ -515,8 +554,8 @@
     ],
     "inference_key": "gantt",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 计划与追踪类图表。关注任务在时间轴上的分布、依赖及完成状态。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **缩放防御 (Critical)**: 若当前日期不在项目周期内，必须强制设置 `todayMarker off`，否则时间轴会被无限拉伸导致图例不可见。\n- **日期格式**: 必须通过 `dateFormat YYYY-MM-DD` 显式声明日期解析方式，以确保跨平台渲染一致性。",
-    "syntax_rules": "### 全量图表关键字定义\n- `gantt`: 定义甘特图起始。\n- `section`: 定义阶段。\n- `任务 :a1, 2024-03-01, 5d`: 任务定义语法。\n- `after a1`: 任务依赖语法。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"base\", \"gantt\": {\"barHeight\": 35, \"fontSize\": 16}}}%%` 进行基础风格渲染。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 计划与追踪类图表。关注任务在时间轴上的分布、依赖及完成状态。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n\n- **缩放防御 (Critical)**: 若当前日期不在项目周期内，必须强制设置 `todayMarker off`，否则时间轴会被无限拉伸导致图例不可见。\n- **日期格式**: 必须通过 `dateFormat YYYY-MM-DD` 显式声明日期解析方式，以确保跨平台渲染一致性。",
+    "syntax_rules": "### IQS-DSL v1 — gantt (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `gantt:` | 定义甘特图起始。 | `gantt: <值>` |\n| `section:` | 定义阶段。 | `section: <值>` |\n| `任务 :a1, 2024-03-01, 5d:` | 任务定义语法。 | `任务 :a1, 2024-03-01, 5d: <值>` |\n| `after a1:` | 任务依赖语法。 | `after a1: <值>` |\n",
     "official_example": "%%{init: {\"theme\": \"base\", \"gantt\": {\"barHeight\": 35, \"fontSize\": 16}}}%%\ngantt\n    title 项目开发进度\n    dateFormat YYYY-MM-DD\n    todayMarker off\n    section 核心开发\n    架构设计 :a1, 2024-03-01, 5d\n    功能开发 :after a1, 10d\n    section 质量验证\n    集成测试 :2024-03-15, 7d",
     "input_schema": {
       "prompt": {
@@ -541,8 +580,8 @@
     ],
     "inference_key": "gitGraph",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 逻辑流转类图表。专注于展示代码版本控制中的分支演进及合并逻辑。",
-    "syntax_rules": "### 全量图表关键字定义\n- `gitGraph`: 定义 Git 图起始。\n- `commit id: \"ID\"`: 提交记录。\n- `branch [Name]`: 创建分支。\n- `checkout [Name]`: 切换分支。\n- `merge [Name]`: 合并分支。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 逻辑流转类图表。专注于展示代码版本控制中的分支演进及合并逻辑。",
+    "syntax_rules": "### IQS-DSL v1 — gitGraph (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `gitGraph:` | 定义 Git 图起始。 | `gitGraph: <值>` |\n| `commit id: \"ID\":` | 提交记录。 | `commit id: \"ID\": <值>` |\n| `branch[Name]` | 创建分支。 | `branch [Name][Name]: <值>` |\n| `checkout[Name]` | 切换分支。 | `checkout [Name][Name]: <值>` |\n| `merge[Name]` | 合并分支。 | `merge [Name][Name]: <值>` |\n",
     "official_example": "gitGraph\n    commit id: \"Initial\"\n    branch develop\n    checkout develop\n    commit id: \"Feature-A\"\n    checkout main\n    merge develop\n    commit id: \"Release-1.0\"",
     "input_schema": {
       "prompt": {
@@ -567,8 +606,8 @@
     ],
     "inference_key": "journey",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 多维认知类图表。通过时间序列展示用户在交互过程中的情感曲线与参与点。",
-    "syntax_rules": "### 全量图表关键字定义\n- `journey`: 定义旅程图起始。\n- `title`: 设置旅程名称。\n- `section`: 设置阶段（如 搜索、决策）。\n- `动作: 5: 角色`: 分别代表 动作名, 评分 (0-5), 角色名。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 多维认知类图表。通过时间序列展示用户在交互过程中的情感曲线与参与点。",
+    "syntax_rules": "### IQS-DSL v1 — journey (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `journey:` | 定义旅程图起始。 | `journey: <值>` |\n| `title:` | 设置旅程名称。 | `title: <值>` |\n| `section:` | 设置阶段（如 搜索、决策）。 | `section: <值>` |\n| `动作: 5: 角色:` | 分别代表 动作名, 评分 (0-5), 角色名。 | `动作: 5: 角色: <值>` |\n",
     "official_example": "%%{init: {\"theme\": \"base\"}}%%\njourney\n    title 线上购物旅程\n    section 搜索\n      点击商品: 5: 用户\n      查看详情: 4: 用户\n    section 决策\n      加购物车: 5: 用户\n      下单支付: 3: 用户",
     "input_schema": {
       "prompt": {
@@ -592,8 +631,8 @@
     ],
     "inference_key": "kanban",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 计划与追踪类图表。用于模拟敏捷看板，展示任务在不同状态列（Todo, InProgress, Done）间的分布。",
-    "syntax_rules": "### 全量图表关键字定义\n- `kanban`: 定义看板起始。\n- `[列名]`: 顶格书写定义列。\n- `[事项]`: 缩进定义任务项。\n- `@{ assigned: \"人\" }`: 分配责任人语法。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 计划与追踪类图表。用于模拟敏捷看板，展示任务在不同状态列（Todo, InProgress, Done）间的分布。",
+    "syntax_rules": "### IQS-DSL v1 — kanban (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `kanban:` | 定义看板起始。 | `kanban: <值>` |\n| `[列名]:` | 顶格书写定义列。 | `[列名]: <值>` |\n| `[事项]:` | 缩进定义任务项。 | `[事项]: <值>` |\n| `@{ assigned: \"人\" }:` | 分配责任人语法。 | `@{ assigned: \"人\" }: <值>` |\n",
     "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\nkanban\n  Todo\n    需求评审\n    架构设计\n  InProgress\n    API开发\n  Done\n    环境搭建",
     "input_schema": {
       "prompt": {
@@ -617,8 +656,8 @@
     ],
     "inference_key": "mindmap",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 多维认知类图表。用于非线性的思维发散与归纳。",
-    "syntax_rules": "### 全量图表关键字定义\n- `mindmap`: 定义脑图起始。\n- `root((\"中心\"))`: 双括号代表圆角容器。\n- `(分支)` / `{{ 六角 }}` / `[矩形]`: 节点边界语法。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\"}}%%` 样式渲染。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 多维认知类图表。用于非线性的思维发散与归纳。",
+    "syntax_rules": "### IQS-DSL v1 — mindmap (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `mindmap:` | 定义脑图起始。 | `mindmap: <值>` |\n| `root((\"中心\")):` | 双括号代表圆角容器。 | `root((\"中心\")): <值>` |\n| `(分支):` | 节点边界语法。 | `(分支): <值>` |\n| `{{ 六角 }}:` | 节点边界语法。 | `{{ 六角 }}: <值>` |\n| `[矩形]:` | 节点边界语法。 | `[矩形]: <值>` |\n",
     "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\nmindmap\n  root((\"质量管理\"))\n    控制方法\n      (SPC 统计)\n      (异常拦截)\n    标准体系\n      (ISO 9001)\n      (行业标准)",
     "input_schema": {
       "prompt": {
@@ -642,8 +681,8 @@
     ],
     "inference_key": "packet-beta",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 报文协议解析类。专注于底层通信数据结构的精确位图展示。",
-    "syntax_rules": "### 全量图表关键字定义\n- `packet-beta`: 定义报文图起始。\n- `[Start]-[End]: \"Label\"`: 定义位偏移量及字段名称（例：`0-7: \"Type\"`）。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 报文协议解析类。专注于底层通信数据结构的精确位图展示。",
+    "syntax_rules": "### IQS-DSL v1 — packet-beta (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `packet-beta:` | 定义报文图起始。 | `packet-beta: <值>` |\n| `[Start]-[End]: \"Label\":` | 定义位偏移量及字段名称（例：0-7: \"Type\"）。 | `[Start]-[End]: \"Label\": 0-7: \"Type\"` |\n",
     "official_example": "packet-beta\n    0-7: \"版本号\"\n    8-15: \"类型\"\n    16-31: \"校验和\"\n    32-63: \"偏移量\"",
     "input_schema": {
       "prompt": {
@@ -667,8 +706,8 @@
     ],
     "inference_key": "pie",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 辅助类图表。仅当用户明确要求使用 Mermaid 或“极简”风格时使用。**常规占比分析首选 render_vchart_pie**。\n\n### 公共事项及说明 (Common Instructions)\n1. **标题策略**: 必须在 `pie` 关键字后显式跟随 `title [标题]`。\n2. **数值约束**: 建议项数不超过 8 个。",
-    "syntax_rules": "### 全量图表关键字定义\n- `pie`: 定义饼图起始。\n- `title [标题内容]`: 设置标题。\n- `\"项名\" : 数值`: 数据项定义语法 (项名必须用双引号包裹)。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 辅助类图表。仅当用户明确要求使用 Mermaid 或“极简”风格时使用。**常规占比分析首选 render_vchart_pie**。\n\n### 公共事项及说明 (Common Instructions)\n\n1. **标题策略**: 必须在 `pie` 关键字后显式跟随 `title [标题]`。\n\n2. **数值约束**: 建议项数不超过 8 个。",
+    "syntax_rules": "### IQS-DSL v1 — pie (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `pie:` | 定义饼图起始。 | `pie: <值>` |\n| `title[标题内容]` | 设置标题。 | `title [标题内容][标题内容]: <值>` |\n| `\"项名\" : 数值:` | 数据项定义语法 (项名必须用双引号包裹)。 | `\"项名\" : 数值: <值>` |\n",
     "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\npie title 缺陷原因分布\n    \"物流损坏\" : 45\n    \"品质瑕疵\" : 30\n    \"包装问题\" : 15\n    \"其他\" : 10",
     "input_schema": {
       "prompt": {
@@ -693,8 +732,8 @@
     ],
     "inference_key": "quadrantChart",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 多维认知类图表。用于将事物按照两种维度的强弱划分为四个象限，辅助决策。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **引号强制**: 在 `quadrantChart` 中，**所有中文标签必须用双引号 \"\" 包裹**，否则会导致解析引擎挂起。",
-    "syntax_rules": "### 全量图表关键字定义\n- `quadrantChart`: 定义象限图起始。\n- `x-axis \"Min\" --> \"Max\"`: X 轴标签定义。\n- `quadrant-1 \"Label\"`: 象限区域标注。\n- `\"Item\": [x, y]`: 数据点定位语法。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 多维认知类图表。用于将事物按照两种维度的强弱划分为四个象限，辅助决策。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n\n- **引号强制**: 在 `quadrantChart` 中，**所有中文标签必须用双引号 \"\" 包裹**，否则会导致解析引擎挂起。",
+    "syntax_rules": "### IQS-DSL v1 — quadrantChart (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `quadrantChart:` | 定义象限图起始。 | `quadrantChart: <值>` |\n| `x-axis \"Min\" --> \"Max\":` | X 轴标签定义。 | `x-axis \"Min\" --> \"Max\": <值>` |\n| `quadrant-1 \"Label\":` | 象限区域标注。 | `quadrant-1 \"Label\": <值>` |\n| `\"Item\": [x, y]:` | 数据点定位语法。 | `\"Item\": [x, y]: <值>` |\n",
     "official_example": "quadrantChart\n    title \"研发任务优先级\"\n    x-axis \"低价值\" --> \"高价值\"\n    y-axis \"难实现\" --> \"易实现\"\n    quadrant-1 \"重点投入\"\n    quadrant-2 \"长期规划\"\n    \"任务A\": [0.8, 0.9]\n    \"任务B\": [0.2, 0.3]",
     "input_schema": {
       "prompt": {
@@ -718,8 +757,8 @@
     ],
     "inference_key": "requirementDiagram",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 系统需求建模类图表。专注于需求条目的结构化定义及其在物理系统中的闭环验证。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **关系严谨**: 关系连接必须带箭头（如 `- satisfies ->`）。\n- **验证闭环**: 验证方法建议必须使用官方关键字 `verifyMethod`。",
-    "syntax_rules": "### 全量图表关键字定义\n- `requirementDiagram`: 定义需求图起始。\n- `requirement [Name] { id: text, risk: level }`: 需求定义块。\n- `element [Name] { type: \"Type\" }`: 系统元素定义块。\n- `element - satisfies -> requirement`: 关联关系定义。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 系统需求建模类图表。专注于需求条目的结构化定义及其在物理系统中的闭环验证。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n\n- **关系严谨**: 关系连接必须带箭头（如 `- satisfies ->`）。\n- **验证闭环**: 验证方法建议必须使用官方关键字 `verifyMethod`。",
+    "syntax_rules": "### IQS-DSL v1 — requirementDiagram (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `requirementDiagram:` | 定义需求图起始。 | `requirementDiagram: <值>` |\n| `requirement [Name] { id: text, risk: level }:` | 需求定义块。 | `requirement [Name] { id: text, risk: level }: <值>` |\n| `element [Name] { type: \"Type\" }:` | 系统元素定义块。 | `element [Name] { type: \"Type\" }: <值>` |\n| `element - satisfies -> requirement:` | 关联关系定义。 | `element - satisfies -> requirement: <值>` |\n",
     "official_example": "requirementDiagram\n    requirement req_lock {\n        id: 1.1\n        text: \"当速度超过20km/h时自动锁定车门\"\n        risk: medium\n        verifyMethod: test\n    }\n    element actuator {\n        type: \"Actuator\"\n    }\n    actuator - satisfies -> req_lock",
     "input_schema": {
       "prompt": {
@@ -744,8 +783,8 @@
     ],
     "inference_key": "sankey-beta",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 能量/价值流向类图表。用于展示流动量在不同节点间的分配关系。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **语言退避 (Critical)**: 当前版本 `sankey-beta` 解析器对非 ASCII 字符极其敏感。**强烈建议强制使用英文标注**以确保渲染成功，否则可能导致节点崩解。",
-    "syntax_rules": "### 全量图表关键字定义\n- `sankey-beta`: 定义桑基图起始。\n- `Source,Sink,Value`: 数据行定义语法。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\"}}%%` 渲染样式。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 能量/价值流向类图表。用于展示流动量在不同节点间的分配关系。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n\n- **语言退避 (Critical)**: 当前版本 `sankey-beta` 解析器对非 ASCII 字符极其敏感。**强烈建议强制使用英文标注**以确保渲染成功，否则可能导致节点崩解。",
+    "syntax_rules": "### IQS-DSL v1 — sankey-beta (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `sankey-beta:` | 定义桑基图起始。 | `sankey-beta: <值>` |\n| `Source,Sink,Value:` | 数据行定义语法。 | `Source,Sink,Value: <值>` |\n",
     "official_example": "sankey-beta\n    Agricultural,Fertilizer,150\n    Agricultural,Irrigation,100\n    Fertilizer,Crop,120\n    Irrigation,Crop,80",
     "input_schema": {
       "prompt": {
@@ -770,8 +809,8 @@
     ],
     "inference_key": "sequenceDiagram",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 时序交互类图表。专注于刻画参与者（Participants）之间的消息传递顺序与调用逻辑。\n\n### 公共事项及说明 (Common Instructions)\n1. **纯净 DSL 范式**: AI 必须生成纯文本 DSL 指令。严禁将代码块包裹在 JSON 结构中或附加冗余解释。\n2. **符号冲突防御**: 中文描述必须优先使用全角标点，或用引号包裹。例：`Alice ->> Bob: \"处理中，请稍候\"`。\n3. **角色定义**: 使用 `actor` 定义人工角色，`participant` 定义系统组件。",
-    "syntax_rules": "### 全量图表关键字定义\n- `sequenceDiagram`: 定义时序图起始。\n- `->>` (实线箭头) / `-->>` (虚线返回箭头)。\n- `activate` / `deactivate`: 开启/关闭生命线。\n- `loop` / `alt` / `opt`: 控制流结构。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"forest\"}}%%` 进行森林风格渲染。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 时序交互类图表。专注于刻画参与者（Participants）之间的消息传递顺序与调用逻辑。\n\n### 公共事项及说明 (Common Instructions)\n\n1. **纯净 DSL 范式**: AI 必须生成纯文本 DSL 指令。严禁将代码块包裹在 JSON 结构中或附加冗余解释。\n\n2. **符号冲突防御**: 中文描述必须优先使用全角标点，或用引号包裹。例：`Alice ->> Bob: \"处理中，请稍候\"`。\n\n3. **角色定义**: 使用 `actor` 定义人工角色，`participant` 定义系统组件。",
+    "syntax_rules": "### IQS-DSL v1 — sequenceDiagram (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `sequenceDiagram:` | 定义时序图起始。 | `sequenceDiagram: <值>` |\n| `activate:` | 开启/关闭生命线。 | `activate: <值>` |\n| `deactivate:` | 开启/关闭生命线。 | `deactivate: <值>` |\n| `loop:` | 控制流结构。 | `loop: <值>` |\n| `alt:` | 控制流结构。 | `alt: <值>` |\n| `opt:` | 控制流结构。 | `opt: <值>` |\n",
     "official_example": "%%{init: {\"theme\": \"forest\"}}%%\nsequenceDiagram\n    actor 用户\n    participant Web as Web端\n    participant Srv as 服务端\n    \n    用户 ->> Web: 点击登录\n    Web ->> Srv: 发送鉴权请求\n    Srv -->> Web: 返回 Token\n    Web -->> 用户: 显示主界面",
     "input_schema": {
       "prompt": {
@@ -796,8 +835,8 @@
     ],
     "inference_key": "stateDiagram-v2",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 逻辑流转类图表。专注于描述对象在不同触发条件下如何从一个状态转移到另一个状态。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **语义固化**: 必须采用 `state \"描述文本\" as 别名` 语法。严禁直接在转移连线上书写过于复杂的逻辑描述，以防渲染混乱。\n- **闭环思维**: 必须包含起始状态 `[*]`。建议显式标注每一个终结状态 `[*]`。",
-    "syntax_rules": "### 全量图表关键字定义\n- `stateDiagram-v2`: 定义状态图起始。\n- `-->`: 定义状态转移。\n- `[*]`: 定义起始/结束点。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"neutral\"}}%%` 进行中性风格渲染。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 逻辑流转类图表。专注于描述对象在不同触发条件下如何从一个状态转移到另一个状态。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n\n- **语义固化**: 必须采用 `state \"描述文本\" as 别名` 语法。严禁直接在转移连线上书写过于复杂的逻辑描述，以防渲染混乱。\n- **闭环思维**: 必须包含起始状态 `[*]`。建议显式标注每一个终结状态 `[*]`。",
+    "syntax_rules": "### IQS-DSL v1 — stateDiagram-v2 (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `stateDiagram-v2:` | 定义状态图起始。 | `stateDiagram-v2: <值>` |\n| `-->:` | 定义状态转移。 | `-->: <值>` |\n| `[*]:` | 定义起始/结束点。 | `[*]: <值>` |\n",
     "official_example": "%%{init: {\"theme\": \"neutral\"}}%%\nstateDiagram-v2\n    state \"待支付\" as s1\n    state \"已支付\" as s2\n    state \"待发货\" as s3\n    [*] --> s1\n    s1 --> s2: 支付成功\n    s2 --> s3\n    s3 --> [*]",
     "input_schema": {
       "prompt": {
@@ -822,8 +861,8 @@
     ],
     "inference_key": "timeline",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 计划与追踪类图表。专注于以非刻度化的方式展示重要事件的先后顺序环境。",
-    "syntax_rules": "### 全量图表关键字定义\n- `timeline`: 定义时间线起始。\n- `title`: 设置标题。\n- `2024 : [事件1] : [事件2]`: 时间段与事件定义语法。\n\n### 初始化指令 (Directives)\n使用 `%%{init: {\"theme\": \"forest\"}}%%` 进行森林工业风格渲染。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 计划与追踪类图表。专注于以非刻度化的方式展示重要事件的先后顺序环境。",
+    "syntax_rules": "### IQS-DSL v1 — timeline (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `timeline:` | 定义时间线起始。 | `timeline: <值>` |\n| `title:` | 设置标题。 | `title: <值>` |\n| `2024 : [事件1] : [事件2]:` | 时间段与事件定义语法。 | `2024 : [事件1] : [事件2]: <值>` |\n",
     "official_example": "%%{init: {\"theme\": \"forest\"}}%%\ntimeline\n    title IQS 产品历史\n    2023 : 1.0 版本\n    2024 : 2.0 版本\n    2025 : 3.0 版本",
     "input_schema": {
       "prompt": {
@@ -848,8 +887,8 @@
     ],
     "inference_key": "xychart-beta",
     "render_engine": "mermaid",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **核心分类**: 通过 XY 坐标系展示混合趋势。相比 VChart 混合图，XYChart 更强调在文档流中的快速直观输出。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n- **引号强制**: 在 `xychart-beta` 中，**所有中文标签必须用双引号 \"\" 包裹**。",
-    "syntax_rules": "### 全量图表关键字定义\n- `xychart-beta`: 定义图表起始。\n- `x-axis [\"L1\", \"L2\"]`: X 轴离散标签。\n- `bar [v1, v2]` / `line [v1, v2]`: 系列定义语法。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **核心分类**: 通过 XY 坐标系展示混合趋势。相比 VChart 混合图，XYChart 更强调在文档流中的快速直观输出。\n\n### 分类图表注意事项 (Diagram-Specific Precautions)\n\n- **引号强制**: 在 `xychart-beta` 中，**所有中文标签必须用双引号 \"\" 包裹**。",
+    "syntax_rules": "### IQS-DSL v1 — xychart-beta (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `xychart-beta:` | 定义图表起始。 | `xychart-beta: <值>` |\n| `x-axis [\"L1\", \"L2\"]:` | X 轴离散标签。 | `x-axis [\"L1\", \"L2\"]: <值>` |\n| `bar[v1, v2]` | 系列定义语法。 | `bar [v1, v2][v1, v2]: <值>` |\n| `line[v1, v2]` | 系列定义语法。 | `line [v1, v2][v1, v2]: <值>` |\n",
     "official_example": "xychart-beta\n    title \"季度产量趋势\"\n    x-axis [\"Q1\", \"Q2\", \"Q3\", \"Q4\"]\n    y-axis \"产量(Ton)\" 0 --> 500\n    bar [320, 410, 390, 450]\n    line [300, 380, 420, 440]",
     "input_schema": {
       "prompt": {
@@ -865,11 +904,18 @@
     "sub_type": "master",
     "display_name": "VChart 渲染总纲 (Master Protocol)",
     "description": "IQS VChart 渲染引擎的核心专家灵魂与公共治理准则。定义了全局样式外壳及 100% 静态 JSON 约束。",
-    "expertise": "VChart (VisActor) 工业级可视化专家",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **DSL 文本外壳**: 必须以 `Title:` 开头，后跟 `Spec: { ... }`。严禁将最终结果作为纯 JSON 对象输出。\n- **核心语法二选一 (Syntax Selection)**:\n  1. **Spec 模式 (JSON Based)**: 适用于 Bar, Line, Area, Pie, Funnel, Gauge, Heatmap, Rose, Sankey, Sunburst, Treemap, Waterfall, WordCloud。必须包裹在 `Spec: { ... }` 块内。\n  2. **Custom DSL 模式 (K-V Based)**: 仅适用于 Radar, Scatter, Relation。采用关键字驱动，无需 JSON。\n- **100% 静态 Spec**: Spec 块内严禁出现任何 JavaScript 函数或注释。\n- **数据容器规范**: Spec.data 必须是数组 [{ values: [...] }]。",
-    "syntax_rules": "### 样式外壳 (DSL Wrapper)\nVChart 协议采用“外壳 + 内核”模式：\n- **外壳**: 控制标题、配色与显示行为。\n- **内核 (Spec)**: 标准的 VisActor JSON 配置。\n\n| 语法 | 说明 | 可选值 | 示例 |\n| :--- | :--- | :--- | :--- |\n| `Title:` | 图表标题文字 | 任意文本 | `Title: 核心指标分析` |\n| `ColorPalette:` | 配色主题 | `light / tech / vibrant / industrial / ocean / forest` | `ColorPalette: tech` |\n| `Spec:` | 核心 JSON 配置 | 标准 VisActor JSON | `Spec: { \"type\": \"bar\", ... }` |\n\n> **数据转换**: 对于传入的一系列数据（如 时间:数值），AI 必须将其转换为 `data: [{ \"values\": [{\"x\": \"A\", \"y\": 10}, ...] }]` 格式。",
+    "expertise": "VisActor VChart 配置, 类型外复杂可视化, 静态 Spec 约束",
+    "expert_logic": "### 救济层定位\n\nVChart 用于 CORE 类型表无法表达的可视化。**凡有 Native 等价的，一律用 CORE** —— VChart 只能作为最后手段。\n\n> [!IMPORTANT]\n> **有 Native 等价时，禁止用 `render_vchart_scatter` / `render_vchart_radar` 充当 QC 终稿** —— 散点与雷达都有 Native CORE 工具（`render_scatter` / `render_radar`）。\n\n#### 两种语法模式（先选模式，再写内容）\n\n- **Spec 模式（JSON 外壳）**：适用于 bar、line、area、pie、funnel、gauge、heatmap、rose、sankey、sunburst、treemap、waterfall、wordCloud、boxPlot、circularProgress、common。内容必须包在 `Spec: { … }` 内。\n- **Custom DSL 模式（K-V 键值）**：**仅**适用于 vchart 族的 `radar` / `scatter` —— 采用关键字驱动，无需 JSON。\n\n#### 三条硬约束\n\n- **外壳必需**：必须以 `Title:` 开头，后跟 `Spec: { … }`。**严禁**把整个结果作为纯 JSON 对象输出（那样连 `Title:` 都没有）。\n- **100% 静态**：`Spec` 内**严禁**出现任何 JavaScript 函数、注释或表达式 —— 只能是静态 JSON。\n- **数据容器规范**：`Spec.data` 必须是数组 `[{ values: [...] }]`，元素为对象数组。\n\n> [!TIP]\n> 把用户给的「时间:数值」表格转成 `{ \"values\": [{ \"x\": \"A\", \"y\": 10 }, …] }`，再由 `xField` / `yField` 指向字段名 —— 这是最常见的转换。",
+    "syntax_rules": "### IQS-DSL v1 — vchart_master (Foreign)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题文字（**必需**，外壳首行） 形如 `<文本>` **必填** | `Title: 核心指标分析` |\n| `ColorPalette:` | 配色主题（light / tech / vibrant / industrial / ocean / forest） | `ColorPalette: tech` |\n| `ShowTitle:` | 是否显示标题（true / false） | `ShowTitle: true` |\n| `ShowLabel:` | 是否显示数据标签（true / false） | `ShowLabel: true` |\n| `Animation:` | 是否播放动画（导出静态图时建议 false）（true / false） | `Animation: false` |\n| `Spec:` | 核心 JSON 配置（Spec 模式的**必填**内核） 形如 `Spec: { \"type\": \"<图表类型>\", … }` **必填** | `Spec: { \"type\": \"bar\", \"data\": [{ \"values\": […] }] }` |\n| `数据字段:` | （`Spec` 内）字段名映射 形如 `\"xField\": \"<字段>\", \"yField\": \"<字段>\"` | `\"xField\": \"month\", \"yField\": \"v\"` |\n| `轴线映射:` | （`Spec` 内）轴的朝向与服务序列 形如 `{ \"orient\": \"left\\|bottom\\|right\\|top\", \"seriesIndex\": [<序号>] }` | `{ \"orient\": \"left\", \"label\": { \"visible\": true } }` |\n\n### 边界说明\n\n- **`Spec`**：① `Spec` 内是 **100% 静态 JSON** —— 严禁函数、注释、表达式；② 外层 `{ }` 必须成对，且整个 `Spec:` 是**文本**（不是把整个 DSL 变成 JSON 对象）；③ `data` 必须是 `[{ values: [...] }]` 形式。\n- **`数据字段`**：`xField` / `yField` / `seriesField` / `categoryField` 各自指向 `values` 里的键名。\n- **`轴线映射`**：组合图（`common`）中**必须**用 `seriesIndex` 或 `seriesId` 显式绑定轴；且整体必须包含 `bottom` 轴。",
     "official_example": "Title: 月度设备综合效率 (OEE)\nColorPalette: tech\nShowTitle: true\n\nSpec: {\n  \"type\": \"bar\",\n  \"data\": [{ \"values\": [\n    { \"month\": \"1月\", \"v\": 0.85 }, { \"month\": \"2月\", \"v\": 0.88 }\n  ]}],\n  \"xField\": \"month\", \"yField\": \"v\",\n  \"label\": { \"visible\": true },\n  \"axes\": [\n    { \"orient\": \"bottom\", \"label\": { \"visible\": true } },\n    { \"orient\": \"left\", \"label\": { \"visible\": true } }\n  ]\n}",
-    "tier": "relief"
+    "tier": "relief",
+    "intent_trigger": [
+      "VChart",
+      "救济层",
+      "类型外可视化",
+      "VisActor"
+    ],
+    "render_engine": "vchart"
   },
   {
     "name": "render_vchart_area",
@@ -885,8 +931,8 @@
     ],
     "inference_key": "area",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **笛卡尔闭环 (Critical)**: 必须配置 `bottom` 与 `left` 轴。\n- **层级堆叠**: 推荐开启 `\"stack\": true` 以展示总量及各分量的贡献配比。\n- **显示标注**: 必须配置 `\"label\": { \"visible\": true }`。",
-    "syntax_rules": "### 核心语法结构\n- **外壳要求**: 必须使用 `Title: [标题内容]` 起始，紧跟 `Spec: { ... }` 块。\n- **分类标记**: 使用 `seriesField` 区分不同的资源类别（如 电、气、水）。\n- **填充样式**: 默认包含透明度梯度，以确多个序列层叠时的可读性。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **笛卡尔闭环 (Critical)**: 必须配置 `bottom` 与 `left` 轴。\n- **层级堆叠**: 推荐开启 `\"stack\": true` 以展示总量及各分量的贡献配比。\n- **显示标注**: 必须配置 `\"label\": { \"visible\": true }`。",
+    "syntax_rules": "### IQS-DSL v1 — area (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `外壳要求:` | 必须使用 Title: [标题内容] 起始，紧跟 Spec: { ... } 块。 | `外壳要求: Title: [标题内容]` |\n| `分类标记:` | 使用 seriesField 区分不同的资源类别（如 电、气、水）。 | `分类标记: seriesField` |\n| `填充样式:` | 默认包含透明度梯度，以确多个序列层叠时的可读性。 | `填充样式: <值>` |\n",
     "official_example": "Title: 能源消耗结构分析\nColorPalette: forest\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"area\",\n  \"data\": [{ \"values\": [\n    {\"x\":\"周一\",\"y\":50,\"c\":\"电\"}, {\"x\":\"周一\",\"y\":30,\"c\":\"气\"}, {\"x\":\"周一\",\"y\":10,\"c\":\"水\"},\n    {\"x\":\"周二\",\"y\":55,\"c\":\"电\"}, {\"x\":\"周2\",\"y\":35,\"c\":\"气\"}, {\"x\":\"周二\",\"y\":12,\"c\":\"水\"}\n  ]}],\n  \"xField\": \"x\", \"yField\": \"y\", \"seriesField\": \"c\", \"stack\": true,\n  \"label\": { \"visible\": true },\n  \"axes\": [\n    { \"orient\": \"bottom\", \"label\": { \"visible\": true } },\n    { \"orient\": \"left\", \"label\": { \"visible\": true } }\n  ],\n  \"legends\": [{ \"visible\": true, \"orient\": \"bottom\" }]\n}",
     "input_schema": {
       "prompt": {
@@ -911,8 +957,8 @@
     ],
     "inference_key": "bar",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **笛卡尔闭环 (Critical)**: 作为笛卡尔坐标系图表，**必须**显式包含 `bottom` 和 `left` 两个轴配置，否则会导致渲染异常。\n- **显示标注**: 为了保证工业读数精度，必须在 series 中配置 `\"label\": { \"visible\": true }`。\n- **静态约束**: 严禁在 Spec 块内出现 JavaScript 函数或 formatMethod 逻辑。",
-    "syntax_rules": "### 核心语法结构\n- **外壳要求**: 必须使用 `Title: [标题内容]` 起始，紧跟 `Spec: { ... }` 块。\n- **数据容器**: 所有的 `Spec.data` 必须是数组格式 `data: [{ values: [...] }]`。\n- **字段绑定**: `xField` 绑定类别，`yField` 绑定数值。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **笛卡尔闭环 (Critical)**: 作为笛卡尔坐标系图表，**必须**显式包含 `bottom` 和 `left` 两个轴配置，否则会导致渲染异常。\n- **显示标注**: 为了保证工业读数精度，必须在 series 中配置 `\"label\": { \"visible\": true }`。\n- **静态约束**: 严禁在 Spec 块内出现 JavaScript 函数或 formatMethod 逻辑。",
+    "syntax_rules": "### IQS-DSL v1 — bar (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `外壳要求:` | 必须使用 Title: [标题内容] 起始，紧跟 Spec: { ... } 块。 | `外壳要求: Title: [标题内容]` |\n| `数据容器:` | 所有的 Spec.data 必须是数组格式 data: [{ values: [...] }]。 | `数据容器: Spec.data` |\n| `字段绑定:` | xField 绑定类别，yField 绑定数值。 | `字段绑定: xField` |\n",
     "official_example": "Title: 生产单元故障堆叠分析\nColorPalette: ocean\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"bar\",\n  \"data\": [{ \"values\": [\n    {\"unit\":\"单元A\",\"type\":\"机械\",\"v\":10}, {\"unit\":\"单元A\",\"type\":\"电气\",\"v\":20}, {\"unit\":\"单元A\",\"type\":\"人为\",\"v\":5},\n    {\"unit\":\"单元B\",\"type\":\"机械\",\"v\":15}, {\"unit\":\"单元B\",\"type\":\"电气\",\"v\":5}, {\"unit\":\"单元B\",\"type\":\"人为\",\"v\":8}\n  ]}],\n  \"xField\": \"unit\", \"yField\": \"v\", \"seriesField\": \"type\", \"stack\": true,\n  \"label\": { \"visible\": true },\n  \"axes\": [\n    { \"orient\": \"bottom\", \"label\": { \"visible\": true } },\n    { \"orient\": \"left\", \"label\": { \"visible\": true } }\n  ],\n  \"legends\": [{ \"visible\": true, \"orient\": \"bottom\" }]\n}",
     "input_schema": {
       "prompt": {
@@ -937,8 +983,8 @@
     ],
     "inference_key": "boxPlot",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **预计算统计量 (Critical)**: VChart BoxPlot **不负责**原始行数据的统计，必须传递已计算好的 `min`, `q1`, `median`, `q3`, `max` 值。\n- **笛卡尔闭环**: 作为笛卡尔系图表，必须包含 `bottom` 和 `left` 坐标轴。\n- **静态约束**: 所有计算值必须为字面量数字。",
-    "syntax_rules": "### 核心语法结构\n- **字段绑定**: 显式映射 `minField`, `q1Field`, `medianField`, `q3Field`, `maxField`。\n- **样式**: `boxPlot` 关键字采用驼峰命名。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **预计算统计量 (Critical)**: VChart BoxPlot **不负责**原始行数据的统计，必须传递已计算好的 `min`, `q1`, `median`, `q3`, `max` 值。\n- **笛卡尔闭环**: 作为笛卡尔系图表，必须包含 `bottom` 和 `left` 坐标轴。\n- **静态约束**: 所有计算值必须为字面量数字。",
+    "syntax_rules": "### IQS-DSL v1 — boxPlot (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `字段绑定:` | 显式映射 minField, q1Field, medianField, q3Field, maxField。 | `字段绑定: minField` |\n| `样式:` | boxPlot 关键字采用驼峰命名。 | `样式: boxPlot` |\n",
     "official_example": "Title: 加工尺寸分布审计 (箱线图)\nColorPalette: tech\nShowTitle: true\nShowLabel: false\nAnimation: false\n\nSpec: {\n  \"type\": \"boxPlot\",\n  \"data\": [ {\n      \"values\": [\n        { \"batch\": \"批次A\", \"min\": 10.1, \"q1\": 10.2, \"median\": 10.3, \"q3\": 10.4, \"max\": 10.5 },\n        { \"batch\": \"批次B\", \"min\": 10.6, \"q1\": 10.7, \"median\": 10.75, \"q3\": 10.85, \"max\": 11.0 }\n      ]\n    } ],\n  \"xField\": \"batch\", \"minField\": \"min\", \"q1Field\": \"q1\", \"medianField\": \"median\", \"q3Field\": \"q3\", \"maxField\": \"max\",\n  \"axes\": [\n    { \"orient\": \"bottom\", \"label\": { \"visible\": true } },\n    { \"orient\": \"left\", \"label\": { \"visible\": true } }\n  ]\n}",
     "input_schema": {
       "prompt": {
@@ -963,8 +1009,8 @@
     ],
     "inference_key": "circularProgress",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **多条追踪**: 支持在一个圆环内展示多条进度轨道（seriesField 分组）。\n- **严禁跨系挂载**: 极坐标系下的专用进度组件，禁制挂载笛卡尔轴。",
-    "syntax_rules": "### 核心语法结构\n- **字段绑定**: `valueField` (0-1 的进度值)，`categoryField` 进度名，`seriesField` 锚定轨道分组。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **多条追踪**: 支持在一个圆环内展示多条进度轨道（seriesField 分组）。\n- **严禁跨系挂载**: 极坐标系下的专用进度组件，禁制挂载笛卡尔轴。",
+    "syntax_rules": "### IQS-DSL v1 — circularProgress (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `字段绑定:` | valueField (0-1 的进度值)，categoryField 进度名，seriesField 锚定轨道分组。 | `字段绑定: valueField` |\n",
     "official_example": "Title: 核心指标达成进度\nColorPalette: tech\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"circularProgress\",\n  \"data\": [{ \"values\": [\n    { \"name\": \"产量达成\", \"value\": 0.88 },\n    { \"name\": \"直通率\", \"value\": 0.95 }\n  ]}],\n  \"valueField\": \"value\", \"categoryField\": \"name\", \"seriesField\": \"name\",\n  \"radius\": 0.8, \"innerRadius\": 0.2,\n  \"label\": { \"visible\": true, \"position\": \"bottom\" }\n}",
     "input_schema": {
       "prompt": {
@@ -989,8 +1035,8 @@
     ],
     "inference_key": "common",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **多轴绑定 (Critical)**: 在组合图中，必须通过 `seriesIndex` 或 `seriesId` 显式绑定轴向（如 `orient: left` 绑定 series 0）。\n- **笛卡尔闭环**: 整体必须包含 `bottom` 轴，且每个垂直轴向均需显式配置。\n- **数据解耦**: 每类序列建议使用独立的 `data` 块或通过 `series` 内置数据定义。",
-    "syntax_rules": "### 核心语法结构\n- **系列定义**: 使用 `series` 数组，每个对象需声明 `type` (bar/line/area)。\n- **轴线映射**: `axes` 数组中通过 `seriesIndex: [idx]` 指定该轴服务的序列。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **多轴绑定 (Critical)**: 在组合图中，必须通过 `seriesIndex` 或 `seriesId` 显式绑定轴向（如 `orient: left` 绑定 series 0）。\n- **笛卡尔闭环**: 整体必须包含 `bottom` 轴，且每个垂直轴向均需显式配置。\n- **数据解耦**: 每类序列建议使用独立的 `data` 块或通过 `series` 内置数据定义。",
+    "syntax_rules": "### IQS-DSL v1 — common (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `系列定义:` | 使用 series 数组，每个对象需声明 type (bar/line/area)。 | `系列定义: series` |\n| `轴线映射:` | axes 数组中通过 seriesIndex: [idx] 指定该轴服务的序列。 | `轴线映射: axes` |\n",
     "official_example": "Title: 生产效能双轴组合图\nColorPalette: tech\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"common\",\n  \"series\": [\n    { \"id\": \"cost\", \"type\": \"bar\", \"data\": {\"values\": [{\"x\":\"Q1\",\"y\":120},{\"x\":\"Q2\",\"y\":150}]}, \"xField\": \"x\", \"yField\": \"y\", \"label\": { \"visible\": true } },\n    { \"id\": \"yield\", \"type\": \"line\", \"data\": {\"values\": [{\"x\":\"Q1\",\"y\":98},{\"x\":\"Q2\",\"y\":96}]}, \"xField\": \"x\", \"yField\": \"y\", \"label\": { \"visible\": true } }\n  ],\n  \"axes\": [\n    { \"orient\": \"left\", \"seriesIndex\": [0], \"title\": {\"visible\": true, \"text\": \"成本 (K)\"} },\n    { \"orient\": \"right\", \"seriesIndex\": [1], \"title\": {\"visible\": true, \"text\": \"良率 (%)\"} },\n    { \"orient\": \"bottom\", \"label\": { \"visible\": true } }\n  ],\n  \"legends\": [{ \"visible\": true, \"orient\": \"bottom\" }]\n}",
     "input_schema": {
       "prompt": {
@@ -1015,8 +1061,8 @@
     ],
     "inference_key": "heatmap",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **Venn 替代策略**: 由于 VChart 暂不支持 `venn` 类型，**必须**引导用户或 AI 使用 `heatmap` 构建相关性矩阵进行等效表达。\n- **笛卡尔闭环**: 必须包含 `bottom` 和 `left` 两个类别轴。\n- **显示标注**: 必须在 series 中配置 `\"label\": { \"visible\": true }` 以展示相关系数数值。",
-    "syntax_rules": "### 核心语法结构\n- **数据构建**: 建立对称的 X-Y 坐标数据对，`valueField` 存储相关系数值（通常为 -1 到 1）。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **Venn 替代策略**: 由于 VChart 暂不支持 `venn` 类型，**必须**引导用户或 AI 使用 `heatmap` 构建相关性矩阵进行等效表达。\n- **笛卡尔闭环**: 必须包含 `bottom` 和 `left` 两个类别轴。\n- **显示标注**: 必须在 series 中配置 `\"label\": { \"visible\": true }` 以展示相关系数数值。",
+    "syntax_rules": "### IQS-DSL v1 — heatmap (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `数据构建:` | 建立对称的 X-Y 坐标数据对，valueField 存储相关系数值（通常为 -1 到 1）。 | `数据构建: valueField` |\n",
     "official_example": "Title: 品质指标相关性矩阵\nColorPalette: deep\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"heatmap\",\n  \"data\": [{ \"values\": [\n    {\"x\":\"温度\",\"y\":\"压力\",\"v\":0.92}, {\"x\":\"温度\",\"y\":\"转速\",\"v\":0.45},\n    {\"x\":\"压力\",\"y\":\"温度\",\"v\":0.92}, {\"x\":\"压力\",\"y\":\"转速\",\"v\":0.31}\n  ]}],\n  \"xField\": \"x\", \"yField\": \"y\", \"valueField\": \"v\",\n  \"label\": { \"visible\": true },\n  \"axes\": [\n    { \"orient\": \"bottom\", \"label\": { \"visible\": true } },\n    { \"orient\": \"left\", \"label\": { \"visible\": true } }\n  ]\n}",
     "input_schema": {
       "prompt": {
@@ -1041,8 +1087,8 @@
     ],
     "inference_key": "funnel",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **数组结构**: VChart Funnel 必须接受数组格式的数据容器。\n- **排序准则**: 默认按数值降序排列以符合“漏斗”语义，建议通过 `categoryField` 对齐逻辑阶段。",
-    "syntax_rules": "### 核心语法结构\n- **外壳要求**: 必须使用 `Title: [标题内容]` 起始，紧跟 `Spec: { ... }` 块。\n- **字段绑定**: `categoryField` 定义阶段名称，`valueField` 定义各阶段余留量。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **数组结构**: VChart Funnel 必须接受数组格式的数据容器。\n- **排序准则**: 默认按数值降序排列以符合“漏斗”语义，建议通过 `categoryField` 对齐逻辑阶段。",
+    "syntax_rules": "### IQS-DSL v1 — funnel (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `外壳要求:` | 必须使用 Title: [标题内容] 起始，紧跟 Spec: { ... } 块。 | `外壳要求: Title: [标题内容]` |\n| `字段绑定:` | categoryField 定义阶段名称，valueField 定义各阶段余留量。 | `字段绑定: categoryField` |\n",
     "official_example": "Title: 业务转化漏斗\nColorPalette: vibrant\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"funnel\",\n  \"data\": [{ \"values\": [\n    {\"step\":\"访问\",\"v\":1000}, {\"step\":\"注册\",\"v\":600}, {\"step\":\"试用\",\"v\":300}\n  ]}],\n  \"categoryField\": \"step\", \"valueField\": \"v\",\n  \"label\": { \"visible\": true }\n}",
     "input_schema": {
       "prompt": {
@@ -1067,8 +1113,8 @@
     ],
     "inference_key": "gauge",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **角度控制**: 应显式定义 `startAngle` (如 -225) 和 `endAngle` (如 45) 以形成工业标准的扫掠范围。\n- **严禁跨系挂载**: 禁止配置 Cartesian 坐标轴。\n- **量程定义**: 通过半径 `outerRadius` 与 `innerRadius` 控制环厚。",
-    "syntax_rules": "### 核心语法结构\n- **数据限制**: 建议单系列数据展示。使用 `valueField` 绑定当前测得数值。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **角度控制**: 应显式定义 `startAngle` (如 -225) 和 `endAngle` (如 45) 以形成工业标准的扫掠范围。\n- **严禁跨系挂载**: 禁止配置 Cartesian 坐标轴。\n- **量程定义**: 通过半径 `outerRadius` 与 `innerRadius` 控制环厚。",
+    "syntax_rules": "### IQS-DSL v1 — gauge (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `数据限制:` | 建议单系列数据展示。使用 valueField 绑定当前测得数值。 | `数据限制: valueField` |\n",
     "official_example": "Title: 产线实时直通率仪表盘\nColorPalette: tech\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"gauge\",\n  \"data\": [{ \"values\": [{\"v\": 0.88}] }],\n  \"valueField\": \"v\",\n  \"categoryField\": \"v\",\n  \"outerRadius\": 0.8, \"innerRadius\": 0.5,\n  \"startAngle\": -225, \"endAngle\": 45,\n  \"label\": { \"visible\": true }\n}",
     "input_schema": {
       "prompt": {
@@ -1093,8 +1139,8 @@
     ],
     "inference_key": "heatmap",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **Venn 替代**: VChart 不支持 Venn 图，处理逻辑关联集合时，推荐使用 Heatmap 或 Scatter 作为替代方案。\n- **笛卡尔闭环**: 必须包含 `bottom` 和 `left` 轴。\n- **颜色策略**: 必须配置 `visualMap` 或色带，以保证数值与色彩的直观映射感。",
-    "syntax_rules": "### 核心语法结构\n- **字段绑定**: `xField` 对应时间维或 X 维度，`yField` 对应分类维度，`valueField` 对应热力强度。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **Venn 替代**: VChart 不支持 Venn 图，处理逻辑关联集合时，推荐使用 Heatmap 或 Scatter 作为替代方案。\n- **笛卡尔闭环**: 必须包含 `bottom` 和 `left` 轴。\n- **颜色策略**: 必须配置 `visualMap` 或色带，以保证数值与色彩的直观映射感。",
+    "syntax_rules": "### IQS-DSL v1 — heatmap (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `字段绑定:` | xField 对应时间维或 X 维度，yField 对应分类维度，valueField 对应热力强度。 | `字段绑定: xField` |\n",
     "official_example": "Title: 产线负荷热力分布\nColorPalette: sunset\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"heatmap\",\n  \"data\": [{ \"values\": [\n    {\"hour\":\"08:00\",\"line\":\"Line1\",\"v\":90}, {\"hour\":\"09:00\",\"line\":\"Line1\",\"v\":95},\n    {\"hour\":\"08:00\",\"line\":\"Line2\",\"v\":40}, {\"hour\":\"09:00\",\"line\":\"Line2\",\"v\":50}\n  ]}],\n  \"xField\": \"hour\", \"yField\": \"line\", \"valueField\": \"v\",\n  \"label\": { \"visible\": true },\n  \"axes\": [\n    { \"orient\": \"bottom\", \"label\": { \"visible\": true } },\n    { \"orient\": \"left\", \"label\": { \"visible\": true } }\n  ]\n}",
     "input_schema": {
       "prompt": {
@@ -1119,8 +1165,8 @@
     ],
     "inference_key": "line",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **笛卡尔闭环 (Critical)**: 必须显式定义 `bottom` (时间/类别轴) 与 `left` (数值轴) 对齐。\n- **显示标注**: series 中必须配置 `\"label\": { \"visible\": true }` 以确保关键拐点数值可见。\n- **数据平滑**: 可选配置 `\"smooth\": true` 以美化非精度敏感的趋势描述。",
-    "syntax_rules": "### 核心语法结构\n- **外壳要求**: 必须使用 `Title: [标题内容]` 起始，紧跟 `Spec: { ... }` 块。\n- **字段绑定**: `xField` 对应时间维，`yField` 对应监控指标。\n- **数据点**: 设置 `\"point\": { \"visible\": true }` 增强交互触达。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **笛卡尔闭环 (Critical)**: 必须显式定义 `bottom` (时间/类别轴) 与 `left` (数值轴) 对齐。\n- **显示标注**: series 中必须配置 `\"label\": { \"visible\": true }` 以确保关键拐点数值可见。\n- **数据平滑**: 可选配置 `\"smooth\": true` 以美化非精度敏感的趋势描述。",
+    "syntax_rules": "### IQS-DSL v1 — line (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `外壳要求:` | 必须使用 Title: [标题内容] 起始，紧跟 Spec: { ... } 块。 | `外壳要求: Title: [标题内容]` |\n| `字段绑定:` | xField 对应时间维，yField 对应监控指标。 | `字段绑定: xField` |\n| `数据点:` | 设置 \"point\": { \"visible\": true } 增强交互触达。 | `数据点: \"point\": { \"visible\": true }` |\n",
     "official_example": "Title: 月度良率趋势分析\nColorPalette: ocean\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"line\",\n  \"data\": [{ \"values\": [\n    {\"month\":\"1月\",\"v\":95}, {\"month\":\"2月\",\"v\":96}, {\"month\":\"3月\",\"v\":94},\n    {\"month\":\"4月\",\"v\":97}, {\"month\":\"5月\",\"v\":98}, {\"month\":\"6月\",\"v\":95}\n  ]}],\n  \"xField\": \"month\", \"yField\": \"v\",\n  \"label\": { \"visible\": true },\n  \"point\": { \"visible\": true },\n  \"axes\": [\n    { \"orient\": \"bottom\", \"label\": { \"visible\": true } },\n    { \"orient\": \"left\", \"label\": { \"visible\": true } }\n  ]\n}",
     "input_schema": {
       "prompt": {
@@ -1145,8 +1191,8 @@
     ],
     "inference_key": "pie",
     "render_engine": "vchart",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **严禁坐标轴**: 饼图工作在极坐标系，**绝对禁止**出现 `axes` 或 `orient: left/bottom` 配置。\n- **数据容器**: `Spec.data` 顶层必须为数组格式 `[{ values: [...] }]`。\n- **形态策略**: 默认为实心饼图 (`innerRadius: 0`)。当用户提到“环形”或“Donut”时，才设置 `innerRadius: 0.5`。",
-    "syntax_rules": "### 核心语法结构\n- **外壳要求**: 必须使用 `Title: [标题]` 起始。\n- **字段绑定**: `categoryField` 对应分类名称，`valueField` 对应数值。\n- **显示控制**: `\"label\": { \"visible\": true }`。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **严禁坐标轴**: 饼图工作在极坐标系，**绝对禁止**出现 `axes` 或 `orient: left/bottom` 配置。\n- **数据容器**: `Spec.data` 顶层必须为数组格式 `[{ values: [...] }]`。\n- **形态策略**: 默认为实心饼图 (`innerRadius: 0`)。当用户提到“环形”或“Donut”时，才设置 `innerRadius: 0.5`。",
+    "syntax_rules": "### IQS-DSL v1 — pie (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `外壳要求:` | 必须使用 Title: [标题] 起始。 | `外壳要求: Title: [标题]` |\n| `字段绑定:` | categoryField 对应分类名称，valueField 对应数值。 | `字段绑定: categoryField` |\n| `显示控制:` | \"label\": { \"visible\": true }。 | `显示控制: \"label\": { \"visible\": true }` |\n",
     "official_example": "Title: 质量成本构成明细\nColorPalette: vibrant\n\nSpec: {\n  \"type\": \"pie\",\n  \"data\": [{ \"values\": [\n    {\"name\":\"预防成本\",\"v\":400},\n    {\"name\":\"鉴定成本\",\"v\":200}\n  ]}],\n  \"categoryField\": \"name\", \"valueField\": \"v\",\n  \"outerRadius\": 0.8, \"innerRadius\": 0,\n  \"label\": { \"visible\": true }\n}",
     "input_schema": {
       "prompt": {
@@ -1171,9 +1217,9 @@
     ],
     "inference_key": "radar",
     "render_engine": "echarts",
-    "expert_logic": "### 雷达图多维分析 (Radar Chart)\n雷达图是通过多轴展现对象在不同维度上得分，以评估整体平衡性与优劣势的工具。\n\n#### 核心分析算子：\n- **面积综合得分 (Area Score)**: 评估综合实力，体现“短板效应”。\n- **相似度分析 (Similarity Analysis)**: 用于识别竞争对手或特征对标。\n- **数据标准化 (Standardize)**: 自动映射量纲不一致的指标至 0-1 范围。\n\n> [!TIP]\n> **多维平衡性**: 观察多边形的均匀度。极度不规则意味着资源分配极度不均，可能存在局部优势掩盖系统性缺陷。",
-    "syntax_rules": "### 基础配置\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 | `Title: 竞品对比` |\n| `Standardize:` | 是否自动标准化数据 (true/false) | `Standardize: true` |\n| `ShowAreaScore:` | 显示多边形面积综合得分 | `ShowAreaScore: true` |\n\n### 轴与系列定义\n- **轴定义**: `Axis: [Name], [Max], [Min]`\n- **系列定义**: `Series: [Name], [ValueList], [Color], [Opacity]`",
-    "official_example": "Title: 手机硬件参数对比\nStandardize: true\nShowAreaScore: true\n\n# 轴定义\nAxis: 续航, 100, 0\nAxis: 性能, 100, 0\nAxis: 拍照, 100, 0\n\n# 数据系列\nSeries: A手机, [85, 92, 78], #3b82f6, 0.4",
+    "expert_logic": "### 雷达图多维分析 (Radar Chart)\n\n雷达图是通过多轴展现对象在不同维度上得分，以评估整体平衡性与优劣势的工具。\n\n#### 核心分析算子：\n\n- **面积综合得分 (Area Score)**: 评估综合实力，体现“短板效应”。\n- **相似度分析 (Similarity Analysis)**: 用于识别竞争对手或特征对标。\n- **数据标准化 (Standardize)**: 自动映射量纲不一致的指标至 0-1 范围。\n\n> [!TIP]\n> **多维平衡性**: 观察多边形的均匀度。极度不规则意味着资源分配极度不均，可能存在局部优势掩盖系统性缺陷。",
+    "syntax_rules": "### IQS-DSL v1 — radar (AxisSeries)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 | `Title: 竞品对比` |\n| `Standardize:` | 是否自动标准化数据（true / false） | `Standardize: true` |\n| `ShowAreaScore:` | 显示多边形面积综合得分 | `ShowAreaScore: true` |\n| `轴定义:` | Axis: [Name], [Max], [Min] | `轴定义: Axis: [Name], [Max], [Min]` |\n| `系列定义:` | Series: [Name], [ValueList], [Color], [Opacity] | `系列定义: Series: [Name], [ValueList], [Color], [Opacity]` |\n",
+    "official_example": "Title: 手机硬件参数对比\nStandardize: true\nShowAreaScore: true\n\n// 轴定义\nAxis: 续航, 100, 0\nAxis: 性能, 100, 0\nAxis: 拍照, 100, 0\n\n// 数据系列\nSeries: A手机, [85, 92, 78], #0D5E42, 0.4",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -1196,8 +1242,8 @@
     ],
     "inference_key": "rose",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **严禁跨系挂载 (Warning)**: 严禁配置 `orient` 笛卡尔轴。玫瑰图工作在极坐标系下。\n- **数据容器**: 严格遵循 Top-level 数组结构。",
-    "syntax_rules": "### 核心语法结构\n- **类型声明**: `\"type\": \"rose\"`。\n- **字段绑定**: `categoryField` 与 `valueField`。\n- **视觉标注**: 必须开启 `\"label\": { \"visible\": true }`。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **严禁跨系挂载 (Warning)**: 严禁配置 `orient` 笛卡尔轴。玫瑰图工作在极坐标系下。\n- **数据容器**: 严格遵循 Top-level 数组结构。",
+    "syntax_rules": "### IQS-DSL v1 — rose (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `类型声明:` | \"type\": \"rose\"。 | `类型声明: \"type\": \"rose\"` |\n| `字段绑定:` | categoryField 与 valueField。 | `字段绑定: categoryField` |\n| `视觉标注:` | 必须开启 \"label\": { \"visible\": true }。 | `视觉标注: \"label\": { \"visible\": true }` |\n",
     "official_example": "Title: 供应商异常反馈分布 (玫瑰图)\nColorPalette: vibrant\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"rose\",\n  \"data\": [{ \"values\": [\n    {\"type\":\"物流\",\"v\":400}, {\"type\":\"包装\",\"v\":200}, {\"type\":\"性能\",\"v\":300}, {\"type\":\"外观\",\"v\":150}\n  ]}],\n  \"categoryField\": \"type\", \"valueField\": \"v\",\n  \"outerRadius\": 0.8, \"innerRadius\": 0.2,\n  \"label\": { \"visible\": true }\n}",
     "input_schema": {
       "prompt": {
@@ -1222,8 +1268,8 @@
     ],
     "inference_key": "sankey",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **分线图架构 (Node/Children)**: 推荐使用带有 `children` 的层级结构来定义流量，这比扁平的 from/to 在大规模工业拓扑中更具表达力。\n- **严禁跨系挂载**: 作为关系型图表，**严禁**挂载任何 `orient` 轴，否则渲染崩溃。\n- **显示标注**: series 中必须配置 `\"label\": { \"visible\": true }`。",
-    "syntax_rules": "### 核心语法结构\n- **字段绑定**: `categoryField` 对应节点 ID，`valueField` 对应节点权重/流量大小。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **分线图架构 (Node/Children)**: 推荐使用带有 `children` 的层级结构来定义流量，这比扁平的 from/to 在大规模工业拓扑中更具表达力。\n- **严禁跨系挂载**: 作为关系型图表，**严禁**挂载任何 `orient` 轴，否则渲染崩溃。\n- **显示标注**: series 中必须配置 `\"label\": { \"visible\": true }`。",
+    "syntax_rules": "### IQS-DSL v1 — sankey (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `字段绑定:` | categoryField 对应节点 ID，valueField 对应节点权重/流量大小。 | `字段绑定: categoryField` |\n",
     "official_example": "Title: 生产资源流转路径分析\nColorPalette: industrial\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"sankey\",\n  \"data\": [\n    {\n      \"values\": [\n        {\n          \"nodes\": [\n            { \n              \"name\": \"总投入\", \n              \"children\": [\n                { \"name\": \"原料A\", \"value\": 160, \"children\": [{ \"name\": \"工序1\", \"value\": 160 }] },\n                { \"name\": \"原料B\", \"value\": 120, \"children\": [{ \"name\": \"工序1\", \"value\": 120 }] },\n                { \"name\": \"原料C\", \"value\": 140, \"children\": [{ \"name\": \"工序2\", \"value\": 140 }] }\n              ]\n            },\n            {\n              \"name\": \"工序1\",\n              \"children\": [\n                { \"name\": \"工序2\", \"value\": 210 },\n                { \"name\": \"废料\", \"value\": 70 }\n              ]\n            },\n            {\n              \"name\": \"工序2\",\n              \"children\": [\n                { \"name\": \"工序3\", \"value\": 290 },\n                { \"name\": \"废料\", \"value\": 60 }\n              ]\n            },\n            {\n              \"name\": \"工序3\",\n              \"children\": [\n                { \"name\": \"产品X\", \"value\": 190 },\n                { \"name\": \"产品Y\", \"value\": 100 }\n              ]\n            }\n          ]\n        }\n      ]\n    }\n  ],\n  \"nodeKey\": \"name\",\n  \"categoryField\": \"name\",\n  \"valueField\": \"value\",\n  \"label\": { \"visible\": true }\n}",
     "input_schema": {
       "prompt": {
@@ -1248,9 +1294,9 @@
     ],
     "inference_key": "scatter",
     "render_engine": "echarts",
-    "expert_logic": "### 相关性分析 (Correlation)\n散点图是判断两个（或三个）变量之间是否存在相关关系的数学工具。通过观察点集的分布形态，可以得出结论：\n- **正相关**: X 增加，Y 也随之增加。\n- **负相关**: X 增加，Y 随之减少。\n- **不相关**: 点集呈杂乱分布。\n\n### 回归分析 (Regression)\n系统自动计算线性回归线，作为预测模型的基础。通过趋势线，我们可以对未知的 X 值预测其对应的 Y 值位置。\n\n> [!IMPORTANT]\n> 相关性并不等同于因果关系。两个变量表现出强相关，可能是因为它们共同受第三个隐藏变量的影响。",
-    "syntax_rules": "### 基础元数据\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 | `Title: 工艺参数分析` |\n| `XAxis:` | X 轴标签 | `XAxis: 温度(℃)` |\n| `YAxis:` | Y 轴标签 | `YAxis: 压力(MPa)` |\n| `ZAxis:` | Z 轴标签 | `ZAxis: 收缩率%` |\n\n### 样式控制\n- `Color[Point/Trend]`, `Size[Base]`, `Opacity`\n\n### 功能开关\n- `ShowTrend`, `ShowValues`, `3D` (启用 3D 视图模式)\n\n### 数据项录入\n使用 `- ` 开头定义数据点，格式为 `X, Y, [Z]`",
-    "official_example": "Title: 注塑工艺参数三维分析 (温度/压力/收缩率)\nXAxis: 模具温度(℃)\nYAxis: 注射压力(MPa)\nZAxis: 收缩率%\nColor[Point]: #3b82f6\nColor[Trend]: #f97316\nShowTrend: true\n3D: false\n\n- 195.5, 85.2, 2.4\n- 192.0, 82.5, 2.5\n- 198.5, 88.0, 2.2",
+    "expert_logic": "### 相关性分析 (Correlation)\n\n散点图是判断两个（或三个）变量之间是否存在相关关系的数学工具。通过观察点集的分布形态，可以得出结论：\n\n- **正相关**: X 增加，Y 也随之增加。\n- **负相关**: X 增加，Y 随之减少。\n- **不相关**: 点集呈杂乱分布。\n\n### 回归分析 (Regression)\n\n系统自动计算线性回归线，作为预测模型的基础。通过趋势线，我们可以对未知的 X 值预测其对应的 Y 值位置。\n\n> [!IMPORTANT]\n> 相关性并不等同于因果关系。两个变量表现出强相关，可能是因为它们共同受第三个隐藏变量的影响。",
+    "syntax_rules": "### IQS-DSL v1 — scatter (TupleList)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 | `Title: 工艺参数分析` |\n| `XAxis:` | X 轴标签 | `XAxis: 温度(℃)` |\n| `YAxis:` | Y 轴标签 | `YAxis: 压力(MPa)` |\n| `ZAxis:` | Z 轴标签 | `ZAxis: 收缩率%` |\n",
+    "official_example": "Title: 注塑工艺参数三维分析 (温度/压力/收缩率)\nXAxis: 模具温度(℃)\nYAxis: 注射压力(MPa)\nZAxis: 收缩率%\nColor[Point]: #0D5E42\nColor[Trend]: #F1C40F\nShowTrend: true\n3D: false\n\n- 195.5, 85.2, 2.4\n- 192.0, 82.5, 2.5\n- 198.5, 88.0, 2.2",
     "input_schema": {
       "prompt": {
         "type": "string",
@@ -1274,8 +1320,8 @@
     ],
     "inference_key": "sunburst",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **层级数据结构**: 数据必须采用 `children` 嵌套的树形 JSON 格式，包裹在顶层数组内。\n- **严禁跨系挂载**: 禁制挂载笛卡尔坐标轴。\n- **中心对齐**: 自动计算圆心，支持从内向外的占比逻辑解析。",
-    "syntax_rules": "### 核心语法结构\n- **字段绑定**: `categoryField` 锚定名称，`valueField` 锚定叶子节点数值及枝干聚合权值。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **层级数据结构**: 数据必须采用 `children` 嵌套的树形 JSON 格式，包裹在顶层数组内。\n- **严禁跨系挂载**: 禁制挂载笛卡尔坐标轴。\n- **中心对齐**: 自动计算圆心，支持从内向外的占比逻辑解析。",
+    "syntax_rules": "### IQS-DSL v1 — sunburst (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `字段绑定:` | categoryField 锚定名称，valueField 锚定叶子节点数值及枝干聚合权值。 | `字段绑定: categoryField` |\n",
     "official_example": "Title: 产品成本层级拆解 (旭日图)\nColorPalette: vibrant\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"sunburst\",\n  \"data\": [ {\n      \"values\": [ {\n          \"name\": \"总成本\",\n          \"children\": [\n            { \"name\": \"材料\", \"value\": 500, \"children\": [{ \"name\": \"铝材\", \"value\": 300 }] },\n            { \"name\": \"人工\", \"value\": 400 }\n          ]\n        } ]\n    } ],\n  \"categoryField\": \"name\", \"valueField\": \"value\",\n  \"label\": { \"visible\": true }\n}",
     "input_schema": {
       "prompt": {
@@ -1300,8 +1346,8 @@
     ],
     "inference_key": "treemap",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **递归深度**: 支持深层嵌套结构解析。父节点的面积等于所有子节点面积之和。\n- **无轴约束**: 禁止配置坐标轴。利用几何空间的矩形分割展示比例关系。",
-    "syntax_rules": "### 核心语法结构\n- **字段绑定**: `categoryField` 用于节点标注，`valueField` 用于计算矩形权重。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **递归深度**: 支持深层嵌套结构解析。父节点的面积等于所有子节点面积之和。\n- **无轴约束**: 禁止配置坐标轴。利用几何空间的矩形分割展示比例关系。",
+    "syntax_rules": "### IQS-DSL v1 — treemap (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `字段绑定:` | categoryField 用于节点标注，valueField 用于计算矩形权重。 | `字段绑定: categoryField` |\n",
     "official_example": "Title: 固定资产分布比例图\nColorPalette: deep\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"treemap\",\n  \"data\": [ {\n      \"values\": [ {\n          \"name\": \"总资产\",\n          \"children\": [\n            { \"name\": \"生产设备\", \"value\": 500 }, { \"name\": \"IT设备\", \"value\": 150 }\n          ]\n        } ]\n    } ],\n  \"categoryField\": \"name\", \"valueField\": \"value\",\n  \"label\": { \"visible\": true }\n}",
     "input_schema": {
       "prompt": {
@@ -1326,8 +1372,8 @@
     ],
     "inference_key": "waterfall",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **终值标记**: 必须在最后一个数据点中使用标记字段（如 `isTotal: true`），并在 Spec 中通过 `total` 字段绑定，以确立总计柱的悬空基准。\n- **笛卡尔闭环**: 必须显式包含 `bottom` 和 `left` 轴。",
-    "syntax_rules": "### 核心语法结构\n- **关键字定义**: `\"total\": { \"tagField\": \"isTotal\" }` 用于识别总计项。\n- **配色语义**: 自动识别数值正负并分配上升/下降色系。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **终值标记**: 必须在最后一个数据点中使用标记字段（如 `isTotal: true`），并在 Spec 中通过 `total` 字段绑定，以确立总计柱的悬空基准。\n- **笛卡尔闭环**: 必须显式包含 `bottom` 和 `left` 轴。",
+    "syntax_rules": "### IQS-DSL v1 — waterfall (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `关键字定义:` | \"total\": { \"tagField\": \"isTotal\" } 用于识别总计项。 | `关键字定义: \"total\": { \"tagField\": \"isTotal\" }` |\n| `配色语义:` | 自动识别数值正负并分配上升/下降色系。 | `配色语义: <值>` |\n",
     "official_example": "Title: 质量成本变动归因分析\nColorPalette: vibrant\nShowTitle: true\nShowLabel: true\nAnimation: false\n\nSpec: {\n  \"type\": \"waterfall\",\n  \"data\": [ {\n      \"values\": [\n        { \"x\": \"起始成本\", \"y\": 1000 },\n        { \"x\": \"材料波动\", \"y\": 200 },\n        { \"x\": \"工艺改进\", \"y\": -150 },\n        { \"x\": \"最终成本\", \"y\": 1050, \"isTotal\": true }\n      ]\n    } ],\n  \"xField\": \"x\", \"yField\": \"y\",\n  \"total\": { \"tagField\": \"isTotal\" },\n  \"label\": { \"visible\": true },\n  \"axes\": [\n    { \"orient\": \"bottom\", \"label\": { \"visible\": true } },\n    { \"orient\": \"left\", \"label\": { \"visible\": true } }\n  ]\n}",
     "input_schema": {
       "prompt": {
@@ -1352,8 +1398,8 @@
     ],
     "inference_key": "wordCloud",
     "render_engine": "echarts",
-    "expert_logic": "### 专家灵魂 (The Soul)\n- **驼峰命名**: 必须使用 `wordCloud` (非小写) 作为 type 声明。\n- **无轴约束**: 禁止配置坐标轴。所有信息通过节点的空间排布与文字大小表示。\n- **显示标注**: 应配合 `valueField` 通过字号大小直观表达权重。",
-    "syntax_rules": "### 核心语法结构\n- **字段绑定**: `nameField` 定义文本内容，`valueField` 定义权重频率。",
+    "expert_logic": "### 专家灵魂 (The Soul)\n\n- **驼峰命名**: 必须使用 `wordCloud` (非小写) 作为 type 声明。\n- **无轴约束**: 禁止配置坐标轴。所有信息通过节点的空间排布与文字大小表示。\n- **显示标注**: 应配合 `valueField` 通过字号大小直观表达权重。",
+    "syntax_rules": "### IQS-DSL v1 — wordCloud (Unknown)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `字段绑定:` | nameField 定义文本内容，valueField 定义权重频率。 | `字段绑定: nameField` |\n",
     "official_example": "Title: 巡检异常关键词画像\nColorPalette: forest\nShowTitle: true\nShowLabel: false\nAnimation: false\n\nSpec: {\n  \"type\": \"wordCloud\",\n  \"data\": [{ \"values\": [\n    {\"name\":\"故障\",\"value\":100}, {\"name\":\"波动\",\"value\":80}, {\"name\":\"纠偏\",\"value\":40}\n  ]}],\n  \"nameField\": \"name\", \"valueField\": \"value\"\n}",
     "input_schema": {
       "prompt": {
@@ -1378,13 +1424,14 @@
       "跨部门流程",
       "BPMN",
       "flow",
-      "swimlane"
+      "swimlane",
+      "审批流程"
     ],
     "inference_key": "flow",
     "render_engine": "svg",
-    "expert_logic": "### 企业流程图 (Flow / BPMN 子集)\n流程图定义'谁（泳道）× 做什么（活动）× 什么条件下走哪条路（网关）'。面向企业 665 个体系文件中的程序文件（CX）建模。\n\n#### 字典-索引范式\n- **数据层 (Dict)**: 部门 D / 阶段 P / 岗位 R 为保留字，其余自定义。一处定义、多处索引引用。\n- **结构层**: `Lane from D[i,j] Layout H|V` 批量泳道；`W: id: 标签 Type[?] Location(D[i],P[j])` 节点落格。\n- **网格按 Lane from 定义产生**，坐标多余维度自动清洗。\n\n> [!IMPORTANT]\n> 图上的文字应显示字典展开值（如'信息中心'而非 D[0]）。节点只归属一个格子，跨泳道用连线表达，不复制节点。",
-    "syntax_rules": "### 基础配置\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 | `Title: 采购审批流程` |\n| `Layout:` | 方向 (`H` / `V`) | `Layout: H` |\n\n### 数据层（字典）\n- `Dict: D[部门,...]` `Dict: P[阶段,...]` `Dict: R[岗位,...]`（保留字）\n- `Dict: worker[动作,...]`（自定义）\n\n### 结构层\n- `Lane from D[0,1,2] Layout H`（横向泳道）\n- `Lane from P[0,1,2] Layout V`（纵向泳道）\n- `AxisX: 职能部门 Align C` / `AxisY: 推进阶段 Align C` / `Axis: 整图标题 AxisX`\n- `Attr active [Role,SOP,Lv,Time]`（属性边栏提取）\n\n### 节点\n- `W: w1: worker[0] Type[S] Location(D[0],P[0])`（开始）\n- `W: w2: worker[1] Location(D[0],P[1]) SOP(XX-CX-04) Role(R[0])`（任务+属性）\n- `W: q1: worker[2] Type[?]`（判断）\n  分支行：`是 → #w4` ... `End`\n- 类型：`Type[S]`开始 `Type[E]`结束 `Type[T]`任务 `Type[?]`判断 `Type[+]`并行 `Type[SUB]`子流程 `Type[N]`标注 `Type[DATA]`数据对象",
-    "official_example": "Title: 采购申请审批流程\nLayout: H\nDict: D[信息中心,综合计划科,办公室]\nDict: P[申请阶段,审批阶段,执行阶段,归档阶段]\nDict: R[申请员,部门经理,财务岗]\nDict: worker[提交采购申请,填写申请单,金额超过5000?,部门经理审批,直接执行,财务付款,归档]\nLane from D[0,1,2] Layout H\nLane from P[0,1,2,3] Layout V\nAxisX: 职能部门 Align C\nAxisY: 推进阶段 Align C\nAttr active [Role,SOP,Lv,Time]\nW: w1: worker[0] Type[S] Location(D[0],P[0])\nW: w2: worker[1] Location(D[0],P[0]) SOP(XX-CX-04) Role(R[0]) Lv(重要)\nW: q1: worker[2] Type[?] Location(D[0],P[1])\n   是 → #w4\n   否 → #w5\n   End\nW: w4: worker[3] Location(D[1],P[1]) Role(R[1]) Time(24h)\nW: w5: worker[4] Location(D[0],P[2])\nW: w6: worker[5] Location(D[2],P[2]) Role(R[2])\nW: w7: worker[6] Type[E] Location(D[1],P[3])\nw5 → #w6\nw6 → #w7",
+    "expert_logic": "### 企业流程图（Flow / BPMN 子集）\n\n流程图定义「**谁（泳道）× 做什么（活动）× 什么条件下走哪条路（网关）**」，面向企业体系文件中的程序文件（CX）建模。语义定界为 **BPMN 2.0 子集**：保留开始/结束/任务/子流程/排他与并行网关/标注/数据对象，裁掉边界事件、补偿、多实例等体系文件中不用的元素。\n\n#### 字典-索引范式（核心）\n\n- **数据层（Dict）**：所有可变内容（部门/阶段/岗位/动作/属性值）集中成数组；`D`（部门）`P`（阶段）`R`（岗位）为**保留字**，其余自定义。\n- **结构层**：只写**索引引用**（`D[0]`、`worker[2]`），渲染时展开为字典值（图上显示「信息中心」而非 `D[0]`）。一处定义、多处引用、修改全局生效。\n\n#### 专家建议\n\n- **默认顺序流**：可流转节点（S/T/SUB）按声明顺序自动连；判断/并行节点不出自动序，其出口必须显式分支行声明并以 `End` 闭合。结束节点与 N/DATA 不作默认流出源。\n- **禁止 Mermaid 冒充**：体系文件/部门泳道/BPMN 子集终稿必须用本 kind（MCP `render_flow`），禁止 `flowchart TD` / `graph LR`。\n- **岗位图例**：从节点实际 `Role` 属性值去重提取，按出现次数定字体粗细（非渲染 `R` 数组本身）。\n- **属性边栏**：`Attr active` 激活后从全部节点提取聚合视图（Role/SOP 计数、Lv 区间评分、Time 最小时长、KPI 清单、M 色卡）。\n\n> [!IMPORTANT]\n> 网格**只按 `Lane from` 的定义产生**；节点坐标的多余维度**自动清洗**；图上必须显示字典展开值。",
+    "syntax_rules": "### IQS-DSL v1 — flow (FlowGraph)\n\n| 语法 | 说明 | 示例 |\n| :--- | :--- | :--- |\n| `Title:` | 图表标题 形如 `<文本>` **必填** | `Title: 采购审批流程` |\n| `Layout:` | 整体方向（H / V） | `Layout: H` |\n| `Color[Slot]` | #HEX 颜色；Slot 取 meta.colorSlots 中的键（Start/End/Task/Gateway/Parallel/Subprocess/Annotation/Data/Lane/Axis/Line/Text/Panel） | `Color[Start]: #0D5E42` |\n| `Grid:` | 泳道网格线型（**线型**，非开关）（dashed / solid） | `Grid: dashed` |\n| `Dict:` | 字典定义（数据层，必须**先于**一切引用出现） 形如 `<名>[<值>,<值>,…]` **必填** | `Dict: D[信息中心,综合计划科,办公室]` |\n| `Lane:` | 批量画泳道（结构层，网格只由此产生） 形如 `Lane from <字典>[<索引>,…] Layout H\\|V` **必填** | `Lane from D[0,1,2] Layout H` |\n| `AxisX:` | 横轴标题 形如 `<标题> Align L\\|R\\|C` | `AxisX: 职能部门 Align C` |\n| `AxisY:` | 纵轴坐标标题（文字保持水平；真正旋转 -90° 的是各 Y 泳道标题） 形如 `<标题> Align L\\|R\\|C` | `AxisY: 推进阶段 Align C` |\n| `Axis:` | 整图标题（挂在所选轴的最外围） 形如 `<整图标题> AxisX\\|AxisY [Align L\\|R\\|C]` | `Axis: 采购审批 AxisX` |\n| `Attr:` | 属性边栏提取开关 形如 `Attr active [<键>,…]` | `Attr active [Role,SOP,Lv,Time]` |\n| `W:` | 节点定义 形如 `[<id>:] <标签> [Type[…]] [Location(…)] [属性(…)]* [Attach(#id)] [V\\|H\\|D]` **必填** | `W: w1: worker[0] Type[S] Location(D[0],P[0])` |\n| `Type:` | 节点类型（S / E / T / ? / + / SUB / N / DATA） | `W: q1: worker[2] Type[?] Location(D[0],P[1])` |\n| `Location:` | 节点落格坐标 形如 `Location(<字典名>[索引], …)` | `Location(D[0],P[1])` |\n| `→:` | 显式边（源在左、目标在右，目标必须已定义） 形如 `<源id> → #<目标id>` ⚠️部分支持 | `w5 → #w6` |\n| `分支行:` | 网关出口声明（Type[?]/Type[+] 必须写） 形如 `<标签> [(<出口名>)] [<条件>] → #<目标>[, #<目标>]*` **必填** ⚠️部分支持 | `   合格 (pass) → #w2` |\n| `End:` | 显式闭合分支块 / 子流程块 形如 `End` **必填** | `   End` |\n| `SUB:` | 子流程块（内嵌子图） 形如 `W: <id>: <标签> Type[SUB] …\\n   W: <内嵌节点>…\\n   End` ⚠️部分支持 | `W: q2: worker[4] Type[SUB] Location(D[0])\\n   W: s1: worker[5] Type[S]\\n   W: s2: worker[6] Type[E]\\n   End` |\n| `Attach:` | N/DATA 依附目标节点（仅修饰类可用） 形如 `Attach(#id) \\| Attach(id)` ⚠️部分支持 | `W: n1: 评审记录 Type[N] Attach(#w10)` |\n| `SOP:` | 标准编号（如体系文件号） 形如 `SOP(<值>)` | `SOP(XX-CX-04)` |\n| `Role:` | 岗位（**不占格**，用于节点右下角标注与岗位图例） 形如 `Role(<R[i]> \\| <字典引用> \\| <字面量>)` | `Role(R[0])` |\n| `Lv:` | 重要度（重大 / 重要 / 一般 / 1 / 2 / 3） | `Lv(重要)` |\n| `Time:` | 时限 形如 `Time(24h)` | `Time(24h)` |\n| `KPI:` | 考核指标 形如 `KPI(<文本>)` | `KPI(及时率≥98%)` |\n| `M:` | 成熟度/等级（BPM / 1 / 2 / 3 / 4） | `M(BPM)` |\n\n### 边界说明\n\n- **`Layout`**：注意与 affinity/pdpc/relation 的 `Layout: Horizontal` 全称写法不同。\n- **`Grid`**：缺省 `dashed`。⚠️ 与 basic 的 `Grid: true`（开关）语义不同。\n- **`Dict`**：`D` / `P` / `R` 为保留字（部门/阶段/岗位）；其余自定义（如 `worker`）。值之间用**半角逗号**；值内部若需逗号请用全角「，」。同名 `Dict` 重复定义会报错。\n- **`Lane`**：`H` = 行（横向泳道），`V` = 列（纵向泳道）。索引支持 `D[0]` / `D[0,1,3]` / `D[*]`（全部）。**行/列顺序 = 索引列表顺序，与字典声明顺序无关**。无 `Lane from` 则无网格（`Location` 会失效）。\n- **`Attr`**：缺省（不写）= 只标 Role。写入后，节点**右下角**按此顺序渲染该节点**有值**的项，多行右对齐，**至多 4 行**；空键不占行。可提取的键即六属性：`Role` `SOP` `Lv` `Time` `KPI` `M`。\n- **`W`**：① `id` 可省略（自动 `w1,w2,…`），用于 `#引用`；② `标签` 为字典引用（`worker[0]`）或字面量（`提交申请`），二选一；③ 行尾 `V`/`H`/`D` 指定**格内相对上一节点**的方位：下 / 右 / 对角右下。\n- **`Type`**：`S`开始 `E`结束 `T`任务（缺省）`?`排他网关 `+`并行网关 `SUB`子流程 `N`标注 `DATA`数据对象。⚠️ 实测未声明的 `Type[XX]` 会**静默降级为 T**，不报错——请只用上表取值（AUD-005/C7）。\n- **`Location`**：**参数按字典名索引，与 `Layout H/V` 无关**：`Location(D[0],P[1])` 恒表示「D 字典第 0 项」×「P 字典第 1 项」；哪个是行、哪个是列由对应的 `Lane from … Layout` 决定。实测 canonical 输出为 `cell:{D:0,P:1}`。坐标维度必须已由某条 `Lane from` 定义；**多余维度自动清洗**（不报错）；缺省 `Location` = 按声明顺序自动落格。\n- **`→`**：✅ 无标签形式可用。❌ **标签形式不可用**：spec §7.2 曾文档化 `w1 → #w5 [超时]`，实测报错「显式边目标 w5 [超时] 未定义」（AUD-117）——**不要在显式边上写标签**；需要连线文字时改用分支行（分支行的标签是支持的）。⚠️ 箭头为**全角 `→`**；目标必须带 `#`；目标需先于该行定义。\n- **`分支行`**：✅ `标签`（连线文字）、`(出口名)`（稳定 id，缺省自动 `{节点id}-Y`/`-N`）、`[条件]`（BPMN conditionExpression）、多目标 `→ #a, #b`（自动拆并行边）、`否则 → #w5`（默认出口，渲染为带斜杠实线）。⚠️ 多目标拆分时会因标签重名产生 warning「分支出口标签「是」重复（应唯一）」——多目标时请给**不同标签**或省略标签（AUD-121）。❌ **目标不可省略**：spec §7.3 曾写「可省略 = 接声明顺序下一节点」，实测 `是 →` 被**静默丢弃**、不产生任何边（AUD-118）——必须写 `#目标`。\n- **`End`**：缩进仅为视觉辅助，不参与解析；但**每个分支块与子流程块都必须以 `End` 闭合**。\n- **`SUB`**：⚠️ **子流程内嵌的 `W` 行会打断默认顺序流**：实测 SUB 节点**不会**自动连到其后的节点（AUD-119 同源机制）——**必须显式写 `SUBid → #下一节点`**，否则后续节点会报「孤立」。（这正是旧版正例 B 的失败原因，AUD-122，已修正。）\n- **`Attach`**：① N/DATA **不占交叉格**，渲染在网格最右侧的 `DOC` 虚拟列，与 `Attach` 目标同行；② 连线用虚线（`condition=__doc__`）；③ 目标必须存在且非 N/DATA；④ ❌ **已知缺陷（AUD-119）**：若把 N/DATA 直接排在主流节点的**相邻声明位置**，默认顺序流会产出 `w1 → n1` 这样的违规边，进而报错「连线目标 n1 为修饰类节点」。**规避写法：把 `Type[N]`/`Type[DATA]` 的 `W` 行写在所有主流节点之后**，不要插入主流声明序列中间。\n- **`SOP`**：值可为字面量或字典引用。\n- **`Role`**：三种写法等价：`Role(R[1])` / `Role(岗位[2])` / `Role(部门经理)`。**不强制绑定 `R` 数组**。\n- **`Lv`**：文字与数字两种写法均可（1=重大 3=一般）。\n- **`Time`**：体系文件常用时长写法，如 `24h` / `3d`。\n- **`M`**：`BPM` 表示已纳入流程管理，数字表示等级。",
+    "official_example": "Title: 采购申请审批流程\nLayout: H\nDict: D[信息中心,综合计划科,办公室]\nDict: P[申请阶段,审批阶段,执行阶段,归档阶段]\nDict: R[申请员,部门经理,财务岗]\nDict: worker[提交采购申请,填写申请单,金额超过5000?,部门经理审批,直接执行,财务付款,归档]\nLane from D[0,1,2] Layout H\nLane from P[0,1,2,3] Layout V\nAxisX: 职能部门 Align C\nAxisY: 推进阶段 Align C\nAttr active [Role,SOP,Lv,Time]\nW: w1: worker[0] Type[S] Location(D[0],P[0])\nW: w2: worker[1] Location(D[0],P[0]) SOP(XX-CX-04) Role(R[0]) Lv(重要)\nW: q1: worker[2] Type[?] Location(D[0],P[1])\n   是 → #w4\n   否 → #w5\n   End\nW: w4: worker[3] Location(D[1],P[1]) Role(R[1]) Time(24h)\nW: w5: worker[4] Location(D[0],P[2])\nW: w6: worker[5] Location(D[2],P[2]) Role(R[2])\nW: w7: worker[6] Type[E] Location(D[1],P[3])\nw4 → #w6\nw5 → #w6\nw6 → #w7",
     "input_schema": {
       "prompt": {
         "type": "string",

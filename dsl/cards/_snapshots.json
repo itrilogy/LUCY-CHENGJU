@@ -1,0 +1,150 @@
+{
+  "affinity.example": {
+    "items": 3
+  },
+  "arrow.example": {
+    "items": 7
+  },
+  "basic.example": {
+    "items": 3
+  },
+  "control.example": {
+    "series": 1
+  },
+  "fishbone.example": {
+    "items": 4
+  },
+  "flow.example": {
+    "nodes": 7,
+    "edges": 7,
+    "lanes": 2,
+    "edgeList": [
+      [
+        "q1",
+        "w4"
+      ],
+      [
+        "q1",
+        "w5"
+      ],
+      [
+        "w4",
+        "w6"
+      ],
+      [
+        "w5",
+        "w6"
+      ],
+      [
+        "w6",
+        "w7"
+      ],
+      [
+        "w1",
+        "w2"
+      ],
+      [
+        "w2",
+        "q1"
+      ]
+    ]
+  },
+  "histogram.example": {
+    "items": 30
+  },
+  "matrix.example": {
+    "items": 2
+  },
+  "matrixPlot.example": {
+    "items": 10
+  },
+  "pareto.example": {
+    "items": 5
+  },
+  "pdpc.example": {
+    "items": 8
+  },
+  "radar.example": {
+    "series": 2
+  },
+  "relation.example": {
+    "items": 16,
+    "edgeList": [
+      [
+        "m1",
+        "root1"
+      ],
+      [
+        "m2",
+        "root1"
+      ],
+      [
+        "m4",
+        "root1"
+      ],
+      [
+        "m3",
+        "root2"
+      ],
+      [
+        "m2",
+        "root2"
+      ],
+      [
+        "m5",
+        "root3"
+      ],
+      [
+        "m1",
+        "root3"
+      ],
+      [
+        "root1",
+        "root2"
+      ],
+      [
+        "root1",
+        "root3"
+      ],
+      [
+        "e1",
+        "m1"
+      ],
+      [
+        "e6",
+        "m1"
+      ],
+      [
+        "e2",
+        "m2"
+      ],
+      [
+        "e8",
+        "m2"
+      ],
+      [
+        "e3",
+        "m3"
+      ],
+      [
+        "e7",
+        "m4"
+      ],
+      [
+        "e4",
+        "m5"
+      ],
+      [
+        "e5",
+        "m5"
+      ],
+      [
+        "e8",
+        "m3"
+      ]
+    ]
+  },
+  "scatter.example": {
+    "items": 6
+  }
+}

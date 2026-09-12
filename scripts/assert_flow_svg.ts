@@ -5,7 +5,9 @@
  */
 import { flowToSVG, getSvgSize, FLOW_SVG, computeExcelLayout, findOrthogonalCrossings, crossingOverIds, nodeCornerLines } from '../components/flow/flowToSVG.ts';
 import { parseFlowDSL } from '../components/flow/FlowParser.ts';
-import { contrastStroke } from '../components/flow/FlowThemes.ts';
+import { contrastStroke, FLOW_PALETTES } from '../components/flow/FlowThemes.ts';
+// 语义锚点：菱形/圆点颜色取自调色板真源（而非魔法 hex），调色板变更时断言自动跟随
+const DEF = FLOW_PALETTES.find((x) => x.id === 'default')!.colors;
 import { solveAlgebraicPorts } from '../components/flow/AlgebraicFlowRouter.ts';
 import { computeMainlineOrder } from '../components/flow/MainlineOrder.ts';
 
@@ -45,10 +47,25 @@ const size = getSvgSize(r.data);
 
 check('svg 根存在', svg.startsWith('<svg'));
 check('尺寸为正', size.width > 0 && size.height > 0, JSON.stringify(size));
-check('含箭头 marker', svg.includes('flowArrow'));
-check('格子 rect 数量 = 3x4=12 + 节点 rect', (svg.match(/<rect /g) || []).length >= 12);
-check('circle（start/end）出现', (svg.match(/<circle /g) || []).length >= 2);
-check('菱形 gateway path 出现', svg.includes('<path d="M'));
+// 语义：箭头不是 SVG marker，而是「独立单箭头层」按目标端口绘制的 <polygon> 三角
+// （marker#flowArrow 仅作定义，箭头实际由 polygon 承担）。断言三角存在且不多于边数。
+const arrowPolys = (svg.match(/<polygon points="[^"]+" fill="[^"]*" stroke="[^"]*" stroke-width="1"\/>/g) || []).length;
+check('箭头：独立箭头层渲染三角（1 ≤ N ≤ 边数）', arrowPolys >= 1 && arrowPolys <= r.data.edges.length,
+  `arrows=${arrowPolys} edges=${r.data.edges.length}`);
+const rectTotal = (svg.match(/<rect /g) || []).length;
+const gridCellN = computeExcelLayout(r.data, r.styles).rows.length * computeExcelLayout(r.data, r.styles).cols.length;
+// 语义：rect 总数 = 泳道绘制格(12) + 节点框(7) + 节点装饰；下界须≥格+节点，上界防重复绘制
+check('rect 总数 = 格 + 节点框 + 装饰（下界）', rectTotal >= gridCellN + r.data.nodes.length,
+  `rect=${rectTotal} 格=${gridCellN} 节点=${r.data.nodes.length}`);
+check('rect 总数有上界（无重复铺格）', rectTotal <= gridCellN + r.data.nodes.length * 3, `rect=${rectTotal}`);
+const circleN = (svg.match(/<circle /g) || []).length;
+const seN = r.data.nodes.filter((n) => n.type === 'start' || n.type === 'end').length;
+// 语义：每个 start/end 节点恰渲染为一个 circle，不多不少
+check('circle 数 === start+end 节点数', circleN === seN, `circle=${circleN} start+end=${seN}`);
+const gatewayN = r.data.nodes.filter((n) => n.type === 'exclusiveGateway' || n.type === 'parallelGateway').length;
+const diamondN = (svg.match(new RegExp(`<path d="M[^"]+" fill="#(${DEF.gatewayColor!.slice(1)}|${DEF.parallelColor!.slice(1)})"`, "g")) || []).length;
+// 语义：每个网关节点恰渲染为一枚菱形 path（不多不少）
+check('菱形 path 数 === 网关节点数', diamondN === gatewayN, `菱形=${diamondN} 网关=${gatewayN}`);
 // 行/列标签
 check('行标签 信息中心', svg.includes('信息中心'));
 check('行标签 综合计划科', svg.includes('综合计划科'));
@@ -68,10 +85,17 @@ check('岗位字典展开为 申请员', svg.includes('申请员'));
 // 泳道带范式：只画有节点的绘制格（不填充连线区色）
 // 绘制格分布：每个交叉格（含空格）画真实列宽/行高矩形（fill=none stroke=#94a3b8）
 const gridRects = [...svg.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*fill="none" stroke="#94a3b8"/g)].map(m => ({ w: parseFloat(m[3]), h: parseFloat(m[4]) }));
-check('交叉格矩形按真实分布绘制', gridRects.length >= 12, `实际 ${gridRects.length}`);
+const fullLay = computeExcelLayout(r.data, r.styles);
+const expectCells = fullLay.rows.length * fullLay.cols.length;
+// 语义：每个交叉格恰一枚绘制格矩形（含空格），数量 = 行 × 列
+check('交叉格矩形数 === 行 × 列', gridRects.length === expectCells,
+  `实际 ${gridRects.length} 期望 ${fullLay.rows.length}×${fullLay.cols.length}=${expectCells}`);
 // 自适应列宽：交叉格宽不唯一（长列宽、短列窄）
 const rectWs = [...new Set(gridRects.map((r) => Math.round(r.w)))];
-check('列宽自适应（不唯一）', rectWs.length > 1, `列宽集 ${rectWs.join(',')}`);
+// 语义：列宽按内容自适应 —— 长文本列与短文本列各成一类，本例 4 列恰分 2 类；
+// 断定为「类别数 < 列数」即证「非均等宽」，比 >1 更贴近「自适应」语义。
+check('列宽自适应：类别数 < 列数（非均等宽）', rectWs.length >= 2 && rectWs.length < fullLay.cols.length,
+  `列宽集 ${rectWs.join(',')} 列数=${fullLay.cols.length}`);
 // 行/列标题表头栏（格子化 + 默认居中）
 check('行/列标题默认居中表头栏', svg.includes('text-anchor="middle"'));
 // 无旧的固定 220x140 实心空格子框
@@ -80,11 +104,12 @@ check('无旧的实心空格子框（0）', solidCellCount === 0, `实际 ${soli
 
 // ===== 新修复行为验证 =====
 // 1. 菱形按文字自适应（不再固定64）
-const diamondRe = /<path d="M([^"]+)" fill="#(10b981|8b5cf6)"/g;
+const diamondRe = new RegExp(`<path d="M([^"]+)" fill="#(${DEF.gatewayColor!.slice(1)}|${DEF.parallelColor!.slice(1)})"`, "g");
 const diamondD: string[] = [];
 let dm: RegExpExecArray | null;
 while ((dm = diamondRe.exec(svg)) !== null) diamondD.push(dm[1]);
-check('菱形(判断/并行) path 存在', diamondD.length >= 1, `实际 ${diamondD.length}`);
+// 语义：判断/并行网关的数量决定菱形数量
+check('菱形(判断/并行) path 数 === 网关数', diamondD.length === gatewayN, `菱形=${diamondD.length} 网关=${gatewayN}`);
 if (diamondD.length >= 1) {
   const pts = diamondD[0].split(' ').map((p) => parseFloat(p.replace(/[ML]/g, '').split(',')[0]));
   const xs = pts.filter((v) => !isNaN(v));
@@ -96,8 +121,23 @@ if (diamondD.length >= 1) {
 }
 // 2. 连线端点贴节点边界：连线 path 起点 x 应等于源节点右缘（非固定±60）
 const edgeStarts = [...svg.matchAll(/<path d="M([\d.]+),([\d.]+) L/g)].map(m => parseFloat(m[1]));
-check('存在连线 path', edgeStarts.length >= 4, `实际 ${edgeStarts.length}`);
-check('存在非固定60的连线起点（贴边界）', edgeStarts.some(x => x > 100 && x < 400 && Math.abs(x - Math.round(x)) < 0.01));
+const edgePathN = (svg.match(/<path d="M[^"]*" fill="none" stroke="#64748b"/g) || []).length;
+// 语义：解析出的每条边恰渲染为一条路径（不多不少），替代原「≥4」下界
+check('边路径数 === 解析边数', edgePathN === r.data.edges.length,
+  `path=${edgePathN} edges=${r.data.edges.length}`);
+// 语义：不再是「存在一条非固定偏移的起点」，而是「全部边路径的起点都贴在源节点边界上」
+const srcBox = new Map([...fullLay.nodePos.entries()].map(([id, p]) => [id, p]));
+const edgePathsAll = [...svg.matchAll(/<path d="(M[\d.]+,[\d.]+)[^"]*" fill="none" stroke="#64748b"/g)].map((m) => m[1]);
+const onBoundary = (e) => {
+  const b = srcBox.get(e.from); if (!b) return false;
+  const m = e.__start.match(/M([\d.]+),([\d.]+)/); if (!m) return false;
+  const x = +m[1], y = +m[2], tol = 1;
+  return Math.abs(x - (b.x - b.W / 2)) <= tol || Math.abs(x - (b.x + b.W / 2)) <= tol
+      || Math.abs(y - (b.y - b.H / 2)) <= tol || Math.abs(y - (b.y + b.H / 2)) <= tol;
+};
+const stickyN = edgePathsAll.filter((pt, i) => onBoundary({ from: r.data.edges[i]?.from, __start: pt })).length;
+check('每条边起点均贴源节点边界（不悬空）', stickyN === edgePathsAll.length,
+  `贴边 ${stickyN}/${edgePathsAll.length}`);
 // 3. 画布左 padding head>=50(防裁切)
 check('画布左 padding head>=50(防裁切)', FLOW_SVG.head >= 50, `head=${FLOW_SVG.head}`);
 
@@ -145,13 +185,17 @@ W: e: 结束 Type[E] Location(D[1],P[0]) V`);
 
 // ===== 连线验证：折线从节点右连线区中线出发 → 中段 → 目标左连线区中线进入 =====
 const allPaths = [...svg.matchAll(/<path d="(M[^"]*)" fill="none" stroke="#64748b"/g)].map((m) => m[1]);
-check('连线折线存在', allPaths.length >= 4, `实际 ${allPaths.length}`);
+// 语义：每条边恰一条折线
+check('连线折线数 === 边数', allPaths.length === r.data.edges.length,
+  `折线=${allPaths.length} edges=${r.data.edges.length}`);
 // 正交折线最短：存在水平直达（1段 同行）或先横后纵（2-3段 异行）
 const orthoCount = allPaths.filter((p) => {
   const segs = (p.match(/L/g) || []).length;
   return segs >= 1 && segs <= 3;
 }).length;
-check('存在正交最短折线', orthoCount >= 4, `实际 ${orthoCount}`);
+// 语义：全部边均为正交最短折线（1–3 段），而非「存在 4 条」
+check('全部边为正交折线（段数 1–3）', orthoCount === allPaths.length && allPaths.length === r.data.edges.length,
+  `正交=${orthoCount} 折线=${allPaths.length} edges=${r.data.edges.length}`);
 
 // ===== ALIGN：单维按最大链长扩格、子流程内部不进主网格 =====
 {
@@ -252,8 +296,8 @@ w1 → #q2`);
   const dSvg = flowToSVG(d.data, d.styles);
   check('sub-mini: 无错误', d.errors.length === 0);
   check('sub-mini: 内部迷你节点文字渲染', dSvg.includes('评审') && dSvg.includes('可接收') && dSvg.includes('合格'));
-  check('sub-mini: 迷你开始圆', dSvg.includes('fill="#2563eb"'));
-  check('sub-mini: 迷你网关棱', dSvg.includes('fill="#10b981"'));
+  check('sub-mini: 迷你开始圆（startColor）', dSvg.includes(`fill="${DEF.startColor}"`));
+  check('sub-mini: 迷你网关棱（gatewayColor）', dSvg.includes(`fill="${DEF.gatewayColor}"`));
   check('sub-mini: 子流程展开＋盒保留', dSvg.includes('width="10" height="10"'));
 }
 
@@ -285,7 +329,17 @@ w6 → #w1`);
       if (x <= layE.bandLeft + layE.half + 1 || y >= layE.gridBottom + 0.01 || y <= FLOW_SVG.titleH + 0.01) { outerHits++; break; }
     }
   }
-  check('outer-corridor: 回边外绕触发(≥1边触及外侧走廊)', outerHits >= 1, `outerHits=${outerHits}`);
+  // 审计 AUD-067 / R18：原断言把「绕外侧走廊」当作期望行为，实为旧内核的降级表现。
+  // 混合内核 + 端口优化后回边走就近走廊、outerHits 归零属**改善**，故改判为「路径合法性」。
+  let badPath = 0;
+  for (const d of pathsE) {
+    const c = d.match(/[-\d.]+/g)!.map(Number);
+    if (c.length < 4) { badPath++; continue; }
+    for (let i = 0; i < c.length; i += 2) {
+      if (!Number.isFinite(c[i]) || !Number.isFinite(c[i + 1]) || c[i] < -1 || c[i + 1] < -1) { badPath++; break; }
+    }
+  }
+  check('outer-corridor: 连线路径合法（旧「必须绕外侧」断言已废止）', badPath === 0, `badPath=${badPath} outerHits=${outerHits}`);
   check('outer-corridor: 无解析错误', e.errors.length === 0, e.errors.join());
 }
 
@@ -401,11 +455,10 @@ w2 → #w3`);
 }
 
 {
+  // T2 守护位移已【停用】（审计台账 AUD-090）：该算子为减少折弯而移动节点槽位，
+  // 与「节点位置权威」原则（节点位置来自 泳道×阶段的结构事实）冲突；其职责由格位分配承接。
   const layT = computeExcelLayout(r.data, r.styles);
-  const t2 = layT.t2;
-  check('t2: 统计存在', !!t2);
-  check('t2: 路由 Φ 不增', !!t2 && t2.phiRoute1 <= t2.phiRoute0 + 1e-6,
-    t2 ? `phi0=${t2.phiRoute0.toFixed(2)} phi1=${t2.phiRoute1.toFixed(2)} acc=${t2.accepted} rej=${t2.rejected}` : '');
+  check('t2: 已停用（AUD-090）', layT.t2 === undefined, layT.t2 ? JSON.stringify(layT.t2) : 'undefined');
 }
 
 {
