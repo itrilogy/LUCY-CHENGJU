@@ -167,7 +167,7 @@ W: q1: 金额超过5000? Type[?] Location(D[0],P[1])
 | 右下角标注 | 按 `Attr active` 顺序，只标该节点有值项 |
 | 回归 | `npm run test:flow`（parser + SVG + BPMN + 主干序 + 格内序） |
 
-手册：[USER_MANUAL_FLOW](./docs/USER_MANUAL_FLOW.md) · 规范：[IQS_FLOW_DSL_SPEC](./docs/IQS_FLOW_DSL_SPEC.md) · 协议：[protocol/segments/flow.md](./protocol/segments/flow.md)
+手册：[USER_MANUAL_FLOW](docs/flow/manual/USER_MANUAL_FLOW.md) · 规范：[IQS_FLOW_DSL_SPEC](docs/flow/spec/IQS_FLOW_DSL_SPEC.md) · 协议：[protocol/segments/flow.md](./protocol/segments/flow.md)
 
 ---
 
@@ -295,15 +295,18 @@ LUCY-CHENGJU/
 
 | 文档 | 说明 |
 |:---|:---|
+| **[项目文档总索引与工程历程](./docs/PROJECT_INDEX.md)** | **全项目文档 MOC**：时间线（2026-02-05 → 09-09，151 commits）+ 分类登记 + 权威层级 |
 | **[IQS-DSL v1 完整手册](./docs/IQS_DSL_V1_MANUAL.md)** | 14 个 CORE kind 指令表 / Body / 示例 / 反例 |
+| **[卡片真源 `dsl/cards/*`](./dsl/cards/)** | **唯一真源**：55 张卡片（语法/示例/反例/提示词），MCP 与帮助弹窗均由它生成 |
 | [IQS-DSL 架构 SPEC](./docs/IQS_DSL_V1_SPEC.md) | 分层与权威序 |
-| **[IQS-Flow 规范](./docs/IQS_FLOW_DSL_SPEC.md)** | 字典-索引、泳道、BPMN 子集、渲染规格 |
-| [IQS-Flow 用户手册](./docs/USER_MANUAL_FLOW.md) | 30 秒出图、属性、走线、FAQ |
-| [Flow 最优性框架](./docs/FLOW_OPTIMALITY_FRAMEWORK.md) | 布局/布线承诺分层（一般图不承诺全局最优） |
+| **[IQS-Flow 规范](docs/flow/spec/IQS_FLOW_DSL_SPEC.md)** | 字典-索引、泳道、BPMN 子集、渲染规格 |
+| [IQS-Flow 文档索引](docs/flow/README.md) | FLOW 专项子索引 |
+| [IQS-Flow 用户手册](docs/flow/manual/USER_MANUAL_FLOW.md) | 30 秒出图、属性、走线、FAQ |
+| [Flow 最优性框架](docs/flow/math/FLOW_OPTIMALITY_FRAMEWORK.md) | 布局/布线承诺分层（一般图不承诺全局最优） |
 | [软著与发行 · 索引](./docs/软著与发行/00_文档索引.md) | 登记表、说明书、安装发行、检查清单 |
 | [安装部署与发行指南](./docs/软著与发行/04_安装部署与发行指南.md) | 源码 / Docker / 验收 |
 | [协议治理](./protocol/governance.md) | CORE / RELIEF |
-| [Flow 协议切片](./protocol/segments/flow.md) | MCP / 外部模型编译卡 |
+| [意图路由目录](./protocol/intents.md) | `protocol://intents` —— 生成前先读，按意图定位 kind |
 | [分图用户手册](./docs/) | `USER_MANUAL_*.md` |
 | [CHANGELOG](./CHANGELOG.md) | 版本变更 |
 | [COPYRIGHT](./COPYRIGHT.md) · [NOTICE](./NOTICE.md) | 版权与第三方 |

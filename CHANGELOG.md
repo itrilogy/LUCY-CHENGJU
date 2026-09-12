@@ -36,7 +36,7 @@
 
 ### 变更
 
-- 根目录 `DSL_SYNTAX_MANUAL.md` 改为 v1 手册入口  
+- 根目录 `IQS_DSL_MANUAL_LEGACY.md` 改为 v1 手册入口  
 - `package.json` 版权声明与专有软件定位对齐（见 COPYRIGHT）  
 
 ## [3.5.2] — 更早
