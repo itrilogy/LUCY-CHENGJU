@@ -3,7 +3,7 @@
 > **用途**：FLOW 组件相关文档的**唯一入口**。按「权威层级 × 领域 × 类型」组织，并标注每份文档的**时效状态**，避免误引过时内容。
 > **维护规则**：新增文档须在此登记；状态变化须同步更新。
 > **上级索引**：**`docs/PROJECT_INDEX.md`**（全项目文档总索引与工程历程）—— 本文件是其 FLOW 专项子索引。
-> **关联**：审计台账 `docs/flow/review/FLOW_AUDIT_FINDINGS.md`（R1–R20 / 137 条）· AI 推理卡审计 `docs/flow/review/FLOW_AGENT_CARD_AUDIT.md` · 工作记录 `docs/flow/notes/FLOW_ROUTING_WORKLOG.md`（W1–W17）· 数学方向 `docs/flow/math/FLOW_ROUTING_MATH_DIRECTIONS.md`
+> **关联**：审计台账 `docs/flow/review/FLOW_AUDIT_FINDINGS.md`（R1–R21 / 140 条）· AI 推理卡审计 `docs/flow/review/FLOW_AGENT_CARD_AUDIT.md` · 工作记录 `docs/flow/notes/FLOW_ROUTING_WORKLOG.md`（W1–W17）· 数学方向 `docs/flow/math/FLOW_ROUTING_MATH_DIRECTIONS.md`
 
 ---
 
@@ -126,7 +126,7 @@
 | `docs/flow/review/FLOW_ENGINEERING_AUDIT_NOTES.md` | 全局 | ⚪ | 工程审计记录（未审计） |
 | `docs/flow/review/FLOW_RENDER_REVIEW_QA.md` | 渲染 | ⚪ | 渲染 QA（未审计） |
 | `docs/flow/review/FLOW_PANEL_MATH_DOCKER_REVIEW.md` | 全局 | ⚪ | 面板/数学/Docker 评审（未审计） |
-| **`docs/flow/review/FLOW_AUDIT_FINDINGS.md`** | 全局 | 🟢 | 审计台账 R1–R20 / **137 条**（含 P0–P3 优先级与验收状态） |
+| **`docs/flow/review/FLOW_AUDIT_FINDINGS.md`** | 全局 | 🟢 | 审计台账 R1–R21 / **140 条**（含 P0–P3 优先级与验收状态） |
 | **`docs/flow/review/FLOW_AGENT_CARD_AUDIT.md`** | 协议 | 🟢 | **新** · AI 推理卡专项审计（14 kind 全部供给 LLM 的范式材料 + MCP 分发设计）：三源漂移量化 · 7 条卡-实现冲突 · 含复现命令 |
 
 > ⚠️ `FLOW_ROUTING_ALGO_STATE.md` 标题自称"**权威记录**"，但其内容描述的是**已被替换的旧引擎**（R18 落地后现行为「可见图 4 方向 + 动态 stub + 端口坐标下降 + 混合内核」）。引用前请以 `FLOW_ROUTERB_WORKLOG.md` W10 与源码为准。
