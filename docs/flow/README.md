@@ -3,7 +3,7 @@
 > **用途**：FLOW 组件相关文档的**唯一入口**。按「权威层级 × 领域 × 类型」组织，并标注每份文档的**时效状态**，避免误引过时内容。
 > **维护规则**：新增文档须在此登记；状态变化须同步更新。
 > **上级索引**：**`docs/PROJECT_INDEX.md`**（全项目文档总索引与工程历程）—— 本文件是其 FLOW 专项子索引。
-> **关联**：审计台账 `docs/flow/review/FLOW_AUDIT_FINDINGS.md`（R1–R21 / 140 条）· AI 推理卡审计 `docs/flow/review/FLOW_AGENT_CARD_AUDIT.md` · 工作记录 `docs/flow/notes/FLOW_ROUTING_WORKLOG.md`（W1–W17）· 数学方向 `docs/flow/math/FLOW_ROUTING_MATH_DIRECTIONS.md`
+> **关联**：审计台账 `docs/flow/review/FLOW_AUDIT_FINDINGS.md`（R1–R24 / 154 条）· R23 出入口红线 `docs/flow/review/FLOW_COMPONENT_AUDIT_R23.md` · 现行口径 `docs/flow/design/FLOW_ROUTING_EXCLUSIVITY_DESIGN.md` · R22 `docs/flow/review/FLOW_COMPONENT_AUDIT_R22.md` · 工作记录 `docs/flow/notes/FLOW_ROUTING_WORKLOG.md`
 
 ---
 
@@ -53,8 +53,9 @@
 | `docs/flow/design/FLOW_ROUTING_ENGINE_DESIGN.md` | 布线 | 设计 | ⚪ | 布线引擎设计（未逐行审计） |
 | `docs/flow/design/FLOW_CELL_ORDER_DESIGN.md` | 布局 | 设计 | 🟡 | 格内拓扑序 + 缺省 vh 推导 |
 | `docs/flow/design/FLOW_CORRIDOR_RELOCATE_DESIGN.md` | 布局 | 设计 | ⚪ | 走廊腾挪设计 |
-| `docs/flow/design/FLOW_NDATA_LANE_DESIGN.md` | 布局 | 设计 | ⚪ | N/DATA 虚拟列（DOC 泳道） |
+| `docs/flow/design/FLOW_NDATA_LANE_DESIGN.md` | 布局 | 设计 | 🟢 | N/DATA 虚拟列 + 水平 `L→R` 先分配（G7） |
 | `docs/flow/design/FLOW_CONNECTION_REQUIREMENTS_ALGO.md` | 布线 | 设计 | 🟡 | 需求目标 G1–G5 + 数学方法需求 M1–M8 + 伪码 |
+| `docs/flow/design/FLOW_ROUTING_EXCLUSIVITY_DESIGN.md` | 布线 | 设计 | 🟢 | A1 硬 + A3 共干 · N/DATA 水平右入 · 代数下降/三折线上界跳过 Dijkstra |
 | `docs/IQS_CHART_MCP_DESIGN.md` | 协议 | 设计 | ⚪ | MCP 图表服务设计 |
 
 **已知漂移**
@@ -126,8 +127,10 @@
 | `docs/flow/review/FLOW_ENGINEERING_AUDIT_NOTES.md` | 全局 | ⚪ | 工程审计记录（未审计） |
 | `docs/flow/review/FLOW_RENDER_REVIEW_QA.md` | 渲染 | ⚪ | 渲染 QA（未审计） |
 | `docs/flow/review/FLOW_PANEL_MATH_DOCKER_REVIEW.md` | 全局 | ⚪ | 面板/数学/Docker 评审（未审计） |
-| **`docs/flow/review/FLOW_AUDIT_FINDINGS.md`** | 全局 | 🟢 | 审计台账 R1–R21 / **140 条**（含 P0–P3 优先级与验收状态） |
+| **`docs/flow/review/FLOW_AUDIT_FINDINGS.md`** | 全局 | 🟢 | 审计台账 R1–R24 / **154 条** |
 | **`docs/flow/review/FLOW_AGENT_CARD_AUDIT.md`** | 协议 | 🟢 | **新** · AI 推理卡专项审计（14 kind 全部供给 LLM 的范式材料 + MCP 分发设计）：三源漂移量化 · 7 条卡-实现冲突 · 含复现命令 |
+| **`docs/flow/review/FLOW_COMPONENT_AUDIT_R22.md`** | 布线·渲染·布局 | 🟢 | R21 复测驱动：端口朝向 + 回折穿盒 + 子流程整数倍格 · 几何门禁 G1–G5。**R23 复核**：网关白名单误关 A1 |
+| **`docs/flow/review/FLOW_COMPONENT_AUDIT_R23.md`** | 布线·布局 | 🟢 | **新（2026-09-12）** · 出入口红线（同入/同出可复用、同侧既入又出禁止）+ 子流程未走 3×3 绘制格范式 · AUD-147..151 |
 
 > ⚠️ `FLOW_ROUTING_ALGO_STATE.md` 标题自称"**权威记录**"，但其内容描述的是**已被替换的旧引擎**（R18 落地后现行为「可见图 4 方向 + 动态 stub + 端口坐标下降 + 混合内核」）。引用前请以 `FLOW_ROUTERB_WORKLOG.md` W10 与源码为准。
 
@@ -148,10 +151,13 @@
 | L1 语义 | 字典-索引 DSL · 六属性 | `components/flow/FlowParser.ts` |
 | L2 落格 | 网格 + 格内槽位（V/H/D） | `components/flow/ExcelLayout.ts` |
 | L3 对齐 | 整列/整行统一扩展 · 节点居中 | 同上 |
-| **L4 布线** | **可见图 4 方向 Dijkstra + 动态 stub + 端口坐标下降 + 混合内核** | `VisibleGraphRouter.ts` · `PortOptimizer.ts` · `flowToSVG.ts` |
-| L5 门禁 | 184 断言（parser 66 / svg 85 / bpmn 17 / mainline 8 / cell_order 8） | `scripts/assert_flow_*.ts` |
+| **L4 布线** | **可见图 4 方向 Dijkstra + 动态 stub + 端口坐标下降 + 混合内核 + 背向罚 + A4 软约束兜底** | `VisibleGraphRouter.ts` · `PortOptimizer.ts` · `flowToSVG.ts` |
+| L5 门禁 | **206 断言**（parser 66 / svg 85 / bpmn 17 / mainline 8 / cell_order 8 / alignment 7 / **geometry 15**） | `scripts/assert_flow_*.ts` |
 
-**L4 换代实测（审计 AUD-110）**：Σ折弯 **105 → 58（−45%）**，9 类图 × 2 布局 143 条边**零回退**、零穿盒、184 断言零回归。
+**L4 换代实测（审计 AUD-110）**：Σ折弯 **105 → 58（−45%）**，9 类图 × 2 布局 143 条边**零回退**、零穿盒、断言零回归。
+
+**R22 几何不变量（新增 `assert_flow_geometry.ts`，12 断言）**：G1 零穿盒（含源/目标**自身盒**）· G2 零 180° 回折（独立几何判据）· G3 端口无背向 · G4 子流程整数倍格（框 `cols×140 × rows×48`）· G5 A1 白名单外互斥。
+三条注入回归（碰撞失效 / 回退 R21 旧配置 / 子流程 √N 方阵）均确认可报红 ⇒ 门禁自证有效，详见 `docs/flow/review/FLOW_COMPONENT_AUDIT_R22.md` §5。
 
 ---
 

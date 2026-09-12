@@ -27,7 +27,7 @@ related:
 | **提交跨度** | **2026-02-05 → 2026-09-09**，151 次提交（`git log`） |
 | **本索引生成** | 2026-09-12（含尚未提交的工作） |
 
-> **FLOW 组件**的文档已在 2026-09-12 单独整理过一次，其子索引为 `docs/flow/README.md`（38 份）。本索引不重复其内部条目，只做**入口指引**。
+> **FLOW 组件**的文档已在 2026-09-12 单独整理过一次，其子索引为 `docs/flow/README.md`（41 份）。本索引不重复其内部条目，只做**入口指引**。
 
 ---
 
@@ -51,6 +51,9 @@ related:
 | **P5** | 2026-09-09 | **品牌化 + 仓库更名** | `README.md`（LUXI 双标头部）· 仓库更名 `LUCY-CHENGJU` |
 | **P6** | **2026-09-12** | **卡片单一真源（SSOT）体系**（本次，未提交） | `docs/IQS_DSL_CARD_SSOT_DESIGN.md` · `docs/flow/review/FLOW_AGENT_CARD_AUDIT.md` · `dsl/cards/*` · `docs/flow/notes/FLOW_ROUTING_WORKLOG.md`（W12–W17） |
 | **P6** | **2026-09-12** | **UI 范式精修 + 代码审计**（本次，未提交） | `docs/design/UI_REFINEMENT_LOG.md` · `components/ui/*` · `utils/{id,textMetrics,relationGraph}.ts` · `hooks/useAIEngine.ts` · `scripts/{lint_examples,assert_card_contracts,check_cards_fresh}.ts` |
+| **P4** | **2026-09-12** | **FLOW R22：R21 复测** → 端口朝向/回折穿盒/子流程整数倍格修复 + 几何门禁 G1–G5（含注入回归） | `docs/flow/review/FLOW_COMPONENT_AUDIT_R22.md` · `docs/flow/review/FLOW_AUDIT_FINDINGS.md`（R22 / AUD-141..146）· `scripts/assert_flow_geometry.ts` · `components/flow/*` |
+| **P4** | **2026-09-12** | **FLOW R23：出入口红线 + 子流程范式**（已实施 S0–S3） | `docs/flow/review/FLOW_COMPONENT_AUDIT_R23.md` · 台账 AUD-147..151 已修复 · `FLOW_ROUTING_EXCLUSIVITY_DESIGN.md` |
+| **P4** | **2026-09-13** | **FLOW R24：N/DATA 水平 + A1 前瞻 + 代数下降性能** | `FLOW_ROUTING_EXCLUSIVITY_DESIGN.md` §5–6 · 台账 AUD-152..153 · `g7-doc-horizontal` · canonical SVG ~150ms |
 
 ### 时间线读法（三条主线）
 
@@ -85,7 +88,7 @@ related:
 | **MCP 与工程** | `docs/` 根 | 4 | MCP 配置、Token 优化、ILDR 4.0、故障排查 |
 | **审计与报告** | `docs/` 根 | 4 | 系统提示词审计报告、矩阵压测、VChart 调试 |
 | **软著与发行** | `docs/软著与发行/` | 12 | 登记信息、部署发行、第三方声明、发行检查 |
-| **FLOW 专项**（已整理） | `docs/flow/` | 38 | 见 `docs/flow/README.md` |
+| **FLOW 专项**（已整理） | `docs/flow/` | 41 | 见 `docs/flow/README.md` |
 | **卡片真源** | `dsl/cards/` | 57 | 55 张 `<family>/<slug>.card.ts` + `_types.ts` + `_shared.ts` |
 
 ---
@@ -205,12 +208,22 @@ related:
 
 | 位置 | 数量 | 入口 |
 |:--|--:|:--|
-| `docs/flow/{spec,design,math,notes,review,manual}/` | 38 | **`docs/flow/README.md`** |
+| `docs/flow/{spec,design,math,notes,review,manual}/` | 41 | **`docs/flow/README.md`** |
 
 > 已于 2026-09-12 单独整理：按「权威层级 × 领域 × 类型」组织，含标签体系与漂移审计指针。
 > 本轮新增/更新的 FLOW 文档：`review/FLOW_AGENT_CARD_AUDIT.md`（AI 推理卡审计）、`review/FLOW_AUDIT_FINDINGS.md`（R20 / AUD-116..137）、`notes/FLOW_ROUTING_WORKLOG.md`（W12–W17）。
 >
-> **R21（使用者实测驱动）**：`review/FLOW_COMPONENT_AUDIT_R21.md` —— 渲染缓慢（AUD-140，P0）· 子流程不继承 `Layout`（AUD-138）· 连线缺目标（AUD-139）。台账已同步至 R1–R21 / 140 条。
+> **R21（使用者实测驱动）**：`review/FLOW_COMPONENT_AUDIT_R21.md` —— 渲染缓慢（AUD-140，P0）· 子流程不继承 `Layout`（AUD-138）· 连线缺目标（AUD-139）。
+>
+> **R22（R21 复测驱动）**：`review/FLOW_COMPONENT_AUDIT_R22.md` —— 复核 R21 三项（AUD-140 正确 / AUD-138 只改渲染层不完整 / AUD-139 归因不成立）；
+> 修复 `AUD-141..146`（端口背向 · 回折穿自身盒 · 子流程整数倍格单一真源 · A4 软约束兜底 · 编排单一真源 · 断言口径勘误）；
+> 新增几何门禁 `scripts/assert_flow_geometry.ts`（G1–G5 / 12 断言，含注入回归自证），**Flow 断言总数 191 → 203（7 段）**。
+>
+> **R23（出入口红线 + 子流程范式，审计未改码）**：`review/FLOW_COMPONENT_AUDIT_R23.md` ——
+> 使用者划定「同入/同出可复用，同侧既入又出是红线」；R22 `relaxNodes` 误关网关 A1（AUD-147），G5 跳过网关使 CI 看不见（AUD-148）；
+> 子流程只统一了框的格数，内部仍是缩略图而非 3×3 绘制格（AUD-149..151）。
+> **已实施 S0–S3**（A1 全节点硬互斥 + 侧染色 + 同向共干 + 子流程 3×3）；R24 补 N/DATA 水平、A1 前瞻、代数下降。`test:flow` **206 pass**。
+> 台账 **R1–R24 / 154 条**。
 
 ### 3.9 其他
 

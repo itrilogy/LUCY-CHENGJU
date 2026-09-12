@@ -26,6 +26,27 @@ export function getPortMidpoint(pos: { x: number; y: number; W: number; H: numbe
   };
 }
 
+/**
+ * 同侧 k 条边的槽位（M1）。k=1 时与 `getPortMidpoint` 重合。
+ * 沿该边在 20%–80% 内按 `(i+1)/(k+1)` 分布，避开转角。
+ */
+export function getPortSlot(
+  pos: { x: number; y: number; W: number; H: number },
+  dir: Port,
+  index = 0,
+  count = 1,
+): Point {
+  const mid = getPortMidpoint(pos, dir);
+  const k = Math.max(1, count);
+  const i = Math.max(0, Math.min(index, k - 1));
+  const t = (i + 1) / (k + 1);
+  const along = 0.2 + t * 0.6;
+  if (dir === 'T' || dir === 'B') {
+    return { x: pos.x - pos.W / 2 + along * pos.W, y: mid.y };
+  }
+  return { x: mid.x, y: pos.y - pos.H / 2 + along * pos.H };
+}
+
 // 2. 线段与矩形包围盒的代数碰撞检测（Liang-Barsky 算法）
 export function segmentIntersectsBox(p1: Point, p2: Point, box: Box, padding = 4): boolean {
   const minX = box.x0 - padding, maxX = box.x1 + padding;
@@ -73,6 +94,8 @@ export interface GridDimensions {
   gridTop: number;
   gridBottom: number;
   half: number;
+  colNxMax?: number[];
+  rowNyMax?: number[];
 }
 
 export function computeGridChannels(dim: GridDimensions, nodes: NodeGeometry[]): { xChannels: number[]; yChannels: number[] } {
@@ -85,16 +108,34 @@ export function computeGridChannels(dim: GridDimensions, nodes: NodeGeometry[]):
   ySet.add(dim.gridTop - dim.half);
   ySet.add(dim.gridBottom + dim.half);
 
-  // 列间走廊
+  // 列间走廊 + 列内绘制格缝（扩展格 nx>1 时的纵向缓冲）
   for (let ci = 0; ci < dim.nC; ci++) {
     xSet.add(dim.colX[ci]);
     xSet.add(dim.colX[ci] + dim.colWpx[ci]);
+    const nx = dim.colNxMax?.[ci] ?? 1;
+    if (nx > 1) {
+      const pw = dim.colWpx[ci] / nx;
+      for (let k = 1; k < nx; k++) xSet.add(dim.colX[ci] + k * pw);
+    }
   }
 
-  // 行间走廊
+  // 行间走廊 + 行内绘制格缝（扩展格 ny>1 时的横向缓冲）
   for (let ri = 0; ri < dim.nR; ri++) {
     ySet.add(dim.bandTop(ri));
     ySet.add(dim.bandTop(ri) + dim.rowHpx[ri]);
+    const ny = dim.rowNyMax?.[ri] ?? 1;
+    if (ny > 1) {
+      const ph = dim.rowHpx[ri] / ny;
+      for (let k = 1; k < ny; k++) ySet.add(dim.bandTop(ri) + k * ph);
+    }
+  }
+
+  // 节点四周 0.5 走廊中线（3×3 绘制格的连线区，避免所有边挤进列缝）
+  for (const n of nodes) {
+    xSet.add(n.x - n.W / 2 - dim.half / 2);
+    xSet.add(n.x + n.W / 2 + dim.half / 2);
+    ySet.add(n.y - n.H / 2 - dim.half / 2);
+    ySet.add(n.y + n.H / 2 + dim.half / 2);
   }
 
   // 扩展格内部多节点间隙中线
@@ -212,31 +253,65 @@ export function solveAlgebraicPorts(
     const isCoaxialForward = (!isPhysicalBack && Math.abs(dx) < 1 && Math.abs(dy) > 10) || (!isPhysicalBack && Math.abs(dy) < 1 && dx > 10);
 
     const dist = Math.abs(u.ri - v.ri) + Math.abs(u.ci - v.ci);
+    // 同列/同行直通先占口：录入工艺参数→质量合规 应先垂直进顶/底，
+    // 再从网关分支出口（左右）接到并行检测。标签出边次之。
     if (isCoaxialForward) return 0;
+    if (e.label) return 5;
     if (isPhysicalBack) return 200 + dist * 10;
     return 10 + dist * 5;
   }
 
   const sortedEdges = [...edges].sort((a, b) => getEdgePriority(a) - getEdgePriority(b));
   const allDirs: Port[] = ['T', 'B', 'L', 'R'];
+  const docEdges = sortedEdges.filter((e) => e.isDoc || e.condition === '__doc__');
+  const restEdges = sortedEdges.filter((e) => !(e.isDoc || e.condition === '__doc__'));
 
-  for (const e of sortedEdges) {
+  // N/DATA 水平原则（FLOW_NDATA_LANE_DESIGN）：虚线与依附节点同行，锁定目标**右入口**为 IN。
+  // 必须先于主干边分配，否则主干抢占 R 会把虚线赶到 B/T 产生折弯。
+  for (const e of docEdges) {
+    const u = nodeMap.get(e.from), v = nodeMap.get(e.to);
+    if (!u || !v) continue;
+    nodeOutDirs.get(e.from)!.add('L');
+    sourcePorts.set(e.id, 'L');
+    nodeInDirs.get(e.to)!.add('R');
+    targetPorts.set(e.id, 'R');
+  }
+
+  const assigned = new Set<string>();
+  const facing = (from: NodeGeometry, to: NodeGeometry, port: Port, asOut: boolean): boolean => {
+    const dx = to.x - from.x, dy = to.y - from.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const n = PORT_NORMALS[port];
+    const dot = n.x * (dx / d) + n.y * (dy / d);
+    return asOut ? dot > 1e-6 : dot < -1e-6;
+  };
+  // 未分配边对某侧的朝向需求：避免本边把对方还要用的出/入侧先占掉（A1 前瞻，① 单属性）
+  const stealOut = (nodeId: string, side: Port, except: string): number => {
+    let n = 0;
+    for (const e2 of restEdges) {
+      if (e2.id === except || assigned.has(e2.id) || e2.from !== nodeId) continue;
+      const a = nodeMap.get(e2.from), b = nodeMap.get(e2.to);
+      if (a && b && facing(a, b, side, true)) n++;
+    }
+    return n;
+  };
+  const stealIn = (nodeId: string, side: Port, except: string): number => {
+    let n = 0;
+    for (const e2 of restEdges) {
+      if (e2.id === except || assigned.has(e2.id) || e2.to !== nodeId) continue;
+      const a = nodeMap.get(e2.from), b = nodeMap.get(e2.to);
+      if (a && b && facing(a, b, side, false)) n++;
+    }
+    return n;
+  };
+
+  for (const e of restEdges) {
     const u = nodeMap.get(e.from), v = nodeMap.get(e.to);
     if (!u || !v) continue;
     const uOut = nodeOutDirs.get(e.from)!, uIn = nodeInDirs.get(e.from)!;
     const vOut = nodeOutDirs.get(e.to)!, vIn = nodeInDirs.get(e.to)!;
 
-    if (e.isDoc || e.condition === '__doc__') {
-      uOut.add('L');
-      sourcePorts.set(e.id, 'L');
-      const tp: Port = !vOut.has('R') ? 'R' : (!vOut.has('B') ? 'B' : 'T');
-      vIn.add(tp);
-      targetPorts.set(e.id, tp);
-      continue;
-    }
-
-    // 寻找能量 E(sp, tp) 最小的端口对
-    // E(sp, tp) = 100 * Bends + 50 * Blocked - 10 * Affinity
+    // E = 100·折弯 + 50·阻挡 + 80·抢占对角色朝向侧 − 35·对齐
     let bestScore = Infinity;
     let bestPair: [Port, Port] = ['R', 'L'];
 
@@ -251,16 +326,16 @@ export function solveAlgebraicPorts(
         const reuseOut = uOut.has(sp) ? 20 : 0;
         const reuseIn = vIn.has(tp) ? 0 : 5; // 入端口复用优先
 
-        // 代数方向对齐势能：发射法向与位移向量同向、接收法向与位移向量对冲
         const delta = { x: v.x - u.x, y: v.y - u.y };
         const dist = Math.hypot(delta.x, delta.y) || 1;
         const dx = delta.x / dist, dy = delta.y / dist;
         const n0 = PORT_NORMALS[sp], nk = PORT_NORMALS[tp];
-        const alignOut = n0.x * dx + n0.y * dy; // >0 为顺向
-        const alignIn = -nk.x * dx - nk.y * dy; // >0 为顺向迎入
+        const alignOut = n0.x * dx + n0.y * dy;
+        const alignIn = -nk.x * dx - nk.y * dy;
         const alignment = alignOut + alignIn;
+        const steal = stealOut(e.to, tp, e.id) * 80 + stealIn(e.from, sp, e.id) * 80;
 
-        const score = bends * 100 + blockSp + blockTp + reuseOut + reuseIn - alignment * 35;
+        const score = bends * 100 + blockSp + blockTp + reuseOut + reuseIn + steal - alignment * 35;
         if (score < bestScore) {
           bestScore = score;
           bestPair = [sp, tp];
@@ -273,6 +348,7 @@ export function solveAlgebraicPorts(
     vIn.add(tp);
     sourcePorts.set(e.id, sp);
     targetPorts.set(e.id, tp);
+    assigned.add(e.id);
   }
 
   return { sourcePorts, targetPorts };
@@ -310,10 +386,11 @@ export function solveAlgebraicRoute(
   xChannels: number[],
   yChannels: number[],
   allBoxes: Record<string, Box>,
-  half: number
+  half: number,
+  opts: { selfBoxStrict?: boolean; portFrom?: Point; portTo?: Point } = {}
 ): Point[] {
-  const p0 = getPortMidpoint(fromNode, sp);
-  const pk = getPortMidpoint(toNode, tp);
+  const p0 = opts.portFrom ?? getPortMidpoint(fromNode, sp);
+  const pk = opts.portTo ?? getPortMidpoint(toNode, tp);
   const n0 = PORT_NORMALS[sp];
   const nk = PORT_NORMALS[tp];
 
@@ -323,12 +400,24 @@ export function solveAlgebraicRoute(
   const horiz0 = (sp === 'L' || sp === 'R');
   const horizk = (tp === 'L' || tp === 'R');
 
+  /**
+   * 碰撞检测。
+   * 原实现把**源/目标节点自身**的盒体整体跳过（`if (id === fromNode.id || id === toNode.id) continue`），
+   * 于是「绕出去再折回、穿过自己盒子」的畸形路径被判为无碰撞，凭折弯数更少而胜出（实测 `w2→g1`、`p1→w4`）。
+   * 修正：自身盒体**仍须检测**，只把判定盒**收缩 3px** —— 出线 stub 段从盒边界出发、不会进入收缩盒，
+   * 而任何真正穿回盒体的段必然命中。
+   *
+   * 范式依据：`FLOW_OPTIMALITY_FRAMEWORK.md` A4 —— 但 **A4（无碰撞）是软约束**（AUD-027 已确认）：
+   * 严格判定下若无解，须由调用侧以 `selfBoxStrict:false` 放宽重试，**宁可穿盒也不可缺线**。
+   */
+  const selfBoxStrict = opts.selfBoxStrict !== false;
   function hitsObstacle(path: Point[]): boolean {
     for (let i = 0; i < path.length - 1; i++) {
       const a = path[i], b = path[i + 1];
       for (const [id, box] of Object.entries(allBoxes)) {
-        if (id === fromNode.id || id === toNode.id) continue;
-        if (segmentIntersectsBox(a, b, box, 4)) return true;
+        const self = id === fromNode.id || id === toNode.id;
+        if (self && !selfBoxStrict) continue;
+        if (segmentIntersectsBox(a, b, box, self ? -3 : 4)) return true;
       }
     }
     return false;
@@ -420,8 +509,10 @@ export function solveAlgebraicRoute(
     }
   }
 
-  // 5. 跨多列逆向大回边（>=2 列）：优先走图外部走廊回路
-  const isGlobalOuterBackEdge = (fromNode.ci - toNode.ci >= 2);
+  // 5. 跨多列且跨行的逆向大回边：走图外部走廊。
+  // 同行（同一 ri）的左向边（含 DOC 虚线）必须走行内南/北走廊，禁止绕到画布顶/底外缘
+  // （发布版 L→R 直连在 A1 让出 R 之后若仍走 outerY，就会出现「虚线绕整图」）。
+  const isGlobalOuterBackEdge = (fromNode.ci - toNode.ci >= 2) && (fromNode.ri !== toNode.ri);
   const minGridX = Math.min(...xChannels), maxGridX = Math.max(...xChannels);
   const minGridY = Math.min(...yChannels), maxGridY = Math.max(...yChannels);
   const outerX0 = minGridX - half, outerX1 = maxGridX + half;

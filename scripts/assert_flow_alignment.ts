@@ -73,13 +73,20 @@ const outOfRow = nodes.filter((p) => !(p.y >= L.bandTop(p.ri) - 0.51 && p.y <= L
 check('A4 节点落在所属泳道行内', outOfRow.length === 0,
   outOfRow.map((p) => `${p.n.id}@y=${Math.round(p.y)}`).join(' '));
 
-const byCol = new Map<number, number[]>();
-for (const p of nodes) { if (!byCol.has(p.ci)) byCol.set(p.ci, []); byCol.get(p.ci)!.push(p.x); }
+const byColSlot = new Map<string, number[]>();
+for (const p of nodes) {
+  const k = `${p.ci}:${p.gridX ?? 0}`;
+  if (!byColSlot.has(k)) byColSlot.set(k, []);
+  byColSlot.get(k)!.push(p.x);
+}
 let colSpread = 0;
-let worstCol = -1;
-for (const [ci, xs] of byCol) { const s = Math.max(...xs) - Math.min(...xs); if (s > colSpread) { colSpread = s; worstCol = ci; } }
-check('A5 列对齐（同 ci 内 x 极差 < 1px）', colSpread < 1,
-  `极差=${colSpread.toFixed(1)}px @列${worstCol}（射线松弛已删，AUD-086）`);
+let worstCol = '';
+for (const [k, xs] of byColSlot) {
+  const s = Math.max(...xs) - Math.min(...xs);
+  if (s > colSpread) { colSpread = s; worstCol = k; }
+}
+check('A5 列对齐（同 ci×gridX 内 x 极差 < 1px）', colSpread < 1,
+  `极差=${colSpread.toFixed(1)}px @${worstCol}（扩展格槽位内对齐）`);
 
 // ---- 端口与路径（走生产路径：PortOptimizer + 混合内核） ----
 const geoA = nodes.map((v) => ({ id: v.n.id, ri: v.ri, ci: v.ci, x: v.x, y: v.y, W: v.W, H: v.H }));

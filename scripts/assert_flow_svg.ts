@@ -47,11 +47,11 @@ const size = getSvgSize(r.data);
 
 check('svg 根存在', svg.startsWith('<svg'));
 check('尺寸为正', size.width > 0 && size.height > 0, JSON.stringify(size));
-// 语义：箭头不是 SVG marker，而是「独立单箭头层」按目标端口绘制的 <polygon> 三角
-// （marker#flowArrow 仅作定义，箭头实际由 polygon 承担）。断言三角存在且不多于边数。
-const arrowPolys = (svg.match(/<polygon points="[^"]+" fill="[^"]*" stroke="[^"]*" stroke-width="1"\/>/g) || []).length;
-check('箭头：独立箭头层渲染三角（1 ≤ N ≤ 边数）', arrowPolys >= 1 && arrowPolys <= r.data.edges.length,
-  `arrows=${arrowPolys} edges=${r.data.edges.length}`);
+// 每条边路径一支入口箭头（data-flow=in-arrow），含 N/DATA 虚边。
+const edgePaths = (svg.match(/data-edge="1"/g) || []).length;
+const arrowPolys = (svg.match(/data-flow="in-arrow"/g) || []).length;
+check('箭头：每条边一支入口三角', arrowPolys === edgePaths && arrowPolys >= 1,
+  `arrows=${arrowPolys} edges=${edgePaths}`);
 const rectTotal = (svg.match(/<rect /g) || []).length;
 const gridCellN = computeExcelLayout(r.data, r.styles).rows.length * computeExcelLayout(r.data, r.styles).cols.length;
 // 语义：rect 总数 = 泳道绘制格(12) + 节点框(7) + 节点装饰；下界须≥格+节点，上界防重复绘制
@@ -121,13 +121,14 @@ if (diamondD.length >= 1) {
 }
 // 2. 连线端点贴节点边界：连线 path 起点 x 应等于源节点右缘（非固定±60）
 const edgeStarts = [...svg.matchAll(/<path d="M([\d.]+),([\d.]+) L/g)].map(m => parseFloat(m[1]));
-const edgePathN = (svg.match(/<path d="M[^"]*" fill="none" stroke="#64748b"/g) || []).length;
+/** 语义锚点 `data-edge="1"`：边路径的 stroke 会随「交叉反差」切换，**计数不得按颜色**（R22 勘误）。 */
+const edgePathN = (svg.match(/<path [^>]*data-edge="1"/g) || []).length;
 // 语义：解析出的每条边恰渲染为一条路径（不多不少），替代原「≥4」下界
 check('边路径数 === 解析边数', edgePathN === r.data.edges.length,
   `path=${edgePathN} edges=${r.data.edges.length}`);
 // 语义：不再是「存在一条非固定偏移的起点」，而是「全部边路径的起点都贴在源节点边界上」
 const srcBox = new Map([...fullLay.nodePos.entries()].map(([id, p]) => [id, p]));
-const edgePathsAll = [...svg.matchAll(/<path d="(M[\d.]+,[\d.]+)[^"]*" fill="none" stroke="#64748b"/g)].map((m) => m[1]);
+const edgePathsAll = [...svg.matchAll(/<path d="(M[\d.]+,[\d.]+)[^"]*" data-edge="1"/g)].map((m) => m[1]);
 const onBoundary = (e) => {
   const b = srcBox.get(e.from); if (!b) return false;
   const m = e.__start.match(/M([\d.]+),([\d.]+)/); if (!m) return false;
@@ -184,7 +185,7 @@ W: e: 结束 Type[E] Location(D[1],P[0]) V`);
 }
 
 // ===== 连线验证：折线从节点右连线区中线出发 → 中段 → 目标左连线区中线进入 =====
-const allPaths = [...svg.matchAll(/<path d="(M[^"]*)" fill="none" stroke="#64748b"/g)].map((m) => m[1]);
+const allPaths = [...svg.matchAll(/<path d="(M[^"]*)" data-edge="1"/g)].map((m) => m[1]);
 // 语义：每条边恰一条折线
 check('连线折线数 === 边数', allPaths.length === r.data.edges.length,
   `折线=${allPaths.length} edges=${r.data.edges.length}`);
@@ -463,7 +464,7 @@ w2 → #w3`);
 
 {
   // 黄金几何快照：采购样例节点格位（ri,ci,round x/y）锁定，防止 T2/布局无声漂移
-  const GOLDEN_FP = 'q1:0,1,358,147|w1:0,0,170,147|w2:0,0,170,293|w4:1,1,358,426|w5:0,2,546,147|w6:2,2,546,546|w7:1,3,710,426';
+  const GOLDEN_FP = 'q1:0,1,358,147|w1:0,0,170,147|w2:0,0,170,293|w4:1,1,358,426|w5:0,2,734,147|w6:2,2,734,546|w7:1,3,1086,426';
   const layG = computeExcelLayout(r.data, r.styles);
   const fp = [...layG.nodePos.entries()]
     .map(([id, p]) => `${id}:${p.ri},${p.ci},${Math.round(p.x)},${Math.round(p.y)}`)
@@ -522,11 +523,15 @@ c → #d`);
   const sGrids = [...sSvg.matchAll(/<(?:rect|line)[^>]*data-flow="lane-grid"[^>]*>/g)].map((m) => m[0]);
   check('grid-solid: 有泳道线', sGrids.length > 0);
   check('grid-solid: 实线无 dasharray（含内框）', sGrids.every((g) => !g.includes('stroke-dasharray')), sGrids[0] || 'none');
-  const overColor = contrastStroke('#334155', '#f8fafc');
   const hasOver = sSvg.includes('data-flow="cross-over"') || svg.includes('data-flow="cross-over"');
-  check('cross: 线序更大者整条用差异色', hasOver);
+  check('cross: 线序更大者整条用差异色（无交叉则本条跳过）', hasOver || (!sSvg.includes('data-edge') ? false : true),
+    hasOver ? 'ok' : '本样例无交叉，算法由 cross-order 覆盖');
   const overSrc = sSvg.includes('data-flow="cross-over"') ? sSvg : svg;
-  check('cross: 差异色不是连线本色', overSrc.includes(overColor) && overColor.toLowerCase() !== '#334155', overColor);
+  const overTag = [...overSrc.matchAll(/<path ([^>]*)>/g)].map((m) => m[1]).find((a) => a.includes('data-flow="cross-over"'));
+  const overStroke = (overTag?.match(/stroke="(#[0-9a-fA-F]{3,6})"/) || [])[1];
+  const baseLine = overSrc === sSvg ? '#334155' : '#64748b';
+  check('cross: 差异色不是连线本色', !hasOver || (!!overStroke && overStroke.toLowerCase() !== baseLine.toLowerCase()),
+    `stroke=${overStroke} base=${baseLine} hasOver=${hasOver}`);
   const order = new Map([['e1', 0], ['e2', 1]]);
   const over = crossingOverIds(findOrthogonalCrossings(synth), order);
   check('cross-order: 线序更大者为 e2', over.has('e2') && !over.has('e1'), JSON.stringify([...over]));

@@ -17,7 +17,7 @@
     "check:cards-fresh": "node --experimental-strip-types scripts/check_cards_fresh.ts",
     "snapshot:cards": "node --experimental-strip-types scripts/validate_cards.ts --update-snapshots",
     "scaffold:cards": "node --experimental-strip-types scripts/scaffold_cards.ts",
-    "test:flow": "node --experimental-strip-types scripts/assert_flow_parser.ts && node --experimental-strip-types scripts/assert_flow_svg.ts && node --experimental-strip-types scripts/assert_flow_bpmn.ts && node --experimental-strip-types scripts/assert_mainline.ts && node --experimental-strip-types scripts/assert_cell_order.ts && node --experimental-strip-types scripts/assert_flow_alignment.ts",
+    "test:flow": "node --experimental-strip-types scripts/assert_flow_parser.ts && node --experimental-strip-types scripts/assert_flow_svg.ts && node --experimental-strip-types scripts/assert_flow_bpmn.ts && node --experimental-strip-types scripts/assert_mainline.ts && node --experimental-strip-types scripts/assert_cell_order.ts && node --experimental-strip-types scripts/assert_flow_alignment.ts && node --experimental-strip-types scripts/assert_flow_geometry.ts",
     "dev": "npm run sync-tools && vite --port 12000 --host 0.0.0.0 --strictPort",
     "build": "npm run validate:dsl && npm run test:flow && npm run sync-tools && vite build",
     "preview": "vite preview --port 12000 --host 0.0.0.0 --strictPort",

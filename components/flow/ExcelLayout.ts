@@ -35,6 +35,75 @@ export const NODE_BASE = {
   data: { w: 100, h: 36 },
 };
 
+/**
+ * 子流程内部 3×3 绘制格（R23 / 前提②）。
+ * 迷你节点 + 2×innerHalf 走廊；标题带独立；格数由**内部边**的 CellOrder 决定，
+ * 不用文档级 Layout 当铺排方向（AUD-151）。
+ */
+export const SUBPROCESS_INNER = {
+  w: 72,
+  h: 20,
+  half: 8,
+  titleBand: 18,
+  maxCols: 4,
+};
+
+export function innerCellSize(): { cellW: number; cellH: number } {
+  return {
+    cellW: SUBPROCESS_INNER.w + 2 * SUBPROCESS_INNER.half,
+    cellH: SUBPROCESS_INNER.h + 2 * SUBPROCESS_INNER.half,
+  };
+}
+
+export interface SubprocessInnerLayout {
+  cols: number;
+  rows: number;
+  boxW: number;
+  boxH: number;
+  items: { n: FlowData['nodes'][0]; gx: number; gy: number }[];
+}
+
+export function subprocessInnerLayout(data: FlowData, parentId: string): SubprocessInnerLayout {
+  const inner = data.nodes.filter((x) => x.parent === parentId && x.id !== parentId);
+  const innerIds = new Set(inner.map((n) => n.id));
+  const innerEdges = data.edges.filter((e) => innerIds.has(e.from) && innerIds.has(e.to));
+  const placed = computeCellOrder(inner, innerEdges);
+  let gx = 0, gy = 0;
+  const items: SubprocessInnerLayout['items'] = [];
+  let nx = 1, ny = 1;
+  if (!placed.length) {
+    const { cellW, cellH } = innerCellSize();
+    return { cols: 1, rows: 1, boxW: cellW, boxH: SUBPROCESS_INNER.titleBand + cellH, items };
+  }
+  for (const p of placed) {
+    gx += p.dx;
+    gy += p.dy;
+    items.push({ n: p.n, gx, gy });
+    nx = Math.max(nx, gx + 1);
+    ny = Math.max(ny, gy + 1);
+  }
+  nx = Math.min(nx, SUBPROCESS_INNER.maxCols);
+  const { cellW, cellH } = innerCellSize();
+  return {
+    cols: nx,
+    rows: ny,
+    boxW: nx * cellW,
+    boxH: SUBPROCESS_INNER.titleBand + ny * cellH,
+    items,
+  };
+}
+
+/** @deprecated 使用 subprocessInnerLayout(data, parentId)；保留 count 入口给旧断言迁移。 */
+export function subprocessInnerGrid(data: FlowData, childCount: number): { cols: number; rows: number } {
+  const n = Math.max(1, childCount);
+  const dummyId = data.nodes.find((x) => x.type === 'subprocess')?.id;
+  if (dummyId) {
+    const L = subprocessInnerLayout(data, dummyId);
+    if (L.items.length === n) return { cols: L.cols, rows: L.rows };
+  }
+  return { cols: 1, rows: n };
+}
+
 export function nodeMetrics(n: FlowData['nodes'][0], fs: number): NodeMetrics {
   const label = n.label || n.labelRef || n.id;
   const lines = wrapLabel(label, wrapInnerWidth(n.type), fs);
@@ -151,13 +220,14 @@ export function wrapLabel(label: string, maxWidth: number, fs: number): string[]
 }
 
 // ===== 布局计算结果 =====
-export interface NodePos { x: number; y: number; ri: number; ci: number; W: number; H: number; n: FlowData['nodes'][0]; }
+export interface NodePos { x: number; y: number; ri: number; ci: number; W: number; H: number; n: FlowData['nodes'][0]; gridX?: number; gridY?: number; }
 export interface XyLayout {
   rows: { dict: string; idx: number }[];
   cols: { dict: string; idx: number }[];
   nodePos: Map<string, NodePos>;
   colX: number[]; rowY: number[];
   colWpx: number[]; rowHpx: number[];
+  colNxMax: number[]; rowNyMax: number[];
   width: number; height: number;
   half: number;      // 0.5 单位
   bandLeft: number;
@@ -352,20 +422,15 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     // 节点显式 vh 保持，缺省 vh 由种子/上游方位推导。返回 PlacedNode 已含相对方位(dx,dy)。
     const placed = computeCellOrder(nodes, data.edges);
     placed.forEach(({ n, dx, dy }) => {
-      // 子流程 = 标准泳道交叉格整数倍（设计中心思想）：宽=k×subprocess.w，高=mm×subprocess.h
-      // k/mm 恰好容纳内部子节点（内部也按同款格子数学排布），从而与相邻泳道/交叉格无缝对齐、不超格。
+      // 子流程 = 内部 3×3 绘制格的外轮廓（R23）：迷你节点 + 走廊 + 标题带。
       let m = nodeMetrics(n, fs);
       if (n.type === 'subprocess') {
         const childCount = data.nodes.filter((x) => x.parent === n.id && x.id !== n.id).length;
         if (childCount > 0) {
-          const innerCols = Math.max(1, Math.ceil(Math.sqrt(childCount))); // 内部列数（方阵近似）
-          const rows = Math.ceil(childCount / innerCols);
-          // 整除到标准节基准的整数倍
-          const k = Math.max(1, Math.ceil(innerCols / 1));
-          const mm = Math.max(1, rows);
+          const inner = subprocessInnerLayout(data, n.id);
           m = {
-            halfW: Math.max(m.halfW, (k * NODE_BASE.subprocess.w) / 2),
-            halfH: Math.max(m.halfH, (mm * NODE_BASE.subprocess.h) / 2),
+            halfW: Math.max(m.halfW, inner.boxW / 2),
+            halfH: Math.max(m.halfH, inner.boxH / 2),
             shapeType: m.shapeType,
           };
         }
@@ -429,6 +494,61 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     }
   }
 
+  // 2. 垂直射线视线松弛（发布版 ExcelLayout）：同列跨行直通时，把挡在射线上的节点右移一格，
+  // 打通 0 弯竖走廊，并抬升该列 nx（③ 整列变宽 = 缓冲区间）。对齐口径改为「同 (ci, gridX)」。
+  for (const e of data.edges) {
+    if (e.parent || (e.type && e.type !== 'sequence')) continue;
+    const u = data.nodes.find((x) => x.id === e.from);
+    const v = data.nodes.find((x) => x.id === e.to);
+    if (!u || !v) continue;
+    let uRi = -1, uCi = -1, uGx = 0, uGy = 0;
+    let vRi = -1, vCi = -1, vGx = 0, vGy = 0;
+    for (const [gk, cell] of cellXY) {
+      const itU = cell.items.find((it) => it.n.id === u.id);
+      if (itU) {
+        const [r, c] = gk.split('_').map(Number);
+        uRi = r; uCi = c; uGx = itU.gridX; uGy = itU.gridY;
+      }
+      const itV = cell.items.find((it) => it.n.id === v.id);
+      if (itV) {
+        const [r, c] = gk.split('_').map(Number);
+        vRi = r; vCi = c; vGx = itV.gridX; vGy = itV.gridY;
+      }
+    }
+    if (uCi < 0 || uCi !== vCi || uRi === vRi) continue;
+    const isDownward = uRi < vRi;
+    const minR = Math.min(uRi, vRi), maxR = Math.max(uRi, vRi);
+    const uCell = cellXY.get(`${uRi}_${uCi}`);
+    if (uCell) {
+      const uBlocker = uCell.items.find((it) =>
+        it.n.id !== u.id && (isDownward ? it.gridY > uGy : it.gridY < uGy) && it.gridX === uGx
+      );
+      if (uBlocker) {
+        uBlocker.gridX = uGx + 1;
+        uCell.nx = Math.max(...uCell.items.map((it) => it.gridX + 1), 1);
+      }
+    }
+    for (let r = minR + 1; r < maxR; r++) {
+      const midCell = cellXY.get(`${r}_${uCi}`);
+      if (!midCell) continue;
+      const midBlocker = midCell.items.find((it) => it.gridX === uGx);
+      if (midBlocker) {
+        midBlocker.gridX = uGx + 1;
+        midCell.nx = Math.max(...midCell.items.map((it) => it.gridX + 1), 1);
+      }
+    }
+    const vCell = cellXY.get(`${vRi}_${vCi}`);
+    if (vCell) {
+      const vBlocker = vCell.items.find((it) =>
+        it.n.id !== v.id && (isDownward ? it.gridY < vGy : it.gridY > vGy) && it.gridX === uGx
+      );
+      if (vBlocker) {
+        vBlocker.gridX = uGx + 1;
+        vCell.nx = Math.max(...vCell.items.map((it) => it.gridX + 1), 1);
+      }
+    }
+  }
+
   // 【已停用】T2 守护位移（审计台账 AUD-090）：该算子为减少折弯而移动节点槽位，
   // 与「节点位置权威」原则冲突（节点位置来自 泳道×阶段，是结构事实）；
   // 其「腾挪让位」职责已由 L2/L3 的格位分配与溢出机制承接。
@@ -463,6 +583,28 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     const [ri, ci] = gk.split('_').map(Number);
     if (ci >= 0 && ci < nC) colNxMax[ci] = Math.max(colNxMax[ci], cell.nx);
     if (ri >= 0 && ri < nR) rowNyMax[ri] = Math.max(rowNyMax[ri], cell.ny);
+  }
+  // 有贯穿边的行列至少 2 个绘制格：空出来的那一格是走廊缓冲（节点仍可全在 grid=0）
+  const locOf = (id: string): { ri: number; ci: number } | null => {
+    for (const [gk, cell] of cellXY) {
+      if (cell.items.some((it) => it.n.id === id)) {
+        const [ri, ci] = gk.split('_').map(Number);
+        return { ri, ci };
+      }
+    }
+    return null;
+  };
+  for (const e of data.edges) {
+    if (e.parent) continue;
+    const a = locOf(e.from), b = locOf(e.to);
+    if (!a || !b) continue;
+    if (a.ci === b.ci && a.ri !== b.ri && a.ci >= 0 && a.ci < nC) colNxMax[a.ci] = Math.max(colNxMax[a.ci], 2);
+    if (a.ri === b.ri && a.ci !== b.ci && a.ri >= 0 && a.ri < nR) rowNyMax[a.ri] = Math.max(rowNyMax[a.ri], 2);
+  }
+  for (const n of data.nodes) {
+    if (n.parent || (n.type !== 'annotation' && n.type !== 'dataObject') || !n.attach) continue;
+    const t = locOf(n.attach);
+    if (t && t.ri >= 0 && t.ri < nR) rowNyMax[t.ri] = Math.max(rowNyMax[t.ri], 2);
   }
   const colWPx = colNxMax.map((nx, ci) => Math.max(nx * (cellWself[ci] + 2 * half), 140));
   const rowHPx = rowNyMax.map((ny, ri) => Math.max(ny * (cellHself[ri] + 2 * half + (ny > 1 ? 24 : 0)), 120));
@@ -502,7 +644,7 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
       // 节点严格居中于其绘制格 [gx,gx+pw]×[gy,gy+ph]（两侧连线区等宽，消除空隙/扩展格）
       const cx = gx + pw / 2;
       const cy = gy + ph / 2;
-      nodePos.set(it.n.id, { x: cx, y: cy, ri, ci, W: nodeW, H: nodeH, n: it.n });
+      nodePos.set(it.n.id, { x: cx, y: cy, ri, ci, W: nodeW, H: nodeH, n: it.n, gridX: it.gridX, gridY: it.gridY });
     }
   }
 
@@ -543,6 +685,7 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   }
   return {
     rows, cols, nodePos, colX, rowY: [], colWpx: colWPx, rowHpx: rowHPx,
+    colNxMax, rowNyMax,
     width, height, half, bandLeft, bandTop, gridRight, gridBottom, titleBandW,
     t2,
   };

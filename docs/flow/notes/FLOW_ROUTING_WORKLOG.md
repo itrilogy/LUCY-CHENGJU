@@ -1268,4 +1268,49 @@ forbiddenEdges: [['w4', 'w5']],   // AUD-120 回归防线
 
 ---
 
+## W18 · R22：端口朝向 / 回折穿盒 / 子流程整数倍格（2026-09-12）
+
+> 完整过程记录见 **`docs/flow/review/FLOW_COMPONENT_AUDIT_R22.md`**；台账条目 `AUD-141..146`。
+
+**触发**：使用者对 R21 的三项修复复测，重提同样两项（连线缺目标 / 子流程未按范式显示）。
+
+**命令级留痕（判定 → 修复 → 复算）**
+
+```bash
+# 1) 复算「渲染实际使用的那条路径」（探针已落库：scripts/_flow_probe_routes.ts）
+node --experimental-strip-types scripts/_flow_probe_routes.ts
+#   R22 修复前 →（见 R22 报告 §2.2）：
+#     w2→g1 R>L  [[451,134],[485,134],[290,134],[290,547],[324,547]]   ← 回折 + 横穿 w2 自身盒
+#     p1→w4 T>T  [[391,240],[391,206],[391,480],[666,480],[666,525]]   ← 纵穿 p1 自身盒
+#     d1→p1 L>L  [[1260,267],[329,267]]                                ← 目标端口背向 + 931px 长线
+#   R22 修复后：
+#     g1→p1 T>B  [[391,520],[391,294]]                            0 弯（背向解消失）
+#     d1→p1 L>R  [[1260,267],[453,267]]                           0 弯，箭头贴 p1 右缘指向节点
+#     w2→g1 R>R  [[451,134],[492,134],[492,547],[458,547]]        2 弯，不穿盒
+#     p1→w4 B>T  [[391,294],[391,480],[666,480],[666,525]]        2 弯，不穿盒
+# 2) 端口对代价枚举 / 坐标下降是否取到最优：用一次性探针核对
+#    （`solveRouteHybrid` 已把「两内核 + 择优」收敛为单一真源，等价复现见 R22 报告 §2.3/§4）
+# 3) 新增几何门禁 + 注入自证
+node --experimental-strip-types scripts/assert_flow_geometry.ts   # 12 pass / 0 fail
+python3 scripts/_flow_gate_injection.py                           # A/B/C 三例均报红且还原
+# 4) 全量门禁
+npx tsc --noEmit && npm run test:flow && npm run validate:dsl && npm run check:cards-fresh
+#   → 203 pass / 0 fail（7 段）
+```
+
+**落点（生产代码）**
+
+| 文件 | 变更要点 |
+|:--|:--|
+| `ExcelLayout.ts` | `SUBPROCESS_INNER` + `subprocessInnerGrid` 唯一真源；子流程框 `cols×140 × rows×48` |
+| `flowToSVG.ts` | 内部小图按格心铺排 + 缩放（`fs ≥ 11`）；`relaxNodes`；`data-edge` 语义锚点；改用 `solveRouteHybrid` |
+| `VisibleGraphRouter.ts` | `countBends` 补 180° 回折项；`blocked` 自身盒收缩判定 + `selfBoxStrict`；新增 `solveRouteHybrid` |
+| `AlgebraicFlowRouter.ts` | `solveAlgebraicRoute({ selfBoxStrict })`；`hitsObstacle` 自身盒收缩判定 |
+| `PortOptimizer.ts` | `costOf = 折弯 + 背向罚(1000)`；`relaxNodes`（A1 网关白名单）；改用 `solveRouteHybrid` |
+
+**教训（写入台账「范式增量」）**：① 门禁判据不得借用被测实现自身；② 断言不得绑定颜色等表现层属性（用语义锚点）；
+③ 缺陷定位要落到「现象所在层」（画布现象 ⇒ 先复算渲染路径）；④ 「单一真源」同样适用于**编排**（`solveRouteHybrid`）。
+
+---
+
 *记录人：审计助手 · 逐轮追加，命令级留痕*
