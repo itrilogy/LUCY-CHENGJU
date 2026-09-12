@@ -51,7 +51,7 @@ export const AffinityDiagram = forwardRef<AffinityDiagramRef, AffinityDiagramPro
         useImperativeHandle(ref, () => ({
             getDataURL: async (options) => {
                 const pixelRatio = options?.pixelRatio || 3;
-                const backgroundColor = options?.backgroundColor || '#ffffff';
+                const backgroundColor = options?.backgroundColor || '#FFFFFF';
                 const transparent = backgroundColor === 'transparent';
                 
                 const contentSize = calculateContentSize(data, finalStyles);
@@ -98,7 +98,7 @@ export const AffinityDiagram = forwardRef<AffinityDiagramRef, AffinityDiagramPro
                 ctx.clearRect(0, 0, contentSize.width, contentSize.height);
 
                 if (!transparent) {
-                    ctx.fillStyle = finalStyles.background || '#ffffff';
+                    ctx.fillStyle = finalStyles.background || '#FFFFFF';
                     ctx.fillRect(0, 0, contentSize.width, contentSize.height);
                 }
                 if (finalStyles.type === 'Label') {

@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { VChartData, VChartChartStyles, DEFAULT_VCHART_STYLES, VChartAnimationMode, QCToolType } from '../types';
 import { INITIAL_VCHART_DSL, VCHART_COLOR_PALETTES } from '../constants';
 import { 
     Cpu, Sparkles, RotateCcw, Database, Code, 
-    ChevronRight, Loader2, HelpCircle, X, BarChart3, Zap
+    ChevronRight, Loader2, HelpCircle, X, BarChart3, Zap,
+    AlertTriangle,
 } from 'lucide-react';
-import { generateLogicDSL, getAIStatus } from '../services/aiService';
+import {generateLogicDSL} from '../services/aiService';
+import { CardDocModal } from './CardDocModal';
+import { Switch } from './ui/Switch';
+import { useAIEngine } from '../hooks/useAIEngine';
+import { ConfirmInline } from './ui/ConfirmInline';
 
 interface VChartEditorProps {
     data: VChartData;
@@ -109,16 +113,15 @@ const ANIMATION_MODES: { id: VChartAnimationMode; label: string }[] = [
 
 const VChartEditor: React.FC<VChartEditorProps> = ({ data, styles, theme, onDataChange, onStylesChange }) => {
     const [dsl, setDsl] = useState(INITIAL_VCHART_DSL);
+    const [error, setError] = useState<string | null>(null);
+    const [confirmReset, setConfirmReset] = useState(false);
     const [activeTab, setActiveTab] = useState<'manual' | 'dsl' | 'ai'>('manual');
     const [isGenerating, setIsGenerating] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
-    const [engineName, setEngineName] = useState('DeepSeek');
+    const engineName = useAIEngine();
     const [showDocs, setShowDocs] = useState(false);
     const [docTab, setDocTab] = useState<'dsl' | 'logic'>('dsl');
 
-    useEffect(() => {
-        getAIStatus().then(setEngineName);
-    }, []);
 
     const isInitialized = useRef(false);
     useEffect(() => {
@@ -153,15 +156,14 @@ const VChartEditor: React.FC<VChartEditorProps> = ({ data, styles, theme, onData
             onDataChange(newData);
             onStylesChange(newStyles);
         } catch (e) {
-            console.error('Failed to parse DSL', e);
+            console.error('Failed to parse DSL', e), setError(`Failed to parse DSL ${e instanceof Error ? e.message : String(e)}`);
         }
     };
 
-    const handleReset = () => {
-        if (confirm('确定要恢复到示例数据吗？')) {
+    const doReset = () => {
             setDsl(INITIAL_VCHART_DSL);
             handleParseDSL(INITIAL_VCHART_DSL);
-        }
+        setConfirmReset(false);
     };
 
     const generateAI = async () => {
@@ -181,35 +183,42 @@ const VChartEditor: React.FC<VChartEditorProps> = ({ data, styles, theme, onData
 
     return (
         <div className="flex flex-col h-[calc(100vh-80px)] bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] relative transition-colors">
-            <div className="p-6 border-b border-[var(--sidebar-border)] space-y-6">
+            <div className="p-6 border-b border-[var(--border-line-r)] space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-indigo-600/20 rounded-lg flex items-center justify-center border border-indigo-500/30">
-                            <Cpu size={22} className="text-indigo-400" />
+                        <div className="w-10 h-10 bg-primary/20 rounded-md flex items-center justify-center border border-primary/30">
+                            <Cpu size={22} className="text-primary" />
                         </div>
                         <div>
                             <h2 className="text-sm font-black text-[var(--sidebar-text)] tracking-widest uppercase">VChart 全能引擎</h2>
-                            <p className="text-[8px] text-[var(--sidebar-muted)] font-bold tracking-[0.2em] mt-1 uppercase">VisActor Chart Engine | IQS Core</p>
+                            <p className="text-[11px] text-[var(--sidebar-muted)] font-bold tracking-[0.2em] mt-1 uppercase">VisActor Chart Engine | IQS Core</p>
                         </div>
                     </div>
-                    <div className="flex gap-2">
-                        <button onClick={handleReset} className="p-3 bg-[var(--card-bg)] rounded-lg text-[var(--sidebar-text)] hover:text-amber-400 transition-all border border-[var(--sidebar-border)] shadow-sm" title="恢复示例">
+                    <div className="flex items-center gap-2">
+                        {confirmReset && (
+                            <ConfirmInline
+                                message="恢复示例？当前修改将丢失"
+                                onConfirm={doReset}
+                                onCancel={() => setConfirmReset(false)}
+                            />
+                        )}
+                        <button onClick={() => setConfirmReset(true)} disabled={confirmReset} className="p-3 bg-[var(--card-bg)] rounded-md text-[var(--sidebar-text)] hover:text-[var(--text-warn)] transition-all border border-[var(--border-line-r)] shadow-sm" title="恢复示例">
                             <RotateCcw size={18} />
                         </button>
-                        <button onClick={() => setShowDocs(true)} className="p-3 bg-[var(--card-bg)] rounded-lg text-[var(--sidebar-text)] hover:text-indigo-400 transition-all border border-[var(--sidebar-border)] shadow-sm" title="配置帮助">
+                        <button onClick={() => setShowDocs(true)} className="p-3 bg-[var(--card-bg)] rounded-md text-[var(--sidebar-text)] hover:text-primary transition-all border border-[var(--border-line-r)] shadow-sm" title="配置帮助">
                             <HelpCircle size={18} />
                         </button>
                     </div>
                 </div>
 
-                <nav className="flex bg-[var(--input-bg)] p-1.5 rounded-lg border border-[var(--input-border)] gap-1">
+                <nav className="flex bg-[var(--input-bg)] p-1.5 rounded-md border border-[var(--input-border)] gap-1">
                     {[
                         { id: 'manual', label: '全局配置', icon: <Database size={14} /> },
                         { id: 'dsl', label: 'JSON 脚本', icon: <Code size={14} /> },
                         { id: 'ai', label: 'AI 推理', icon: <Sparkles size={14} /> }
                     ].map(t => (
                         <button key={t.id} onClick={() => setActiveTab(t.id as any)}
-                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === t.id ? 'bg-indigo-600 text-white shadow-xl' : 'text-[var(--sidebar-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--card-bg)]'}`}>
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === t.id ? 'bg-primary text-white shadow-lg' : 'text-[var(--text-secondary)] hover:text-[var(--sidebar-text)] hover:bg-[var(--card-bg)]'}`}>
                             {t.icon} {t.label}
                         </button>
                     ))}
@@ -217,12 +226,22 @@ const VChartEditor: React.FC<VChartEditorProps> = ({ data, styles, theme, onData
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+                {error && (
+                    <div role="alert" className="p-4 rounded-md bg-[var(--alert-red)]/10 border border-[var(--alert-red)]/30 flex items-start gap-3">
+                        <AlertTriangle size={16} className="text-[var(--text-danger)] shrink-0 mt-0.5" />
+                        <p className="text-[11px] font-bold text-[var(--text-danger)] leading-relaxed flex-1">{error}</p>
+                        <button type="button" onClick={() => setError(null)} aria-label="关闭错误提示"
+                            className="text-[var(--text-muted)] hover:text-[var(--text-danger)] transition-colors shrink-0">
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
                 {activeTab === 'dsl' ? (
                     <div className="h-full flex flex-col space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <textarea
                             value={dsl}
                             onChange={e => { setDsl(e.target.value); handleParseDSL(e.target.value); }}
-                            className="flex-1 w-full bg-[var(--input-bg)] text-[var(--sidebar-text)] p-8 font-mono text-[11px] leading-relaxed border border-[var(--input-border)] rounded-lg focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all resize-none shadow-inner custom-scrollbar"
+                            className="iqs-input iqs-code flex-1 min-h-[400px] resize-y"
                             placeholder='{"type": "bar", ...}'
                             spellCheck={false}
                         />
@@ -233,23 +252,23 @@ const VChartEditor: React.FC<VChartEditorProps> = ({ data, styles, theme, onData
                         {/* === 标题控制 === */}
                         <div className="space-y-4">
                             <div className="flex items-center gap-3 pl-2">
-                                <ChevronRight size={14} className="text-indigo-500" />
-                                <span className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">标题</span>
+                                <ChevronRight size={14} className="text-primary" />
+                                <span className="text-[11px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">标题</span>
                             </div>
-                            <div className="space-y-3 bg-[var(--input-bg)] p-4 rounded-lg border border-[var(--input-border)]">
+                            <div className="space-y-3 bg-[var(--input-bg)] p-4 rounded-md border border-[var(--input-border)]">
                                 <div className="space-y-2">
-                                    <label className="text-[9px] font-black text-[var(--sidebar-muted)] uppercase pl-1">图表标题文字</label>
+                                    <label className="text-[11px] font-black text-[var(--sidebar-muted)] uppercase pl-1">图表标题文字</label>
                                     <input
                                         value={data.title}
                                         onChange={e => onDataChange({ ...data, title: e.target.value })}
-                                        className="w-full h-10 px-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg text-xs font-bold focus:outline-none focus:border-indigo-500 text-[var(--sidebar-text)]"
+                                        className="w-full h-10 px-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md text-[11px] font-bold focus:outline-none text-[var(--sidebar-text)]"
                                     />
                                 </div>
                             <div className="space-y-2">
-                                    <label className="text-[9px] font-black text-[var(--sidebar-muted)] uppercase pl-1">标题字号: {styles.titleFontSize}px</label>
+                                    <label className="text-[11px] font-black text-[var(--sidebar-muted)] uppercase pl-1">标题字号: {styles.titleFontSize}px</label>
                                     <input type="range" min="12" max="48" value={styles.titleFontSize}
                                         onChange={e => onStylesChange({ ...styles, titleFontSize: parseInt(e.target.value) })}
-                                        className="w-full h-1 bg-[var(--input-border)] rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+                                        className="w-full h-1 bg-[var(--input-border)] rounded-md appearance-none cursor-pointer" />
                                 </div>
                             </div>
                         </div>
@@ -257,24 +276,24 @@ const VChartEditor: React.FC<VChartEditorProps> = ({ data, styles, theme, onData
                         {/* === 主题与配色 === */}
                         <div className="space-y-4">
                             <div className="flex items-center gap-3 pl-2">
-                                <ChevronRight size={14} className="text-indigo-500" />
-                                <span className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">主题与配色</span>
+                                <ChevronRight size={14} className="text-primary" />
+                                <span className="text-[11px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">主题与配色</span>
                             </div>
-                            <div className="bg-[var(--input-bg)] p-4 rounded-lg border border-[var(--input-border)]">
+                            <div className="bg-[var(--input-bg)] p-4 rounded-md border border-[var(--input-border)]">
                                 <div className="grid grid-cols-1 gap-1.5">
                                     {VCHART_COLOR_PALETTES.map(p => (
                                         <button
                                             key={p.id}
                                             onClick={() => onStylesChange({ ...styles, colorPalette: p.id })}
-                                            className={`flex items-center justify-between p-2.5 rounded-lg border transition-all ${styles.colorPalette === p.id ? 'bg-indigo-600/10 border-indigo-500/50 text-indigo-400' : 'bg-[var(--card-bg)] border-[var(--input-border)] text-[var(--sidebar-text)] hover:border-indigo-500/30'}`}
+                                            className={`flex items-center justify-between p-2.5 rounded-md border transition-all ${styles.colorPalette === p.id ? 'bg-primary/10 border-primary/50 text-primary' : 'bg-[var(--card-bg)] border-[var(--input-border)] text-[var(--sidebar-text)] hover:border-primary/30'}`}
                                         >
-                                            <span className="text-[10px] font-bold">{p.name}</span>
+                                            <span className="text-[11px] font-bold">{p.name}</span>
                                             <div className="flex gap-1">
                                                 {p.colors.length > 0
                                                     ? p.colors.slice(0, 5).map((c, idx) => (
                                                         <div key={idx} className="w-3 h-3 rounded-full border border-white/10" style={{ backgroundColor: c }} />
                                                     ))
-                                                    : <span className="text-[8px] text-[var(--sidebar-muted)] italic">VChart 原生</span>
+                                                    : <span className="text-[11px] text-[var(--sidebar-muted)] italic">VChart 原生</span>
                                                 }
                                             </div>
                                         </button>
@@ -286,21 +305,21 @@ const VChartEditor: React.FC<VChartEditorProps> = ({ data, styles, theme, onData
                         {/* === 显示控制 + 动画控制 (合并到同一块) === */}
                         <div className="space-y-4">
                             <div className="flex items-center gap-3 pl-2">
-                                <ChevronRight size={14} className="text-indigo-500" />
-                                <span className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">显示与动画</span>
+                                <ChevronRight size={14} className="text-primary" />
+                                <span className="text-[11px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">显示与动画</span>
                             </div>
-                            <div className="bg-[var(--input-bg)] p-4 rounded-lg border border-[var(--input-border)] grid grid-cols-2 gap-4">
+                            <div className="bg-[var(--input-bg)] p-4 rounded-md border border-[var(--input-border)] grid grid-cols-2 gap-4">
                                 <label className="flex items-center gap-3 cursor-pointer group">
-                                    <input type="checkbox" checked={styles.showTitle} onChange={e => onStylesChange({ ...styles, showTitle: e.target.checked })} className="w-4 h-4 rounded border-[var(--input-border)] bg-[var(--sidebar-bg)] text-indigo-600 focus:ring-indigo-500" />
-                                    <span className="text-[10px] font-bold text-[var(--sidebar-text)] group-hover:text-indigo-500 uppercase tracking-wider">显示标题</span>
+                                    <Switch checked={!!(styles.showTitle)} onChange={v => onStylesChange({ ...styles, showTitle: v })} ariaLabel="显示标题" />
+                                    <span className="text-[11px] font-bold text-[var(--sidebar-text)] group-hover:text-[var(--text-ok)] uppercase tracking-wider">显示标题</span>
                                 </label>
                                 <label className="flex items-center gap-3 cursor-pointer group">
-                                    <input type="checkbox" checked={styles.showLabel} onChange={e => onStylesChange({ ...styles, showLabel: e.target.checked })} className="w-4 h-4 rounded border-[var(--input-border)] bg-[var(--sidebar-bg)] text-indigo-600 focus:ring-indigo-500" />
-                                    <span className="text-[10px] font-bold text-[var(--sidebar-text)] group-hover:text-indigo-500 uppercase tracking-wider">显示数值</span>
+                                    <Switch checked={!!(styles.showLabel)} onChange={v => onStylesChange({ ...styles, showLabel: v })} ariaLabel="显示数值" />
+                                    <span className="text-[11px] font-bold text-[var(--sidebar-text)] group-hover:text-[var(--text-ok)] uppercase tracking-wider">显示数值</span>
                                 </label>
                                 <label className="flex items-center gap-3 cursor-pointer group col-span-2">
-                                    <input type="checkbox" checked={styles.animation} onChange={e => onStylesChange({ ...styles, animation: e.target.checked })} className="w-4 h-4 rounded border-[var(--input-border)] bg-[var(--sidebar-bg)] text-indigo-600 focus:ring-indigo-500" />
-                                    <span className="text-[10px] font-bold text-[var(--sidebar-text)] group-hover:text-indigo-500 uppercase tracking-wider">开启动画（默认关闭，适合大数据）</span>
+                                    <Switch checked={!!(styles.animation)} onChange={v => onStylesChange({ ...styles, animation: v })} ariaLabel="开启动画（默认关闭，适合大数据）" />
+                                    <span className="text-[11px] font-bold text-[var(--sidebar-text)] group-hover:text-[var(--text-ok)] uppercase tracking-wider">开启动画（默认关闭，适合大数据）</span>
                                 </label>
                             </div>
                         </div>
@@ -309,18 +328,18 @@ const VChartEditor: React.FC<VChartEditorProps> = ({ data, styles, theme, onData
                         {styles.animation && (
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <div className="flex items-center gap-3 pl-2">
-                                    <ChevronRight size={14} className="text-indigo-500" />
-                                    <span className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">动画类型</span>
+                                    <ChevronRight size={14} className="text-primary" />
+                                    <span className="text-[11px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">动画类型</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-1.5">
                                     {ANIMATION_MODES.map(m => (
                                         <button
                                             key={m.id}
                                             onClick={() => onStylesChange({ ...styles, animationMode: m.id })}
-                                            className={`py-2 px-3 rounded-lg border text-[9px] font-black uppercase tracking-wide transition-all ${
+                                            className={`py-2 px-3 rounded-md border text-[11px] font-black uppercase tracking-wide transition-all ${
                                                 styles.animationMode === m.id
-                                                    ? 'bg-indigo-600 border-indigo-500 text-white'
-                                                    : 'bg-[var(--card-bg)] border-[var(--input-border)] text-[var(--sidebar-muted)] hover:border-indigo-500/30'
+                                                    ? 'bg-primary border-primary text-white'
+                                                    : 'bg-[var(--card-bg)] border-[var(--input-border)] text-[var(--sidebar-muted)] hover:border-primary/30'
                                             }`}
                                         >
                                             {m.label}
@@ -333,28 +352,28 @@ const VChartEditor: React.FC<VChartEditorProps> = ({ data, styles, theme, onData
                     </div>
                 ) : (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
-                        <div className="p-8 bg-[var(--input-bg)] rounded-lg border border-[var(--input-border)] space-y-8 shadow-2xl relative overflow-hidden group">
-                           <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] pb-3">
+                        <div className="p-8 bg-[var(--input-bg)] rounded-md border border-[var(--input-border)] space-y-8 relative overflow-hidden group">
+                           <div className="flex items-center justify-between border-b border-[var(--border-line-r)] pb-3">
                                 <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">AI 智能生成</span>
-                                <div className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-                                    <span className="text-[9px] font-black text-emerald-500 uppercase">Engine Active: {engineName}</span>
+                                <div className="px-3 py-1 iqs-badge rounded-full flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 bg-[var(--state-up)] rounded-full animate-pulse" />
+                                    <span className="text-[11px] font-black text-[var(--text-ok)] uppercase">Engine Active: {engineName}</span>
                                 </div>
                             </div>
                             <textarea
                                 value={aiPrompt}
                                 onChange={e => setAiPrompt(e.target.value)}
-                                className="w-full h-32 p-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg text-xs font-bold focus:outline-none focus:border-indigo-500 text-[var(--sidebar-text)] resize-none"
+                                className="iqs-input min-h-[160px] resize-y"
                                 placeholder="描述你想要生成的复杂图表，例如：'绘制一张展示 2024 年各产品线由于质量问题导致的成本损失与月度趋势的组合图'..."
                             />
                             <button
                                 onClick={generateAI}
                                 disabled={isGenerating || !aiPrompt.trim()}
-                                className={`w-full h-16 rounded-lg flex items-center justify-center gap-4 transition-all shadow-2xl relative overflow-hidden group ${isGenerating ? 'bg-[var(--sidebar-muted)]' : 'bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98]'}`}
+                                className={`w-full h-16 rounded-md flex items-center justify-center gap-4 transition-all relative overflow-hidden group ${isGenerating ? 'iqs-btn-pending' : 'iqs-btn-primary'}`}
                             >
                                 {isGenerating ? (
                                     <>
-                                        <Loader2 size={18} className="animate-spin text-indigo-400" />
+                                        <Loader2 size={18} className="animate-spin text-primary" />
                                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">正在解析 Spec...</span>
                                     </>
                                 ) : (
@@ -369,104 +388,8 @@ const VChartEditor: React.FC<VChartEditorProps> = ({ data, styles, theme, onData
                 )}
             </div>
 
-            {showDocs && createPortal(
-                <div className="fixed inset-0 z-[10000] flex items-center justify-center p-8 bg-black/60 backdrop-blur-md transition-all">
-                    <div className="bg-[var(--sidebar-bg)] w-[800px] max-h-[85vh] rounded-lg border border-[var(--sidebar-border)] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div className="px-10 py-8 flex flex-col border-b border-[var(--sidebar-border)] shrink-0 gap-6 bg-[var(--sidebar-bg)]/80 backdrop-blur-xl">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-indigo-600/20 rounded-lg border border-indigo-500/30">
-                                        <BarChart3 size={24} className="text-indigo-400" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-black text-[var(--sidebar-text)] uppercase tracking-tighter">VChart 引擎知识库</h3>
-                                        <p className="text-[10px] text-[var(--sidebar-muted)] font-bold uppercase tracking-widest mt-1">VisActor Chart Spec Guide</p>
-                                    </div>
-                                </div>
-                                <button onClick={() => setShowDocs(false)} className="p-3 hover:bg-slate-800 rounded-lg transition-all text-slate-200 hover:text-white">
-                                    <X size={24} />
-                                </button>
-                            </div>
-
-                            <nav className="flex bg-[var(--card-bg)] p-1 rounded-lg border border-[var(--sidebar-border)] w-fit">
-                                {[
-                                    { id: 'dsl', label: 'DSL 规范说明' },
-                                    { id: 'logic', label: '分析逻辑与指南' },
-                                ].map(t => (
-                                    <button
-                                        key={t.id}
-                                        onClick={() => setDocTab(t.id as any)}
-                                        className={`px-8 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${docTab === t.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-200 hover:text-slate-300'}`}
-                                    >
-                                        {t.label}
-                                    </button>
-                                ))}
-                            </nav>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar text-[var(--sidebar-muted)]">
-                            {docTab === 'dsl' ? (
-                                <div className="space-y-12">
-                                    <div className="font-mono text-xs space-y-6">
-                                        <section>
-                                            <h4 className="text-indigo-500 font-bold uppercase tracking-wider text-[10px] mb-3">DSL 关键配置（全量）</h4>
-                                            <div className="grid grid-cols-1 gap-2 text-[11px]">
-                                                <p><span className="text-indigo-400 font-bold">Title:</span> [文字] — 图表标题</p>
-                                                <p><span className="text-indigo-400 font-bold">ColorPalette:</span> light | dark | tech | vibrant | industrial | deep | ocean | forest | sunset</p>
-                                                <p><span className="text-indigo-400 font-bold">Font[Title]:</span> [Size] — 标题字号 (px)</p>
-                                                <p><span className="text-indigo-400 font-bold">ShowTitle:</span> true | false — 是否显示标题 (默认 true)</p>
-                                                <p><span className="text-indigo-400 font-bold">ShowLabel:</span> true | false — 是否显示数值标签 (默认 true)</p>
-                                                <p><span className="text-indigo-400 font-bold">Animation:</span> true | false — 是否开启渲染动画 (默认 false)</p>
-                                                <p><span className="text-indigo-400 font-bold">AnimationMode:</span> scale | fadeIn | appear | move — 动画类型</p>
-                                                <p><span className="text-indigo-400 font-bold">Spec:</span> {'{ ... }'} — 标准 VisActor JSON 配置</p>
-                                            </div>
-                                        </section>
-                                        <section className="border-t border-slate-800 pt-6">
-                                            <h4 className="text-emerald-500 font-bold uppercase tracking-wider text-[10px] mb-3">支持的图表类型 (Full Types)</h4>
-                                            <div className="grid grid-cols-3 gap-2 text-[9px] font-mono">
-                                                {['bar (柱状图)', 'line (折线图)', 'area (面积图)', 'pie/rose (饼图)', 'scatter (散点图)', 'radar (雷达图)', 'sankey (桑基图)', 'funnel (漏斗图)', 'treemap (树图)', 'waterfall (瀑布)', 'heatmap (热力图)', 'boxPlot (箱线图)', 'gauge (仪表盘)', 'sunburst (旭日)', 'wordCloud (词云)', 'venn (韦恩图)', 'common (组合图)'].map(t => (
-                                                    <div key={t} className="p-2 bg-emerald-500/5 border border-emerald-500/20 rounded">{t}</div>
-                                                ))}
-                                            </div>
-                                        </section>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-12">
-                                    <section className="space-y-4">
-                                        <h4 className="text-sm font-black text-indigo-400 uppercase tracking-widest border-b border-indigo-900/50 pb-2">全能图表优势</h4>
-                                        <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--input-border)] space-y-4 text-xs leading-relaxed text-[var(--sidebar-text)]">
-                                            <p>VChart 引擎适用于处理极其复杂的工业数据可视化场景：</p>
-                                            <ul className="list-disc list-inside space-y-2">
-                                                <li><strong>多轴组合</strong>: 柱状图、折线图、面积图的自由组合。</li>
-                                                <li><strong>复杂布局</strong>: 桑基图、漏斗图、矩形树图等高级类型。</li>
-                                                <li><strong>海量数据</strong>: 优化的 Canvas 渲染，支持数万个数据点的平滑展示。</li>
-                                            </ul>
-                                        </div>
-                                    </section>
-                                    <div className="p-6 bg-indigo-500/10 border border-indigo-500/20 rounded-lg">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <Zap size={14} className="text-indigo-500" />
-                                            <span className="text-[10px] font-black uppercase text-indigo-500">专家建议</span>
-                                        </div>
-                                        <p className="text-[11px] text-[var(--sidebar-text)] font-medium italic mb-2">
-                                            "使用 VChart 时，建议通过 AI 智能生成初步框架，再通过 JSON 脚本进行微调，以获得最佳的可视化效果。"
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        <div className="p-10 border-t border-[var(--sidebar-border)] bg-[var(--input-bg)] flex justify-center shrink-0">
-                            <button
-                                onClick={() => setShowDocs(false)}
-                                className="px-16 py-4 bg-indigo-600 text-white font-black rounded-lg text-[10px] uppercase tracking-widest shadow-xl hover:bg-indigo-500 transition-all font-sans"
-                            >
-                                已阅读规范
-                            </button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
+            {showDocs && (
+                <CardDocModal kind="vchart" open={showDocs} onClose={() => setShowDocs(false)} />
             )}
         </div>
     );

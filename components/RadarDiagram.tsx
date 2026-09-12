@@ -168,7 +168,7 @@ export const RadarDiagram = forwardRef<RadarDiagramRef, RadarDiagramProps>(({ da
             if (ctx) {
                 ctx.scale(scale, scale);
                 if (!transparent) {
-                    ctx.fillStyle = '#ffffff';
+                    ctx.fillStyle = '#FFFFFF';
                     ctx.fillRect(0, 0, exportWidth, exportHeight);
                 }
                 ctx.drawImage(img, 0, 0);
@@ -214,7 +214,7 @@ export const RadarDiagram = forwardRef<RadarDiagramRef, RadarDiagramProps>(({ da
             canvas.height = exportHeight * 2;
             if (ctx) {
                 ctx.scale(2, 2);
-                ctx.fillStyle = '#ffffff';
+                ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, exportWidth, exportHeight);
                 ctx.drawImage(img, 0, 0);
                 const imgData = canvas.toDataURL('image/png');
@@ -224,7 +224,7 @@ export const RadarDiagram = forwardRef<RadarDiagramRef, RadarDiagramProps>(({ da
                     win.document.write(`
             <html>
               <head><title>Export PDF - 澄矩 · ChengJu</title></head>
-              <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#f8fafc; font-family: -apple-system, sans-serif;">
+              <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#F5F7FA; font-family: -apple-system, sans-serif;">
                 <div style="padding: 40px; background: #fff; box-shadow: 0 40px 100px rgba(0,0,0,0.05); border-radius: 20px; text-align: center;">
                   <img src="${imgData}" style="max-width:100%; height:auto;" />
                   <div style="margin-top: 20px; color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;">
@@ -259,7 +259,7 @@ export const RadarDiagram = forwardRef<RadarDiagramRef, RadarDiagramProps>(({ da
             if (!svgRef.current) return '';
             return await svgToDataURL(svgRef.current, {
                 pixelRatio: options?.pixelRatio || 3,
-                backgroundColor: options?.backgroundColor || '#ffffff',
+                backgroundColor: options?.backgroundColor || '#FFFFFF',
                 width: options?.width,
                 height: options?.height
             });
@@ -289,7 +289,7 @@ export const RadarDiagram = forwardRef<RadarDiagramRef, RadarDiagramProps>(({ da
                         x={centerX}
                         y={40}
                         textAnchor="middle"
-                        style={{ fontSize: titleFontSize, fontWeight: '900', fill: '#1e293b', fontFamily: 'Inter, system-ui, sans-serif' }}
+                        style={{ fontSize: titleFontSize, fontWeight: '900', fill: '#1A2428', fontFamily: 'Inter, system-ui, sans-serif' }}
                     >
                         {title}
                     </text>
@@ -301,14 +301,14 @@ export const RadarDiagram = forwardRef<RadarDiagramRef, RadarDiagramProps>(({ da
                                 width={showAreaScore && showSimilarity ? 240 : 160}
                                 height={series.length * 20 + 35}
                                 rx="12"
-                                fill="#f8fafc"
-                                stroke="#e2e8f0"
+                                fill="#F5F7FA"
+                                stroke="rgba(13,94,66,0.10)"
                             />
-                            <text x="12" y="20" style={{ fontSize: 10, fontWeight: '900', fill: '#64748b', letterSpacing: '0.05em' }}>统计分析报告</text>
+                            <text x="12" y="20" style={{ fontSize: 11, fontWeight: '900', fill: '#5A6B80', letterSpacing: '0.05em' }}>统计分析报告</text>
                             {series.map((s, idx) => (
                                 <g key={idx} transform={`translate(12, ${idx * 20 + 40})`}>
                                     <circle r="4" fill={s.color} cx="4" cy="-3" />
-                                    <text x="15" style={{ fontSize: 10, fontWeight: '700', fill: '#1e293b' }}>
+                                    <text x="15" style={{ fontSize: 11, fontWeight: '700', fill: '#1A2428' }}>
                                         {s.name.substring(0, 12)}: {showAreaScore ? `得分 ${Math.round(analysisResults.scores[s.name] || 0)}` : ''}
                                         {showSimilarity && idx > 0 ? ` | 相似度 ${Math.round(analysisResults.similarities[s.name] || 0)}%` : ''}
                                     </text>
@@ -387,9 +387,9 @@ export const RadarDiagram = forwardRef<RadarDiagramRef, RadarDiagramProps>(({ da
                             <g key={idx}>
                                 <polygon
                                     points={points}
-                                    fill={s.color || '#3b82f6'}
+                                    fill={s.color || '#0D5E42'}
                                     fillOpacity={s.fillOpacity || 0.3}
-                                    stroke={s.color || '#3b82f6'}
+                                    stroke={s.color || '#0D5E42'}
                                     strokeWidth="2"
                                     className="transition-all duration-500"
                                 />
@@ -410,14 +410,14 @@ export const RadarDiagram = forwardRef<RadarDiagramRef, RadarDiagramProps>(({ da
                                                 cx={coord.x}
                                                 cy={coord.y}
                                                 r="3"
-                                                fill={s.color || '#3b82f6'}
+                                                fill={s.color || '#0D5E42'}
                                             />
                                             <text
                                                 x={textCoord.x}
                                                 y={textCoord.y}
                                                 textAnchor="middle"
                                                 dominantBaseline="middle"
-                                                style={{ fontSize: 9, fontWeight: '700', fill: s.color || '#3b82f6', paintOrder: 'stroke', stroke: '#fff', strokeWidth: 2 }}
+                                                style={{ fontSize: 11, fontWeight: '700', fill: '#1A2428', paintOrder: 'stroke', stroke: '#FFFFFF', strokeWidth: 3 }}
                                             >
                                                 {val}
                                             </text>

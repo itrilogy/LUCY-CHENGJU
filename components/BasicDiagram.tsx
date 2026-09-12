@@ -12,7 +12,7 @@ interface Props {
 // Helper: Derived colors based on seed
 const deriveColors = (seed: string, count: number) => {
     let base = seed;
-    if (!base || !base.startsWith('#')) base = '#3b82f6';
+    if (!base || !base.startsWith('#')) base = '#0D5E42';
 
     const colors: string[] = [base];
     if (count <= 1) return colors;
@@ -99,7 +99,7 @@ export const BasicDiagram = forwardRef<BasicDiagramRef, Props>(({ data, styles }
             return echartsInstance.getDataURL({
                 type: 'png',
                 pixelRatio: options?.pixelRatio || 3,
-                backgroundColor: options?.backgroundColor || '#ffffff'
+                backgroundColor: options?.backgroundColor || '#FFFFFF'
             });
         },
         exportPNG: (transparent = false, scale = 3) => {
@@ -226,7 +226,7 @@ export const BasicDiagram = forwardRef<BasicDiagramRef, Props>(({ data, styles }
                     offset: idx > 1 ? (idx - 1) * 60 : 0,
                     splitLine: { show: finalStyles.grid && idx === 0 },
                     axisLabel: { color: '#64748b' },
-                    nameTextStyle: { color: '#1e293b', fontWeight: 'bold' }
+                    nameTextStyle: { color: '#1A2428', fontWeight: 'bold' }
                 });
             });
 
@@ -286,7 +286,7 @@ export const BasicDiagram = forwardRef<BasicDiagramRef, Props>(({ data, styles }
                 type: 'category',
                 data: categories,
                 axisLabel: { color: '#64748b', fontSize: finalStyles.baseFontSize },
-                axisLine: { lineStyle: { color: '#e2e8f0' } }
+                axisLine: { lineStyle: { color: 'rgba(13,94,66,0.10)' } }
             };
 
             if (isHorizontal) {

@@ -36,7 +36,7 @@ const Subplot: React.FC<{
     if (type === 'label') {
         return (
             <g>
-                <rect width={width} height={height} fill="#f8fafc" stroke={styles.gridColor} strokeWidth={0.5} />
+                <rect width={width} height={height} fill="#F5F7FA" stroke={styles.gridColor} strokeWidth={0.5} />
                 <text
                     x={width / 2}
                     y={height / 2}
@@ -84,7 +84,7 @@ const Subplot: React.FC<{
 
         return (
             <g>
-                <rect width={width} height={height} fill="#ffffff" stroke={styles.gridColor} strokeWidth={0.5} />
+                <rect width={width} height={height} fill="#FFFFFF" stroke={styles.gridColor} strokeWidth={0.5} />
                 {binCounts.map((count, i) => (
                     <rect
                         key={i}
@@ -92,7 +92,7 @@ const Subplot: React.FC<{
                         y={padding + plotH - (count / maxCount) * plotH}
                         width={binW - 1}
                         height={(count / maxCount) * plotH}
-                        fill="#334155"
+                        fill="#42525C"
                         opacity={0.15}
                     />
                 ))}
@@ -211,7 +211,7 @@ export const MatrixPlotDiagram = forwardRef<MatrixPlotDiagramRef, { data: Matrix
     const titleHeight = 100;
     const padding = 40;
     const legendWidth = groupVariable ? 160 : 0;
-    const industrialPalette = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
+    const industrialPalette = ['#0D5E42', '#CF3A2B', '#16a34a', '#D0A50A', '#3498DB', '#0891b2'];
 
     // Dynamic Cell Sizing
     const { cellW, cellH, gridTotalW, gridTotalH } = useMemo(() => {
@@ -285,7 +285,7 @@ export const MatrixPlotDiagram = forwardRef<MatrixPlotDiagramRef, { data: Matrix
             if (!svgRef.current) return '';
             return await svgToDataURL(svgRef.current, {
                 pixelRatio: options?.pixelRatio || 3,
-                backgroundColor: options?.backgroundColor || '#ffffff',
+                backgroundColor: options?.backgroundColor || '#FFFFFF',
                 width: options?.width,
                 height: options?.height,
                 padding: 0 // SVG 已经包含了标题和边距
@@ -302,7 +302,7 @@ export const MatrixPlotDiagram = forwardRef<MatrixPlotDiagramRef, { data: Matrix
                 canvas.width = totalW * scale;
                 canvas.height = totalH * scale;
                 if (!transparent) {
-                    ctx.fillStyle = '#ffffff';
+                    ctx.fillStyle = '#FFFFFF';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                 }
                 ctx.scale(scale, scale);
@@ -559,9 +559,9 @@ export const MatrixPlotDiagram = forwardRef<MatrixPlotDiagramRef, { data: Matrix
     };
 
     if (!nX || !nY) return (
-        <div className="flex flex-col items-center justify-center p-20 text-slate-400 gap-4">
+        <div className="flex flex-col items-center justify-center p-20 text-[var(--sidebar-text)] gap-4">
             <Grid3X3 size={48} opacity={0.2} />
-            <p className="text-xs font-bold uppercase tracking-widest">请在编辑器中定义分析维度</p>
+            <p className="text-[11px] font-bold uppercase tracking-widest">请在编辑器中定义分析维度</p>
         </div>
     );
 
@@ -594,7 +594,7 @@ export const MatrixPlotDiagram = forwardRef<MatrixPlotDiagramRef, { data: Matrix
                     y={titleHeight}
                     width={gridTotalW}
                     height={gridTotalH}
-                    fill="#f8fafc"
+                    fill="#F5F7FA"
                     opacity={0.5}
                     rx={8}
                 />

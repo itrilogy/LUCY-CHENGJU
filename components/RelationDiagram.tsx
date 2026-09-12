@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { Graph } from '@antv/g6';
 import { RelationNode, RelationLink, RelationChartStyles, DEFAULT_RELATION_STYLES, BaseDiagramRef } from '../types';
+import { estimateTextWidth } from '../utils/textMetrics';
 
 export interface RelationDiagramRef extends BaseDiagramRef {}
 
@@ -14,6 +15,7 @@ interface RelationDiagramProps {
 const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ nodes, links, styles, className }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const graphRef = useRef<Graph | null>(null);
+    const rafRef = useRef<number | null>(null);
 
     const finalStyles = { ...DEFAULT_RELATION_STYLES, ...styles };
 
@@ -26,7 +28,7 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
             }
             return await graphRef.current.toDataURL({
                 pixelRatio: options?.pixelRatio || 3,
-                backgroundColor: options?.backgroundColor || '#ffffff'
+                backgroundColor: options?.backgroundColor || '#FFFFFF'
             } as any);
         },
         exportPNG: async (transparent = false, scale = 3) => {
@@ -48,7 +50,7 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
                 canvas.height = img.height;
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
-                    ctx.fillStyle = '#ffffff'; // Default white background
+                    ctx.fillStyle = '#FFFFFF'; // Default white background
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.drawImage(img, 0, 0);
                     const link = document.createElement('a');
@@ -62,7 +64,7 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
         exportPDF: async (transparent = false) => {
             if (!graphRef.current) return;
             const dataURL = await graphRef.current.toDataURL({
-                backgroundColor: '#ffffff'
+                backgroundColor: '#FFFFFF'
             } as any);
 
             const win = window.open('', '_blank');
@@ -70,7 +72,7 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
                 win.document.write(`
              <html>
                  <head><title>导出 PDF - 澄矩 · ChengJu</title></head>
-                 <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#f8fafc;">
+                 <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#F5F7FA;">
                      <img src="${dataURL}" style="max-width:95%; max-height:95%; object-fit:contain; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);" />
                  </body>
              </html>
@@ -138,9 +140,12 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
                 shape = 'ellipse';
             }
 
-            const size: number | [number, number] = shape === 'rect' 
-                ? [Math.max(120, node.label.length * (fontSize - 2) + 40), 50]
-                : [Math.max(100, node.label.length * fontSize + 20), 40];
+            // 按**实际字宽**估算（汉字 1em / 拉丁 0.56em），旧实现用 label.length
+            // 会把中文算窄（溢出）把英文算宽（留白过大）
+            const textW = estimateTextWidth(node.label, fontSize);
+            const size: number | [number, number] = shape === 'rect'
+                ? [Math.max(120, textW + 40), 50]
+                : [Math.max(100, textW + 20), 40];
 
             return {
                 id: node.id,
@@ -149,7 +154,7 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
                 style: {
                     fill,
                     stroke,
-                    lineWidth: 0,
+                    lineWidth: 1,          // 原为 0：同色相邻节点会糊成一片，细描边提供轮廓
                     radius: 8,
                     labelText: node.label,
                     labelFill,
@@ -195,13 +200,16 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
             // Update Layout dynamically
             graphRef.current.setLayout(getLayoutConfig(finalStyles.layout || 'Directional'));
             graphRef.current.render();
-            // Force re-layout on data change and ensure it fits
-            setTimeout(() => {
-                if (graphRef.current) {
+            // 数据变化后重新布局并自适应。用 requestAnimationFrame 双帧替代
+            // 硬编码 100ms 定时器（原实现既不精确、又无清理，卸载后仍会执行）
+            rafRef.current && cancelAnimationFrame(rafRef.current);
+            rafRef.current = requestAnimationFrame(() => {
+                rafRef.current = requestAnimationFrame(() => {
+                    if (!graphRef.current) return;
                     graphRef.current.layout();
                     graphRef.current.fitView();
-                }
-            }, 100);
+                });
+            });
         }
 
         function getLayoutConfig(type: string): any {

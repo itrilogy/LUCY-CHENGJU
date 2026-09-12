@@ -1,7 +1,7 @@
 /**
  * IQS-Flow 交叉格内排序（Cell Order）—— 格内拓扑序 + 缺省 vh 推导
  *
- * 对应 `docs/FLOW_CELL_ORDER_DESIGN.md` 设计（用户确认排序键 = 格内拓扑序，dec-5447e9c5a255f3ac）：
+ * 对应 `docs/flow/design/FLOW_CELL_ORDER_DESIGN.md` 设计（用户确认排序键 = 格内拓扑序，dec-5447e9c5a255f3ac）：
  *   a. 解析先落格 + 声明序（computeExcelLayout 前半）；
  *   b. 本函数：按格内节点间 from→to 直接边做拓扑序，使流向相邻在格内也相邻；
  *      · 显式 vh 保持原值（尊重作者语义，只变"相对谁"）；

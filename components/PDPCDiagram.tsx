@@ -23,7 +23,7 @@ const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles
         getDataURL: async (options) => {
             if (!graphRef.current) return '';
             const pixelRatio = options?.pixelRatio || 3;
-            const backgroundColor = options?.backgroundColor || '#ffffff';
+            const backgroundColor = options?.backgroundColor || '#FFFFFF';
 
             if (options?.width && options?.height) {
                 graphRef.current.setSize(options.width, options.height);
@@ -55,7 +55,7 @@ const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles
                     }
 
                     // 绘制标题
-                    ctx.fillStyle = '#1e293b';
+                    ctx.fillStyle = '#1A2428';
                     ctx.font = `bold ${finalStyles.titleFontSize * pixelRatio}px sans-serif`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
@@ -72,7 +72,7 @@ const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles
             if (!graphRef.current || !containerRef.current) return;
 
             const graphCanvas = await graphRef.current.toDataURL({ 
-                backgroundColor: transparent ? 'transparent' : '#ffffff',
+                backgroundColor: transparent ? 'transparent' : '#FFFFFF',
                 pixelRatio: scale
             });
             const uiWidth = containerRef.current.clientWidth;
@@ -94,14 +94,14 @@ const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles
 
                 // Fill background
                 if (!transparent) {
-                    ctx.fillStyle = '#ffffff';
+                    ctx.fillStyle = '#FFFFFF';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                 }
 
                 // Draw Title with proportional scaling
                 if (data.title) {
                     const scaledFontSize = finalStyles.titleFontSize * g6Scale;
-                    ctx.fillStyle = '#1e293b';
+                    ctx.fillStyle = '#1A2428';
                     ctx.font = `bold ${scaledFontSize}px sans-serif`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
@@ -121,13 +121,13 @@ const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles
         },
         exportPDF: async (transparent = false) => {
             if (!graphRef.current) return;
-            const dataURL = await graphRef.current.toDataURL({ backgroundColor: '#ffffff' });
+            const dataURL = await graphRef.current.toDataURL({ backgroundColor: '#FFFFFF' });
             const win = window.open('', '_blank');
             if (win) {
                 win.document.write(`
                     <div style="text-align:center; padding: 2rem; font-family: sans-serif;">
-                        <h1 style="font-size: ${finalStyles.titleFontSize}px; margin-bottom: 2rem; color: #1e293b;">${data.title || ''}</h1>
-                        <img src="${dataURL}" style="max-width:100%; border: 1px solid #e2e8f0;"/>
+                        <h1 style="font-size: ${finalStyles.titleFontSize}px; margin-bottom: 2rem; color: #1A2428;">${data.title || ''}</h1>
+                        <img src="${dataURL}" style="max-width:100%; border: 1px solid rgba(13,94,66,0.10);"/>
                     </div>
                 `);
                 win.document.close();
@@ -201,15 +201,15 @@ const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles
                 source: link.source,
                 target: link.target,
                 style: {
-                    stroke: isNG ? '#ef4444' : (isOK ? '#10b981' : finalStyles.lineColor),
+                    stroke: isNG ? '#E74C3C' : (isOK ? '#00D2FF' : finalStyles.lineColor),
                     lineWidth: finalStyles.lineWidth,
                     endArrow: true,
                     labelText: link.marker !== 'None' ? link.marker : '',
-                    labelFill: isNG ? '#ef4444' : (isOK ? '#10b981' : '#64748b'),
+                    labelFill: isNG ? '#E74C3C' : (isOK ? '#00D2FF' : '#64748b'),
                     labelFontSize: 10,
                     labelFontWeight: 'bold',
                     labelBackground: true,
-                    labelBackgroundFill: '#ffffff',
+                    labelBackgroundFill: '#FFFFFF',
                     labelBackgroundRadius: 4,
                     labelPadding: [2, 4]
                 }
@@ -226,9 +226,9 @@ const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles
                 labelFontSize: 12,
                 labelFontWeight: 'bold',
                 labelPlacement: 'top',
-                fill: '#f8fafc',
+                fill: '#F5F7FA',
                 fillOpacity: 0.5,
-                stroke: '#e2e8f0',
+                stroke: 'rgba(13,94,66,0.10)',
                 lineWidth: 1,
                 lineDash: [4, 4],
                 radius: 8,
@@ -294,7 +294,7 @@ const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles
                     style={{
                         fontSize: finalStyles.titleFontSize,
                         fontWeight: 'bold',
-                        color: '#1e293b'
+                        color: '#1A2428'
                     }}
                 >
                     {data.title}

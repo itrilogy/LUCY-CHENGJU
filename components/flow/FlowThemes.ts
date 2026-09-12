@@ -54,7 +54,7 @@ export function contrastStroke(line: string, panel: string): string {
     const inv = P.map((c) => 255 - c) as [number, number, number];
     out = out.map((c, i) => Math.round(c * 0.3 + inv[i] * 0.7)) as [number, number, number];
   }
-  const fallback = lum(P[0], P[1], P[2]) > 0.5 ? '#1e293b' : '#f8fafc';
+  const fallback = lum(P[0], P[1], P[2]) > 0.5 ? '#1A2428' : '#F5F7FA';
   if (Math.abs(lum(out[0], out[1], out[2]) - lum(P[0], P[1], P[2])) < 0.28) return fallback;
   if (dist2(out, L) < 24 * 24) return fallback;
   return rgbToHex(out[0], out[1], out[2]);
@@ -69,41 +69,42 @@ export interface FlowPalette {
 export const FLOW_PALETTES: FlowPalette[] = [
   {
     id: 'default',
-    name: '默认蓝',
+    name: '鹿溪（默认）',
     colors: {
-      startColor: '#2563eb', endColor: '#ef4444', taskColor: '#3b82f6',
-      gatewayColor: '#10b981', parallelColor: '#8b5cf6', subprocessColor: '#0ea5e9',
-      annotationColor: '#f59e0b', dataColor: '#64748b', laneColor: '#e2e8f0',
-      axisColor: '#334155', lineColor: '#64748b', textColor: '#1e293b', panelColor: '#f8fafc',
+      // LUXI Design System v1.0 范式色（工坊·一法）
+      startColor: '#0D5E42', endColor: '#E74C3C', taskColor: '#0A4A33',
+      gatewayColor: '#00D2FF', parallelColor: '#3498DB', subprocessColor: '#14805C',
+      annotationColor: '#F1C40F', dataColor: '#64748B', laneColor: 'rgba(13,94,66,0.10)',
+      axisColor: '#42525C', lineColor: '#64748B', textColor: '#1A2428', panelColor: '#F5F7FA',
     },
   },
   {
     id: 'contrast',
     name: '高反差',
     colors: {
-      startColor: '#1d4ed8', endColor: '#b91c1c', taskColor: '#1e40af',
-      gatewayColor: '#047857', parallelColor: '#6d28d9', subprocessColor: '#0369a1',
-      annotationColor: '#b45309', dataColor: '#334155', laneColor: '#cbd5e1',
-      axisColor: '#0f172a', lineColor: '#0f172a', textColor: '#0f172a', panelColor: '#ffffff',
+      startColor: '#0A4A33', endColor: '#A92C20', taskColor: '#083B29',
+      gatewayColor: '#008099', parallelColor: '#3498DB', subprocessColor: '#0369a1',
+      annotationColor: '#A67F08', dataColor: '#42525C', laneColor: 'rgba(13,94,66,0.18)',
+      axisColor: '#1A2428', lineColor: '#1A2428', textColor: '#1A2428', panelColor: '#FFFFFF',
     },
   },
   {
     id: 'print',
     name: '打印灰',
     colors: {
-      startColor: '#111827', endColor: '#111827', taskColor: '#374151',
-      gatewayColor: '#4b5563', parallelColor: '#4b5563', subprocessColor: '#6b7280',
-      annotationColor: '#9ca3af', dataColor: '#6b7280', laneColor: '#e5e7eb',
-      axisColor: '#111827', lineColor: '#111827', textColor: '#111827', panelColor: '#ffffff',
+      startColor: '#1A2428', endColor: '#1A2428', taskColor: '#42525C',
+      gatewayColor: '#64748B', parallelColor: '#64748B', subprocessColor: '#64748B',
+      annotationColor: '#94A3B8', dataColor: '#64748B', laneColor: '#e5e7eb',
+      axisColor: '#1A2428', lineColor: '#1A2428', textColor: '#1A2428', panelColor: '#FFFFFF',
     },
   },
   {
     id: 'teal',
     name: '青绿',
     colors: {
-      startColor: '#0f766e', endColor: '#b45309', taskColor: '#0d9488',
-      gatewayColor: '#059669', parallelColor: '#7c3aed', subprocessColor: '#0891b2',
-      annotationColor: '#ca8a04', dataColor: '#57534e', laneColor: '#ccfbf1',
+      startColor: '#0f766e', endColor: '#A67F08', taskColor: '#0d9488',
+      gatewayColor: '#00A8CC', parallelColor: '#3498DB', subprocessColor: '#0891b2',
+      annotationColor: '#D0A50A', dataColor: '#57534e', laneColor: '#ccfbf1',
       axisColor: '#134e4a', lineColor: '#0f766e', textColor: '#134e4a', panelColor: '#f0fdfa',
     },
   },
@@ -112,8 +113,8 @@ export const FLOW_PALETTES: FlowPalette[] = [
     name: '暖沙',
     colors: {
       startColor: '#c2410c', endColor: '#991b1b', taskColor: '#ea580c',
-      gatewayColor: '#b45309', parallelColor: '#a21caf', subprocessColor: '#d97706',
-      annotationColor: '#ca8a04', dataColor: '#78716c', laneColor: '#ffedd5',
+      gatewayColor: '#A67F08', parallelColor: '#a21caf', subprocessColor: '#D0A50A',
+      annotationColor: '#D0A50A', dataColor: '#78716c', laneColor: '#ffedd5',
       axisColor: '#7c2d12', lineColor: '#9a3412', textColor: '#7c2d12', panelColor: '#fff7ed',
     },
   },

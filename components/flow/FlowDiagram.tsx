@@ -94,11 +94,11 @@ const FlowDiagram = forwardRef<FlowDiagramRef, FlowDiagramProps>(({ data, styles
   useImperativeHandle(ref, () => ({
     getDataURL: async (options) => {
       const pixelRatio = options?.pixelRatio || 3;
-      const background = options?.backgroundColor || '#ffffff';
+      const background = options?.backgroundColor || '#FFFFFF';
       return buildPNG(pixelRatio, background, options?.width, options?.height);
     },
     exportPNG: async (transparent = false, scale = 3) => {
-      const url = await buildPNG(scale, transparent ? 'transparent' : '#ffffff');
+      const url = await buildPNG(scale, transparent ? 'transparent' : '#FFFFFF');
       const a = document.createElement('a');
       a.href = url;
       a.download = `${data.title || 'flow'}.png`;

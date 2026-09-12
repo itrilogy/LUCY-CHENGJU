@@ -12,6 +12,8 @@ import {
   type Box,
   type Point,
 } from './AlgebraicFlowRouter.ts';
+import { solveVisibleGraphRoute, pickShorter } from './VisibleGraphRouter.ts';
+import { optimizePorts } from './PortOptimizer.ts';
 import {
   FLOW_SVG,
   NODE_BASE,
@@ -91,7 +93,7 @@ function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy:
     const labelPlate = overflow
       ? `<rect x="${cx - maxLineW / 2 - 6}" y="${cy - (lines.length * fs * 1.3) / 2 - 4}" width="${maxLineW + 12}" height="${lines.length * fs * 1.3 + 8}" rx="4" fill="#64748b" stroke="none" opacity="0.9"/>`
       : '';
-    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>${labelPlate}${multilineText(cx, cy, lines, fs, overflow ? '#f8fafc' : '#fff')}${renderCorner(cx, cy, W, H, corner)}`;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>${labelPlate}${multilineText(cx, cy, lines, fs, overflow ? '#F5F7FA' : '#fff')}${renderCorner(cx, cy, W, H, corner)}`;
   }
   switch (n.type) {
     case 'exclusiveGateway':
@@ -138,9 +140,9 @@ function nodeShape(n: FlowData['nodes'][0], st: FlowChartStyles, cx: number, cy:
   if (n.type === 'subprocess') {
     // 子流程标题放左下角（不遮挡框内内部小图）
     const titleY = cy + H / 2 - 16;
-    out = shape + plate + `<text x="${cx - W / 2 + 10}" y="${titleY}" text-anchor="start" fill="${overflow ? '#f8fafc' : '#fff'}" font-size="${fs}" font-weight="600">${esc(lines[0] || '')}</text>`;
+    out = shape + plate + `<text x="${cx - W / 2 + 10}" y="${titleY}" text-anchor="start" fill="${overflow ? '#F5F7FA' : '#fff'}" font-size="${fs}" font-weight="600">${esc(lines[0] || '')}</text>`;
   } else {
-    out = shape + plate + multilineText(cx, textCy, lines, fs, overflow ? '#f8fafc' : '#fff');
+    out = shape + plate + multilineText(cx, textCy, lines, fs, overflow ? '#F5F7FA' : '#fff');
   }
   return out + renderCorner(cx, cy, W, H, corner);
 }
@@ -281,7 +283,7 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   const placeY = data.axes?.page?.place === 'AxisY';
 
   // 泳道区背景
-  parts.push(`<rect x="${x0}" y="${y0}" width="${L.gridRight - x0}" height="${L.gridBottom - y0}" fill="${st.panelColor || '#f8fafc'}"/>`);
+  parts.push(`<rect x="${x0}" y="${y0}" width="${L.gridRight - x0}" height="${L.gridBottom - y0}" fill="${st.panelColor || '#F5F7FA'}"/>`);
   // 绘制格内框 + 行列边界：同一套 Grid dashed|solid（内线条此前写死实线，开关无效）
   const gridDash = st.gridLine === 'solid' ? '' : ' stroke-dasharray="4 4"';
   const gridStroke = `stroke="#94a3b8" stroke-width="0.8"${gridDash}`;
@@ -314,12 +316,12 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     const bandTopY = FLOW_SVG.titleH;
     const bandH = L.gridBottom - bandTopY;
     const bandMidY = bandTopY + bandH / 2;
-    parts.push(`<rect x="0" y="${bandTopY}" width="${tbw}" height="${bandH}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
+    parts.push(`<rect x="0" y="${bandTopY}" width="${tbw}" height="${bandH}" fill="#EEF2F5" stroke="#94a3b8" stroke-width="1"/>`);
     // 竖向带内 Align（旋转文字：L/R 沿带内 x 略偏，保持旋转居中不受水平错位影响）
     const tiltX = pageAlign === 'L' ? 10 : pageAlign === 'R' ? tbw - 10 : tbw / 2;
     parts.push(`<text x="${tiltX}" y="${bandMidY}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${tiltX} ${bandMidY})" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
   } else {
-    parts.push(`<rect x="0" y="0" width="${L.gridRight}" height="${FLOW_SVG.titleH}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>`);
+    parts.push(`<rect x="0" y="0" width="${L.gridRight}" height="${FLOW_SVG.titleH}" fill="#EEF2F5" stroke="#94a3b8" stroke-width="1"/>`);
     const titleX = pageAlign === 'L' ? 12 : pageAlign === 'R' ? L.gridRight - 12 : L.gridRight / 2;
     parts.push(`<text x="${titleX}" y="${FLOW_SVG.titleH / 2}" text-anchor="${titleAnchor}" dominant-baseline="middle" fill="${st.textColor}" font-size="${st.titleFontSize}" font-weight="bold">${esc(titleText)}</text>`);
   }
@@ -332,7 +334,7 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   // 左表头整体向右偏移 titleBandW（AxisY 标题带在最左）
   const hx = L.titleBandW;
   if (axisXT || axisYT) {
-    parts.push(`<rect x="${hx}" y="${FLOW_SVG.titleH}" width="${cornerW}" height="${cornerH}" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>`);
+    parts.push(`<rect x="${hx}" y="${FLOW_SVG.titleH}" width="${cornerW}" height="${cornerH}" fill="rgba(13,94,66,0.10)" stroke="#94a3b8" stroke-width="1"/>`);
     // Align：坐标轴标题沿角落格 x 轴对齐（L=start 靠左, R=end 靠右, C=中间）
     const padX = 6;
     const anchorFor = (al: string | undefined) => al === 'L' ? 'start' : al === 'R' ? 'end' : 'middle';
@@ -350,7 +352,7 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   for (let ci = 0; ci < nC; ci++) {
     const cl = dictValue(data, L.cols[ci].dict, L.cols[ci].idx);
     const show = L.cols[ci].dict !== 'ROOT';
-    parts.push(`<rect x="${L.colX[ci]}" y="${FLOW_SVG.titleH}" width="${L.colWpx[ci]}" height="${cornerH}" fill="${show ? '#e2e8f0' : 'none'}" stroke="#94a3b8" stroke-width="1"/>`);
+    parts.push(`<rect x="${L.colX[ci]}" y="${FLOW_SVG.titleH}" width="${L.colWpx[ci]}" height="${cornerH}" fill="${show ? 'rgba(13,94,66,0.10)' : 'none'}" stroke="#94a3b8" stroke-width="1"/>`);
     if (show) parts.push(`<text x="${L.colX[ci] + L.colWpx[ci] / 2}" y="${FLOW_SVG.titleH + cornerH / 2}" text-anchor="middle" dominant-baseline="middle" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(cl)}</text>`);
   }
   // 行标签格（左表头，每行一格）：Y 泳道标题旋转 -90°（竖向排列）
@@ -358,14 +360,14 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     const rl = dictValue(data, L.rows[ri].dict, L.rows[ri].idx);
     const show = L.rows[ri].dict !== 'ROOT';
     const rcx = hx + cornerW / 2, rcy = L.bandTop(ri) + L.rowHpx[ri] / 2;
-    parts.push(`<rect x="${hx}" y="${L.bandTop(ri)}" width="${cornerW}" height="${L.rowHpx[ri]}" fill="${show ? '#e2e8f0' : 'none'}" stroke="#94a3b8" stroke-width="1"/>`);
+    parts.push(`<rect x="${hx}" y="${L.bandTop(ri)}" width="${cornerW}" height="${L.rowHpx[ri]}" fill="${show ? 'rgba(13,94,66,0.10)' : 'none'}" stroke="#94a3b8" stroke-width="1"/>`);
     if (show) parts.push(`<text x="${rcx}" y="${rcy}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${rcx} ${rcy})" fill="${st.axisColor}" font-size="12" font-weight="bold">${esc(rl)}</text>`);
   }
 
   // ===== 连线与端口引擎：全局协同 WSAD 硬性互斥 + 几何中点对齐原则 =====
   // [2026-09 清理] 旧引擎死代码已移除：nodeBoxes/getMidpointPort/getCorridorPort/
   // segIntersectsBox/routeHits/isPortBlocked 主路径已由 AlgebraicFlowRouter 承接，
-  // 详见 docs/FLOW_OPTIMALITY_EXECUTION_NOTES.md。type Port/Box 仍供 allBoxes 等使用。
+  // 详见 docs/flow/notes/FLOW_OPTIMALITY_EXECUTION_NOTES.md。type Port/Box 仍供 allBoxes 等使用。
   type Port = 'R' | 'L' | 'T' | 'B';
   type Box = { x0: number; y0: number; x1: number; y1: number };
 
@@ -393,7 +395,6 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     isDoc: e.condition === '__doc__',
   }));
 
-  const { sourcePorts: sourcePortOf, targetPorts: targetPortOf } = solveAlgebraicPorts(nodesGeo, edgeSpecs);
 
   const { xChannels, yChannels } = computeGridChannels({
     colX: L.colX,
@@ -408,6 +409,10 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
     gridBottom: L.gridBottom,
     half: L.half,
   }, nodesGeo);
+  // 端口分配：坐标下降（审计台账 AUD-104）—— 以真实路径折弯数回馈端口选择，受 A1 互斥约束，
+  // 迭代至不动点（引理 §3.3 保证终止）。初值取自 solveAlgebraicPorts，故结果必不劣于原贪心。
+  const { sourcePorts: sourcePortOf, targetPorts: targetPortOf } = optimizePorts(
+    nodesGeo, edgeSpecs, { xChannels, yChannels }, L.half, { maxIter: 4, dynamicStub: true });
 
   const allBoxes: Record<string, Box> = {};
   for (const n of nodesGeo) {
@@ -416,13 +421,18 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
 
   const nodeGeoMap = new Map(nodesGeo.map((n) => [n.id, n]));
 
-  // 计算每条边的代数无碰撞正交路径
+  // 计算每条边的正交路径 —— 混合内核（审计台账 AUD-109）：
+  //   候选 A = 可见图 + 4 方向状态 + 动态 stub（VisibleGraphRouter）
+  //   候选 B = 现实现 solveAlgebraicRoute（分级候选枚举）
+  //   逐边取折弯更少者 ⇒ 由「并集不劣于任一」引理保证**不劣于**任一单一内核
   const edgeRoutes = new Map<string, Point[]>();
   for (const e of edgeList) {
     const u = nodeGeoMap.get(e.from), v = nodeGeoMap.get(e.to);
     if (!u || !v) continue;
     const sp = sourcePortOf.get(e.id) ?? 'R', tp = targetPortOf.get(e.id) ?? 'T';
-    const path = solveAlgebraicRoute(u, v, sp, tp, xChannels, yChannels, allBoxes, L.half);
+    const pathOld = solveAlgebraicRoute(u, v, sp, tp, xChannels, yChannels, allBoxes, L.half);
+    const pathVg = solveVisibleGraphRoute(u, v, sp, tp, xChannels, yChannels, allBoxes, L.half, { dynamicStub: true });
+    const path = pickShorter(pathOld, pathVg) ?? pathOld;
     edgeRoutes.set(e.id, path);
   }
 
@@ -430,7 +440,7 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
   const edgeOrder = new Map(edgeList.map((e, i) => [e.id, i]));
   const crossHits = findOrthogonalCrossings(edgeRoutes, Object.values(allBoxes));
   const overIds = crossingOverIds(crossHits, edgeOrder);
-  const contrast = contrastStroke(st.lineColor || '#64748b', st.panelColor || '#f8fafc');
+  const contrast = contrastStroke(st.lineColor || '#64748b', st.panelColor || '#F5F7FA');
   const drawOrder = [...edgeList].sort((a, b) => {
     const ao = overIds.has(a.id) ? 1 : 0;
     const bo = overIds.has(b.id) ? 1 : 0;
@@ -531,7 +541,7 @@ export function flowToSVG(data: FlowData, styles: FlowChartStyles): string {
       const panelW = Math.max(200, L.gridRight - 0);
       // 每条属性一行：标签 + 去重值（逗号连接）
       let y = L.gridBottom + 12;
-      panelParts.push(`<rect x="0" y="${y}" width="${panelW}" height="${titleH + entries.length * rowH + pad * 2}" fill="${st.panelColor || '#f8fafc'}" stroke="#94a3b8" stroke-width="1"/>`);
+      panelParts.push(`<rect x="0" y="${y}" width="${panelW}" height="${titleH + entries.length * rowH + pad * 2}" fill="${st.panelColor || '#F5F7FA'}" stroke="#94a3b8" stroke-width="1"/>`);
       panelParts.push(`<text x="${pad}" y="${y + 14}" font-size="11" font-weight="bold" fill="${st.axisColor}">属性图例</text>`);
       y += titleH + 4;
       for (const key of entries) {

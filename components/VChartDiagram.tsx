@@ -78,7 +78,7 @@ const VChartDiagram = forwardRef<VChartDiagramRef, Props>(({ data, styles = DEFA
                 win.document.write(`
           <html>
             <head><title>导出 PDF - 澄矩 · ChengJu</title></head>
-            <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#f8fafc; font-family: -apple-system, sans-serif;">
+            <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#F5F7FA; font-family: -apple-system, sans-serif;">
               <div style="padding: 40px; background: #fff; box-shadow: 0 40px 100px rgba(0,0,0,0.05); border-radius: 20px; text-align: center;">
                 <img src="${dataUrl}" style="max-width:100%; height:auto;" />
                 <div style="margin-top: 20px; color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: uppercase; tracking-widest: 0.1em;">
@@ -228,10 +228,10 @@ const VChartDiagram = forwardRef<VChartDiagramRef, Props>(({ data, styles = DEFA
 
     if (renderError) {
         return (
-            <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-rose-50/50 dark:bg-rose-900/10 transition-colors">
-                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-rose-200 dark:border-rose-800 shadow-xl max-w-2xl w-full">
-                    <div className="text-rose-500 font-black mb-3 uppercase text-[10px] tracking-widest">渲染引擎异常</div>
-                    <div className="p-4 bg-rose-50 dark:bg-rose-900/20 rounded-xl text-rose-600 dark:text-rose-400 font-mono text-[11px] leading-relaxed whitespace-pre-wrap overflow-auto max-h-[200px]">
+            <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-rose-50/50 dark:bg-[var(--alert-red)]/10 transition-colors">
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-[var(--alert-red)] dark:border-[var(--alert-red)] shadow-xl max-w-2xl w-full">
+                    <div className="text-[var(--text-danger)] font-black mb-3 uppercase text-[11px] tracking-widest">渲染引擎异常</div>
+                    <div className="p-4 bg-rose-50 dark:bg-[var(--alert-red)]/20 rounded-xl text-[var(--text-danger)] dark:text-[var(--text-danger)] font-mono text-[11px] leading-relaxed whitespace-pre-wrap overflow-auto max-h-[200px]">
                         {renderError}
                     </div>
                 </div>

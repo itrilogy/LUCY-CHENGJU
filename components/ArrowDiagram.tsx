@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { ArrowData, ArrowChartStyles, DEFAULT_ARROW_STYLES, BaseDiagramRef } from '../types';
 import { svgToDataURL } from '../utils/exportUtils';
+import { fitText } from '../utils/textMetrics';
 
 export interface ArrowDiagramRef extends BaseDiagramRef {
     resetView: () => void;
@@ -28,6 +29,10 @@ export const ArrowDiagram = forwardRef<ArrowDiagramRef, ArrowDiagramProps>(({ da
     // Map of linkIndex -> {x, y} offset
     const [labelOffsets, setLabelOffsets] = useState<Record<number, { x: number, y: number }>>({});
     const [draggingLabel, setDraggingLabel] = useState<{ index: number, startX: number, startY: number, initialOffsetX: number, initialOffsetY: number } | null>(null);
+
+    /** 连线标号自适应：未超宽用原字号，超宽则同比缩字号（下限 9px），底板贴合文字 */
+    const fitLabel = (text: string, baseSize: number) =>
+        fitText(text, baseSize, 96, 9, 14);
 
     const lastPos = useRef({ x: 0, y: 0 });
     const containerRef = useRef<HTMLDivElement>(null);
@@ -100,7 +105,7 @@ export const ArrowDiagram = forwardRef<ArrowDiagramRef, ArrowDiagramProps>(({ da
 
             return await svgToDataURL(tempSvg, {
                 pixelRatio: options?.pixelRatio || 3,
-                backgroundColor: options?.backgroundColor || '#ffffff',
+                backgroundColor: options?.backgroundColor || '#FFFFFF',
                 width: options?.width,
                 height: options?.height,
                 padding: 0 // 已经有 bounds 逻辑了
@@ -172,7 +177,7 @@ export const ArrowDiagram = forwardRef<ArrowDiagramRef, ArrowDiagramProps>(({ da
                 if (!ctx) return;
 
                 if (!transparent) {
-                    ctx.fillStyle = '#ffffff';
+                    ctx.fillStyle = '#FFFFFF';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                 }
 
@@ -340,7 +345,7 @@ export const ArrowDiagram = forwardRef<ArrowDiagramRef, ArrowDiagramProps>(({ da
                                 textAnchor="middle"
                                 fontSize={24}
                                 fontWeight="bold"
-                                fill="#1e293b"
+                                fill="#1A2428"
                             >
                                 {data.title}
                             </text>
@@ -348,6 +353,7 @@ export const ArrowDiagram = forwardRef<ArrowDiagramRef, ArrowDiagramProps>(({ da
 
                         {/* Links */}
                         {data.links.map((link, idx) => {
+                                    const fit = fitLabel(link.label || '', fontSize);
                             const src = data.nodes.find(n => n.id === link.source);
                             const tgt = data.nodes.find(n => n.id === link.target);
 
@@ -395,16 +401,16 @@ export const ArrowDiagram = forwardRef<ArrowDiagramRef, ArrowDiagramProps>(({ da
                                         className="cursor-move pointer-events-auto"
                                         onMouseDown={(e) => handleLabelMouseDown(e, idx)}
                                     >
-                                        <rect x="-40" y="-18" width="80" height="36" fill="white" opacity="0.85" rx="4" />
-                                        <text y="-4" textAnchor="middle" fill={textColor} fontSize={fontSize} fontWeight={isCrit ? 'bold' : 'normal'} className="select-none">
+                                        <rect x={-fit.boxWidth / 2} y="-18" width={fit.boxWidth} height="36" fill="white" opacity="0.85" rx="4" />
+                                        <text y="-4" textAnchor="middle" fill={textColor} fontSize={fit.size} fontWeight={isCrit ? 'bold' : 'normal'} className="select-none">
                                             {link.label}
                                         </text>
-                                        <text y={fontSize} textAnchor="middle" fill={textColor} fontSize={fontSize * 0.85} opacity={0.8} fontStyle="italic" className="select-none">
+                                        <text y={fit.size} textAnchor="middle" fill={textColor} fontSize={Math.max(8, fit.size * 0.85)} opacity={0.8} fontStyle="italic" className="select-none">
                                             {link.isDummy ? '(dummy)' : `t=${link.duration}`}
                                         </text>
 
-                                        {/* Hover Hint (Invisible hit area or subtle border?) */}
-                                        <rect x="-42" y="-20" width="84" height="40" fill="transparent" stroke="transparent" className="hover:stroke-blue-400 stroke-1 border-dashed" />
+                                        {/* 可拖拽热区（与底板同步） */}
+                                        <rect x={-fit.boxWidth / 2 - 2} y="-20" width={fit.boxWidth + 4} height="40" fill="transparent" stroke="transparent" className="hover:stroke-blue-400 stroke-1 border-dashed" />
                                     </g>
                                 </g>
                             );

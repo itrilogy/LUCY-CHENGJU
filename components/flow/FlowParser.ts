@@ -1,6 +1,6 @@
 /**
  * IQS-Flow DSL 解析器（字典-索引范式）
- * spec: docs/IQS_FLOW_DSL_SPEC.md (v0.7)
+ * spec: docs/flow/spec/IQS_FLOW_DSL_SPEC.md (v0.7)
  *
  * 纯解析，不依赖 React/G6 —— 可独立测试（scripts/assert_flow_parser.mjs 复用。
  * 导出 CLI 接口 parseFlowDSL + parseFlowDSLWithDetails，供 Editor / 断言脚本使用。
@@ -22,19 +22,19 @@ const DEFAULT_FLOW_STYLES: FlowChartStyles = {
   title: '流程图',
   titleFontSize: 20,
   layout: 'H',
-  startColor: '#2563eb',
-  endColor: '#ef4444',
-  taskColor: '#3b82f6',
-  gatewayColor: '#10b981',
-  parallelColor: '#8b5cf6',
-  subprocessColor: '#0ea5e9',
-  annotationColor: '#f59e0b',
+  startColor: '#0D5E42',
+  endColor: '#E74C3C',
+  taskColor: '#0D5E42',
+  gatewayColor: '#00D2FF',
+  parallelColor: '#3498DB',
+  subprocessColor: '#14805C',
+  annotationColor: '#F1C40F',
   dataColor: '#64748b',
-  laneColor: '#e2e8f0',
-  axisColor: '#334155',
+  laneColor: 'rgba(13,94,66,0.10)',
+  axisColor: '#42525C',
   lineColor: '#64748b',
-  textColor: '#1e293b',
-  panelColor: '#f8fafc',
+  textColor: '#1A2428',
+  panelColor: '#F5F7FA',
   gridLine: 'dashed',
   labelFontSize: 14,
   nodeFontSize: 13,
@@ -263,14 +263,19 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
   }
 
   // ===== 建边（此时所有节点已注册） =====
-  const suppressDefaultIn = new Set<string>();
-  // 分支目标只有是"该网关声明顺序的紧后节点"时，才应抑制其默认入边
-  // （否则会导致类似 w1→w2 这种更早声明节点的默认顺序流被误杀）
-  const nodeOrder = nodes.map((n) => n.id);
-  const nextOf = (gwId: string): string | null => {
-    const i = nodeOrder.indexOf(gwId);
-    return i >= 0 && i + 1 < nodeOrder.length ? nodeOrder[i + 1] : null;
-  };
+  /**
+   * 默认顺序流的**排除集**（AUD-119 / AUD-120 的修复）。
+   *
+   * 旧实现只抑制「网关声明顺序的**紧后**节点」（`nextOf(src) === tid`），
+   * 于是正例 A 中 `q1` 的第二个分支目标 `w5` 未被抑制 → 产生多余的 `w4→w5`（AUD-120）；
+   * 且默认流循环只检查**源**节点类型，不检查目标 → N/DATA 会被串入主流（AUD-119）。
+   *
+   * 现按语义判定：**凡是有非默认入边的节点，都不再接受默认入边**。
+   * 即：被分支行指向的（分支目标）、被显式边指向的（显式目标）、以及 N/DATA，
+   * 一律不参与「声明序相邻即自动连」。
+   */
+  const branchTargets = new Set<string>();
+  const explicitTargets = new Set<string>();
   function addEdge(from: string, to: string, label: string | null, cond: string | null, isDefault: boolean, id?: string) {
     edges.push({ id: id || nextEdgeId(), from, to, type: 'sequence', label, condition: cond, default: isDefault });
   }
@@ -287,8 +292,7 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
         const isDef = label === '否则';
         addEdge(src, tid, label === '' ? null : label, cond || null, isDef,
           exitName || `${src}-${isDef ? 'D' : edgeLabelTag(label)}`);
-        // 仅当目标是该网关声明顺序的紧后节点时才抑制默认入边
-        if (nextOf(src) === tid) suppressDefaultIn.add(tid);
+        branchTargets.add(tid);
       }
     } else if (s.kind === 'node' && s.text.includes('→')) {
       // 显式边: from → #to
@@ -298,24 +302,26 @@ export function parseFlowDSLWithDetails(content: string): FlowParseResult {
         const to = parts[1].trim().replace(/#/g, '');
         if (!nodeById.has(from)) { errors.push(`显式边源 ${from} 未定义`); }
         else if (!nodeById.has(to)) { errors.push(`显式边目标 ${to} 未定义`); }
-        else addEdge(from, to, null, null, false);
+        else { addEdge(from, to, null, null, false); explicitTargets.add(to); }
       }
     }
   }
 
   // ===== 默认顺序流（声明顺序自动连） =====
-  // 非网关、同 parent 域的相邻节点；分支目标抑制默认入边。
-  // 修复：网关可作为"目标"（前一个普通节点 → 网关 应有默认边），
-  //       但网关不作为"源"（网关出口必须用分支行）。
+  // 规则：同 parent 域内声明序相邻的两节点，**两者都未通过显式/分支声明过入边**时才自动连。
+  //   · 源为网关/结束/注解/数据对象 → 跳过（网关出边必须用分支行）
+  //   · 目标为注解/数据对象（N/DATA）→ 跳过（修饰类不作流转目标，AUD-119）
+  //   · 目标已是分支目标或显式边目标 → 跳过（AUD-120：并列分支目标之间不得串成串行边）
   const orderNodes = nodes; // 按声明序（含网关）
   for (let j = 0; j < orderNodes.length - 1; j++) {
     const a = orderNodes[j];
     const b = orderNodes[j + 1];
     if (a.parent !== b.parent) continue;
-    // 源是网关/结束/注解/数据对象：跳过（网关出边用分支行；结束/注解/数据对象不出默认流程）
     if (a.type === 'exclusiveGateway' || a.type === 'parallelGateway'
       || a.type === 'end' || a.type === 'annotation' || a.type === 'dataObject') continue;
-    if (suppressDefaultIn.has(b.id)) continue;
+    if (b.type === 'annotation' || b.type === 'dataObject') continue;
+    if (branchTargets.has(b.id)) continue;
+    if (explicitTargets.has(b.id)) continue;
     const dup = edges.find((e) => e.from === a.id && e.to === b.id);
     if (!dup) addEdge(a.id, b.id, null, null, false);
   }

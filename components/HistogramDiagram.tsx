@@ -235,15 +235,15 @@ export const HistogramDiagram = forwardRef<HistogramDiagramRef, Props>(({ data, 
             tooltip: {
                 trigger: 'axis',
                 backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                borderColor: '#e2e8f0',
+                borderColor: 'rgba(13,94,66,0.10)',
                 borderWidth: 1,
                 padding: [10, 14],
-                textStyle: { color: '#1e293b', fontSize: 12 },
+                textStyle: { color: '#1A2428', fontSize: 12 },
                 formatter: (params: any[]) => {
                     const bar = params.find(p => p.seriesType === 'bar');
                     if (!bar) return '';
                     return `
-                        <div style="font-weight: 700; margin-bottom: 6px; color: #1e293b">区间: ${bar.name}</div>
+                        <div style="font-weight: 700; margin-bottom: 6px; color: #1A2428">区间: ${bar.name}</div>
                         <div style="display: flex; justify-content: space-between; gap: 20px;">
                             <span style="color: #64748b">频数:</span>
                             <span style="font-weight: 600">${bar.value}</span>
@@ -269,7 +269,7 @@ export const HistogramDiagram = forwardRef<HistogramDiagramRef, Props>(({ data, 
                         color: '#64748b',
                         fontSize: finalStyles.baseFontSize
                     },
-                    axisLine: { lineStyle: { color: '#cbd5e1' } }
+                    axisLine: { lineStyle: { color: 'rgba(13,94,66,0.18)' } }
                 },
                 // 隐藏的数值轴，用于正态曲线与规格线的高精度绘制
                 {
@@ -282,7 +282,7 @@ export const HistogramDiagram = forwardRef<HistogramDiagramRef, Props>(({ data, 
             yAxis: {
                 type: 'value',
                 axisLine: { show: false },
-                splitLine: { show: true, lineStyle: { type: 'dashed', color: '#f1f5f9' } },
+                splitLine: { show: true, lineStyle: { type: 'dashed', color: '#EEF2F5' } },
                 axisLabel: { color: '#64748b', fontSize: finalStyles.baseFontSize }
             },
             series,

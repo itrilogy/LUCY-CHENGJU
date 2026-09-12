@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import {
-    createPortal } from 'react-dom';
 import { MatrixData,
     MatrixChartStyles,
     DEFAULT_MATRIX_STYLES,
@@ -8,20 +6,25 @@ import { MatrixData,
     MatrixSymbolType } from '../types';
 import { INITIAL_MATRIX_DSL,
     MATRIX_SAMPLE_TEMPLATES } from '../constants';
-import { Table,
-    Sparkles,
-    HelpCircle,
-    X,
-    Loader2,
-    Database,
+import {
+    AlertTriangle,
     Code,
-    Trash2,
-    RotateCcw,
     Cpu,
+    Database,
+    HelpCircle,
+    Loader2,
+    RotateCcw,
+    Sparkles,
+    Table,
+    Trash2,
+    X,
     Zap
 } from 'lucide-react';
-import { generateLogicDSL, getAIStatus } from '../services/aiService';
+import {generateLogicDSL} from '../services/aiService';
 import { QCToolType } from '../types';
+import { CardDocModal } from './CardDocModal';
+import { Switch } from './ui/Switch';
+import { useAIEngine } from '../hooks/useAIEngine';
 
 interface MatrixEditorProps {
     data: MatrixData;
@@ -406,6 +409,8 @@ export const updateMatrixDSL = (currentDSL: string, rowId: string, colId: string
 const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange, onStylesChange, onDslChange, dsl: propDsl }) => {
     const [localDsl, setLocalDsl] = useState(INITIAL_MATRIX_DSL);
     const [activeTab, setActiveTab] = useState<'dsl' | 'manual' | 'ai'>('manual');
+    // R-UI-08：破坏性操作自有确认（替代 window.confirm）
+    const [pendingAction, setPendingAction] = useState<{ label: string; run: () => void } | null>(null);
     const [showDocs, setShowDocs] = useState(false);
     const [docTab, setDocTab] = useState<'dsl' | 'logic'>('dsl');
     const [error, setError] = useState<string | null>(null);
@@ -413,11 +418,8 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
     // AI State
     const [aiPrompt, setAiPrompt] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
-    const [engineName, setEngineName] = useState('DeepSeek');
+    const engineName = useAIEngine();
 
-    useEffect(() => {
-        getAIStatus().then(setEngineName);
-    }, []);
 
     // Use prop DSL if available, otherwise local
     const currentDsl = propDsl !== undefined ? propDsl : localDsl;
@@ -501,8 +503,11 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
     const handleLoadSample = () => {
         const type = styles.type;
         const template = (MATRIX_SAMPLE_TEMPLATES as any)[type];
-        if (template && window.confirm(`确定要加载 ${type} 型矩阵的示例结构吗？这会覆盖当前的维度定义。`)) {
-            handleDSLChange(template);
+        if (template) {
+            setPendingAction({
+                label: `加载 ${type} 型矩阵的示例结构？这会覆盖当前的维度定义。`,
+                run: () => handleDSLChange(template),
+            });
         }
     };
 
@@ -515,14 +520,15 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
             setActiveTab('dsl');
         } catch (err) {
             console.error(err);
-            setError('AI 生成失败，请重试');
+            setError(`AI 生成失败：${err instanceof Error ? err.message : '未知错误'}。可改用「DSL编辑器」手工录入。`);
         } finally {
             setIsGenerating(false);
         }
     };
 
-    const handleReset = () => {
-        if (confirm('确定要恢复到示例数据吗？当前所有修改将丢失。')) {
+    const handleReset = () => setPendingAction({
+        label: '恢复到示例数据？当前所有修改将丢失。',
+        run: () => {
             try {
                 const { data: d, styles: s } = parseMatrixDSL(INITIAL_MATRIX_DSL);
                 onDataChange(d);
@@ -532,51 +538,49 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
             } catch (e) {
                 console.error(e);
             }
-        }
-    };
+        },
+    });
 
     return (
         <div className="flex flex-col h-[calc(100vh-80px)] bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] relative">
             <div className="p-6 border-b border-[var(--sidebar-border)] space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-blue-600/20 rounded-lg flex items-center justify-center border border-blue-500/30">
-                            <Cpu size={22} className="text-blue-400" />
+                        <div className="w-10 h-10 bg-primary/20 rounded-md flex items-center justify-center border border-primary/30">
+                            <Cpu size={22} className="text-primary" />
                         </div>
                         <div>
                             <h2 className="text-sm font-black text-[var(--sidebar-text)] tracking-widest uppercase">矩阵图分析</h2>
-                            <p className="text-[8px] text-[var(--sidebar-muted)] font-bold tracking-[0.2em] mt-1 uppercase">IQS Matrix Engine | LUXI LAB</p>
+                            <p className="text-[11px] text-[var(--sidebar-muted)] font-bold tracking-[0.2em] mt-1 uppercase">IQS Matrix Engine | LUXI LAB</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={handleReset}
-                            className="p-3 bg-[var(--input-bg)] rounded-lg text-[var(--sidebar-text)] hover:text-blue-400 transition-all border border-[var(--input-border)]"
+                            className="p-3 bg-[var(--input-bg)] rounded-md text-[var(--sidebar-text)] hover:text-primary transition-all border border-[var(--input-border)]"
                             title="恢复示例"
                         >
                             <RotateCcw size={18} />
                         </button>
                         <button
-                            onClick={() => {
-                                if (window.confirm('确定要清空所有矩阵关系吗？此操作无法撤销。')) {
-                                    const newDsl = clearMatrixRelations(currentDsl);
-                                    handleDSLChange(newDsl);
-                                }
-                            }}
-                            className="p-3 bg-red-500/10 rounded-lg text-red-400 hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
+                            onClick={() => setPendingAction({
+                                label: '清空所有矩阵关系？此操作无法撤销。',
+                                run: () => handleDSLChange(clearMatrixRelations(currentDsl)),
+                            })}
+                            className="p-3 bg-[var(--alert-red)]/10 rounded-md text-[var(--text-danger)] hover:bg-[var(--alert-red)] hover:text-white transition-all border border-[var(--alert-red)]/20"
                             title="清空所有关系"
                         >
                             <Trash2 size={18} />
                         </button>
                         <button
                             onClick={() => setShowDocs(true)}
-                            className="p-3 bg-[var(--input-bg)] rounded-lg text-[var(--sidebar-text)] hover:text-white transition-all border border-[var(--input-border)]"
+                            className="p-3 bg-[var(--input-bg)] rounded-md text-[var(--sidebar-text)] hover:text-primary transition-all border border-[var(--input-border)]"
                         >
                             <HelpCircle size={18} />
                         </button>
                     </div>
                 </div>
-                <nav className="flex bg-[var(--nav-bg)] p-1.5 rounded-lg border border-[var(--sidebar-border)] gap-1">
+                <nav className="flex bg-[var(--nav-bg)] p-1.5 rounded-md border border-[var(--sidebar-border)] gap-1">
                     {[
                         { id: 'manual', label: '手工录入', icon: <Database size={14} /> },
                         { id: 'dsl', label: 'DSL编辑器', icon: <Code size={14} /> },
@@ -585,41 +589,73 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                         <button
                             key={t.id}
                             onClick={() => setActiveTab(t.id as any)}
-                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === t.id ? 'bg-cyan-600 text-white shadow-xl' : 'text-[var(--sidebar-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--input-bg)]'
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === t.id ? 'bg-primary text-white shadow-lg' : 'text-[var(--text-secondary)] hover:text-[var(--sidebar-text)] hover:bg-[var(--input-bg)]'
                                 }`}
                         >
                             {t.icon} {t.label}
                         </button>
                     ))}
                 </nav>
+
+                {/* R-UI-08：破坏性操作自有确认条（替代 window.confirm） */}
+                {pendingAction && (
+                    <div className="flex items-center gap-3 p-3 rounded-md bg-[var(--input-bg)] border border-[var(--alert-red)]">
+                        <AlertTriangle size={16} className="text-[var(--text-danger)] shrink-0" />
+                        <span className="text-[11px] flex-1">{pendingAction.label}</span>
+                        <button
+                            type="button"
+                            onClick={() => { pendingAction.run(); setPendingAction(null); }}
+                            className="px-3 py-1.5 rounded-sm bg-[var(--alert-red)] text-white text-[11px] font-bold shrink-0"
+                        >
+                            确定
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPendingAction(null)}
+                            className="px-3 py-1.5 rounded-sm border border-[var(--input-border)] text-[11px] font-bold shrink-0"
+                        >
+                            取消
+                        </button>
+                    </div>
+                )}
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+                {error && (
+                    <div role="alert" className="p-4 rounded-md bg-[var(--alert-red)]/10 border border-[var(--alert-red)]/30 flex items-start gap-3">
+                        <AlertTriangle size={16} className="text-[var(--text-danger)] shrink-0 mt-0.5" />
+                        <p className="text-[11px] font-bold text-[var(--text-danger)] leading-relaxed flex-1">{error}</p>
+                        <button type="button" onClick={() => setError(null)} aria-label="关闭错误提示"
+                            className="text-[var(--text-muted)] hover:text-[var(--text-danger)] transition-colors shrink-0">
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
                 {/* AI Inference Tab */}
                 {activeTab === 'ai' && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--sidebar-border)] space-y-8 shadow-2xl relative overflow-hidden group">
-                            <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] pb-3">
+                    <div className="h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="p-6 bg-[var(--card-bg)] rounded-md border border-[var(--border-line-r)] flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
+                            <div className="flex items-center justify-between border-b border-[var(--border-line-r)] pb-3 shrink-0">
                                 <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">智能矩阵分析描述</span>
-                                <div className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-full flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_8px_#06b6d4]" />
-                                    <span className="text-[9px] font-black text-cyan-500 uppercase">Engine Active: {engineName}</span>
+                                <div className="px-3 py-1 iqs-badge rounded-full flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 bg-[var(--state-up)] rounded-full animate-pulse" />
+                                    <span className="text-[11px] font-black text-[var(--text-ok)] uppercase">Engine Active: {engineName}</span>
                                 </div>
                             </div>
                             <textarea
                                 value={aiPrompt}
                                 onChange={(e) => setAiPrompt(e.target.value)}
-                                className="w-full  rounded-lg "
+                                className="iqs-input flex-1 min-h-[200px] resize-none"
                                 placeholder="输入您想分析的维度及其关系描述，例如：'分析零件(齿轮、轴承)与故障模式(磨损、泄漏)的强弱相关性'..."
                             />
                             <button
                                 onClick={handleGenerateAI}
                                 disabled={isGenerating || !aiPrompt.trim()}
-                                className={`w-full h-16 rounded-lg flex items-center justify-center gap-4 transition-all shadow-2xl relative overflow-hidden group ${isGenerating ? 'bg-[var(--sidebar-border)]' : 'bg-cyan-600 hover:bg-cyan-500 active:scale-[0.98]'}`}
+                                className={`w-full h-16 rounded-md flex items-center justify-center gap-4 transition-all relative overflow-hidden group ${isGenerating ? 'iqs-btn-pending' : 'iqs-btn-primary'}`}
                             >
                                 {isGenerating ? (
                                     <>
-                                        <Loader2 size={18} className="animate-spin text-cyan-400" />
+                                        <Loader2 size={18} className="animate-spin text-primary" />
                                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">正在推演矩阵关系...</span>
                                     </>
                                 ) : (
@@ -630,9 +666,9 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                 )}
                             </button>
 
-                            <div className="p-8 bg-cyan-900/10 border border-cyan-800/20 rounded-lg space-y-4 shadow-sm">
-                                <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">推理提示</p>
-                                <p className="text-xs text-[var(--sidebar-text)] leading-relaxed font-medium">
+                            <div className="p-8 bg-primary/10 border border-primary/20 rounded-md space-y-4 shadow-sm">
+                                <p className="text-[11px] font-black text-primary uppercase tracking-widest">推理提示</p>
+                                <p className="text-[11px] text-[var(--sidebar-text)] leading-relaxed font-medium">
                                     您可以描述多个维度及其交叉点关系，AI 将自动识别轴和项目，并填充矩阵。例如：“分析部门 A、B 与考核指标 X、Y 的关系，其中 A 与 X 强相关”。
                                 </p>
                             </div>
@@ -646,26 +682,20 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                         <textarea
                             value={currentDsl}
                             onChange={(e) => handleDSLChange(e.target.value)}
-                            className="flex-1 w-full bg-[var(--input-bg)] text-[var(--sidebar-text)] p-8 font-mono text-[11px] leading-relaxed border border-[var(--input-border)] rounded-lg focus:outline-none focus:ring-4 focus:ring-cyan-500/10 transition-all resize-none custom-scrollbar shadow-inner"
+                            className="iqs-input iqs-code flex-1 min-h-[400px] resize-y"
                             placeholder="输入 DSL 指令..."
                             spellCheck={false}
                         />
-                        {error && (
-                            <div className="px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                                <span className="text-[9px] font-black text-red-500 uppercase">{error}</span>
-                            </div>
-                        )}
                     </div>
                 )}
 
                 {/* Manual Entry Tab */}
                 {activeTab === 'manual' && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--sidebar-border)] space-y-6 shadow-2xl">
+                        <div className="p-6 bg-[var(--card-bg)] rounded-md border border-[var(--border-line-r)] space-y-6 shadow-md">
                             {/* Global & Layout Section */}
-                            <div className="flex items-center gap-4 border-b border-[var(--sidebar-border)] pb-3">
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">全局与布局</span>
+                            <div className="flex items-center gap-4 border-b border-[var(--border-line-r)] pb-3">
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">全局与布局</span>
                             </div>
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
@@ -675,7 +705,7 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                             <select
                                                 value={styles.type}
                                                 onChange={e => handleStylesChange({ ...styles, type: e.target.value as any })}
-                                                className="bg-[var(--input-bg)] text-[11px] text-cyan-400 border border-[var(--input-border)] rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                                                className="iqs-input h-9 w-auto min-w-[150px]"
                                             >
                                                 <option value="L">L 型 (2轴)</option>
                                                 <option value="T">T 型 (3轴)</option>
@@ -685,7 +715,7 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                             </select>
                                             <button
                                                 onClick={handleLoadSample}
-                                                className="px-2 py-1 bg-cyan-600/20 text-cyan-400 text-[10px] font-bold rounded-lg border border-cyan-500/30 hover:bg-cyan-600 hover:text-white transition-all whitespace-nowrap"
+                                                className="h-9 px-3 shrink-0 bg-primary/15 text-[var(--text-ok)] text-[11px] font-bold rounded-sm border border-primary/30 hover:bg-primary hover:text-white transition-colors whitespace-nowrap"
                                                 title="加载该类型的标准示例结构"
                                             >
                                                 取示例
@@ -695,13 +725,7 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                     <div className="flex items-center gap-3">
                                         <span className="text-[11px] font-bold text-[var(--sidebar-muted)]">数值计算</span>
                                         <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={styles.showScores}
-                                                onChange={e => handleStylesChange({ ...styles, showScores: e.target.checked })}
-                                                className="sr-only peer"
-                                            />
-                                            <div className="w-9 h-5 bg-[var(--input-bg)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-600"></div>
+                                            <Switch checked={!!styles.showScores} onChange={v => handleStylesChange({ ...styles, showScores: v })} ariaLabel="数值计算" />
                                         </label>
                                     </div>
                                 </div>
@@ -711,21 +735,21 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                         type="text"
                                         value={styles.title}
                                         onChange={e => handleStylesChange({ ...styles, title: e.target.value })}
-                                        className="flex-1 bg-[var(--input-bg)] text-[11px] text-[var(--sidebar-text)] border border-[var(--input-border)] rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 font-mono shadow-inner"
+                                        className="iqs-input h-9"
                                     />
                                 </div>
                             </div>
 
                             {/* Data Structure Section */}
-                            <div className="flex items-center gap-4 border-b border-[var(--sidebar-border)] pb-3 mt-8">
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">数据结构 (Axes & Items)</span>
+                            <div className="flex items-center gap-4 border-b border-[var(--border-line-r)] pb-3 mt-8">
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">数据结构 (Axes & Items)</span>
                             </div>
                             <div className="space-y-4">
                                 {data.axes.map((axis, aIdx) => (
-                                    <div key={axis.id} className="p-4 bg-[var(--card-bg)]/80 rounded-lg border border-[var(--sidebar-border)] space-y-4 shadow-sm">
+                                    <div key={axis.id} className="p-4 bg-[var(--card-bg)] rounded-md border border-[var(--border-line-r)] space-y-4">
                                         <div className="flex items-center justify-between gap-2">
                                             <input
-                                                className="bg-transparent text-xs font-black text-cyan-400 w-16 focus:outline-none"
+                                                className="iqs-input h-9 w-16 !text-[11px] !font-mono font-black text-primary text-center"
                                                 value={axis.id}
                                                 onChange={e => {
                                                     const newAxes = [...data.axes];
@@ -734,7 +758,7 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                                 }}
                                             />
                                             <input
-                                                className="flex-1 bg-[var(--input-bg)] text-[11px] text-[var(--sidebar-text)] border border-[var(--input-border)]/50 rounded px-2 py-1 focus:outline-none shadow-inner"
+                                                className="iqs-input h-9"
                                                 value={axis.label}
                                                 onChange={e => {
                                                     const newAxes = [...data.axes];
@@ -747,7 +771,8 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                                     const newAxes = data.axes.filter((_, i) => i !== aIdx);
                                                     handleDataChange({ ...data, axes: newAxes });
                                                 }}
-                                                className="p-1 text-[var(--sidebar-muted)] hover:text-red-400 transition-colors"
+                                                className="h-9 w-9 shrink-0 flex items-center justify-center rounded-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--sidebar-muted)] opacity-60 hover:opacity-100 hover:text-[var(--text-danger)] hover:border-[var(--alert-red)] transition-colors"
+                                                title="删除维度轴" aria-label="删除维度轴"
                                             >
                                                 <Trash2 size={14} />
                                             </button>
@@ -757,7 +782,7 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                             {axis.items.map((item, iIdx) => (
                                                 <div key={item.id} className="flex items-center gap-2">
                                                     <input
-                                                        className="bg-transparent text-[10px] text-[var(--sidebar-text)] w-12 font-mono focus:outline-none opacity-80"
+                                                        className="iqs-input h-8 w-12 !text-[11px] !font-mono text-center"
                                                         value={item.id}
                                                         onChange={e => {
                                                             const newAxes = [...data.axes];
@@ -768,7 +793,7 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                                         }}
                                                     />
                                                     <input
-                                                        className="flex-1 bg-[var(--input-bg)]/30 text-[10px] text-[var(--sidebar-text)] border border-[var(--input-border)]/30 rounded px-2 py-0.5 focus:outline-none"
+                                                        className="iqs-input h-8 flex-1 !text-[11px]"
                                                         value={item.label}
                                                         onChange={e => {
                                                             const newAxes = [...data.axes];
@@ -780,7 +805,7 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                                     />
                                                     <input
                                                         type="number"
-                                                        className="w-12 bg-[var(--input-bg)]/30 text-[10px] text-amber-500 border border-[var(--input-border)]/30 rounded px-1 py-0.5 focus:outline-none text-center"
+                                                        className="iqs-input h-8 w-12 !text-[11px] !text-[var(--text-warn)] text-center"
                                                         placeholder="W"
                                                         value={item.weight ?? ''}
                                                         onChange={e => {
@@ -798,7 +823,8 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                                             newAxes[aIdx] = { ...axis, items: newItems };
                                                             handleDataChange({ ...data, axes: newAxes });
                                                         }}
-                                                        className="p-1 text-[var(--sidebar-muted)]/50 hover:text-red-400 transition-colors"
+                                                        className="h-8 w-8 shrink-0 flex items-center justify-center rounded-sm border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--sidebar-muted)] opacity-60 hover:opacity-100 hover:text-[var(--text-danger)] hover:border-[var(--alert-red)] transition-colors"
+                                                        title="删除项目" aria-label="删除项目"
                                                     >
                                                         <Trash2 size={12} />
                                                     </button>
@@ -811,7 +837,7 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                                     newAxes[aIdx] = { ...axis, items: [...axis.items, { id: newId, label: '新项目' }] };
                                                     handleDataChange({ ...data, axes: newAxes });
                                                 }}
-                                                className="text-[9px] text-cyan-500/80 flex items-center gap-1 hover:text-cyan-400 transition-all mt-2 px-1"
+                                                className="h-8 px-3 rounded-sm border border-dashed border-[var(--border-line-r)] text-[11px] font-bold text-[var(--text-ok)] hover:border-primary hover:bg-primary/5 transition-colors flex items-center gap-1 mt-2 w-fit"
                                             >
                                                 + 添加项目
                                             </button>
@@ -823,15 +849,15 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                         const nextId = String.fromCharCode(65 + data.axes.length);
                                         handleDataChange({ ...data, axes: [...data.axes, { id: nextId, label: `维度轴 ${nextId}`, items: [] }] });
                                     }}
-                                    className="w-full py-4 bg-[var(--input-bg)]/30 rounded-lg border border-dashed border-[var(--sidebar-border)] text-[10px] font-black uppercase tracking-widest text-[var(--sidebar-muted)] hover:text-cyan-400 hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all shadow-sm"
+                                    className="w-full h-11 bg-[var(--input-bg)] rounded-md border border-dashed border-[var(--border-line-r)] text-[11px] font-black uppercase tracking-widest text-[var(--sidebar-muted)] hover:text-primary hover:border-primary hover:bg-primary/5 transition-colors"
                                 >
                                     + 新增维度轴
                                 </button>
                             </div>
 
                             {/* Symbol Weight Configuration */}
-                            <div className="flex items-center gap-4 border-b border-[var(--sidebar-border)] pb-3 mt-8">
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">符号权重配置</span>
+                            <div className="flex items-center gap-4 border-b border-[var(--border-line-r)] pb-3 mt-8">
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">符号权重配置</span>
                             </div>
                             <div className="grid grid-cols-3 gap-4">
                                 {[
@@ -840,20 +866,20 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                     { key: 'weightWeak', label: '弱 (△)' }
                                 ].map(w => (
                                     <div key={w.key} className="space-y-2">
-                                        <div className="text-[9px] font-bold text-[var(--sidebar-muted)] uppercase tracking-wider text-center">{w.label}</div>
+                                        <div className="text-[11px] font-bold text-[var(--sidebar-muted)] uppercase tracking-wider text-center">{w.label}</div>
                                         <input
                                             type="number"
+                                            className="iqs-input h-8 text-center"
                                             value={(styles as any)[w.key]}
                                             onChange={e => handleStylesChange({ ...styles, [w.key]: parseInt(e.target.value) || 0 })}
-                                            className="w-full bg-[var(--input-bg)] text-[11px] text-[var(--sidebar-text)] border border-[var(--input-border)] rounded-lg px-2 py-1.5 text-center focus:outline-none focus:ring-1 focus:ring-cyan-500/50 shadow-inner"
                                         />
                                     </div>
                                 ))}
                             </div>
 
                             {/* Visual Configuration */}
-                            <div className="flex items-center gap-4 border-b border-[var(--sidebar-border)] pb-3 mt-8">
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">视觉配置</span>
+                            <div className="flex items-center gap-4 border-b border-[var(--border-line-r)] pb-3 mt-8">
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">视觉配置</span>
                             </div>
                             <div className="grid grid-cols-3 gap-6">
                                 {[
@@ -876,8 +902,8 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                             </div>
 
                             {/* Size Configuration */}
-                            <div className="flex items-center gap-4 border-b border-[var(--sidebar-border)] pb-3 mt-8">
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">尺寸配置</span>
+                            <div className="flex items-center gap-4 border-b border-[var(--border-line-r)] pb-3 mt-8">
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">尺寸配置</span>
                             </div>
                             <div className="grid grid-cols-3 gap-6">
                                 <div className="space-y-2">
@@ -889,9 +915,9 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                         step="5"
                                         value={styles.cellSize}
                                         onChange={e => handleStylesChange({ ...styles, cellSize: parseInt(e.target.value) })}
-                                        className="w-full h-1.5 bg-[var(--input-bg)] rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                        className="w-full h-1.5 bg-[var(--input-bg)] rounded-md appearance-none cursor-pointer"
                                     />
-                                    <div className="text-[10px] text-[var(--sidebar-muted)] text-right">{styles.cellSize}px</div>
+                                    <div className="text-[11px] text-[var(--sidebar-muted)] text-right">{styles.cellSize}px</div>
                                 </div>
                                 <div className="space-y-2">
                                     <span className="text-[11px] font-bold text-[var(--sidebar-muted)]">标题字号</span>
@@ -902,9 +928,9 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                         step="1"
                                         value={styles.titleFontSize}
                                         onChange={e => handleStylesChange({ ...styles, titleFontSize: parseInt(e.target.value) })}
-                                        className="w-full h-1.5 bg-[var(--input-bg)] rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                        className="w-full h-1.5 bg-[var(--input-bg)] rounded-md appearance-none cursor-pointer"
                                     />
-                                    <div className="text-[10px] text-[var(--sidebar-muted)] text-right">{styles.titleFontSize}px</div>
+                                    <div className="text-[11px] text-[var(--sidebar-muted)] text-right">{styles.titleFontSize}px</div>
                                 </div>
                                 <div className="space-y-2">
                                     <span className="text-[11px] font-bold text-[var(--sidebar-muted)]">内容字号</span>
@@ -915,9 +941,9 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                                         step="1"
                                         value={styles.fontSize}
                                         onChange={e => handleStylesChange({ ...styles, fontSize: parseInt(e.target.value) })}
-                                        className="w-full h-1.5 bg-[var(--input-bg)] rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                        className="w-full h-1.5 bg-[var(--input-bg)] rounded-md appearance-none cursor-pointer"
                                     />
-                                    <div className="text-[10px] text-[var(--sidebar-muted)] text-right">{styles.fontSize}px</div>
+                                    <div className="text-[11px] text-[var(--sidebar-muted)] text-right">{styles.fontSize}px</div>
                                 </div>
                             </div>
                         </div>
@@ -925,236 +951,9 @@ const MatrixEditor: React.FC<MatrixEditorProps> = ({ data, styles, onDataChange,
                 )}
             </div>
             {/* Docs Modal */}
-            {
-                showDocs && createPortal(
-                    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-8 bg-black/60 backdrop-blur-md">
-                        <div className="bg-[var(--sidebar-bg)] w-[800px] max-h-[85vh] rounded-lg border border-[var(--sidebar-border)] flex flex-col overflow-hidden shadow-2xl">
-                            <div className="px-10 py-8 flex flex-col border-b border-[var(--sidebar-border)] shrink-0 gap-6 bg-[var(--sidebar-bg)]/80 backdrop-blur-xl">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-3 bg-cyan-600/20 rounded-lg border border-cyan-500/30">
-                                            <Table size={24} className="text-cyan-400" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-black text-[var(--sidebar-text)] uppercase tracking-tighter">矩阵图知识库</h3>
-                                            <p className="text-[10px] text-[var(--sidebar-muted)] font-bold uppercase tracking-widest mt-1">Matrix Knowledge Base V1.1</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => setShowDocs(false)} className="p-3 hover:bg-[var(--input-bg)] rounded-lg transition-all text-[var(--sidebar-muted)] hover:text-[var(--sidebar-text)]">
-                                        <X size={24} />
-                                    </button>
-                                </div>
-
-                                <nav className="flex bg-[var(--nav-bg)] p-1 rounded-lg border border-[var(--sidebar-border)] w-fit">
-                                    {[
-                                        { id: 'dsl', label: 'DSL 规范说明' },
-                                        { id: 'logic', label: '分析逻辑与指南' },
-                                    ].map(t => (
-                                        <button
-                                            key={t.id}
-                                            onClick={() => setDocTab(t.id as any)}
-                                            className={`px-8 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${docTab === t.id ? 'bg-cyan-600 text-white shadow-lg' : 'text-[var(--sidebar-muted)] hover:text-[var(--sidebar-text)]'
-                                                }`}
-                                        >
-                                            {t.label}
-                                        </button>
-                                    ))}
-                                </nav>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar text-[var(--sidebar-muted)]">
-                                {docTab === 'dsl' ? (
-                                    <div className="space-y-12">
-                                        {/* Section 1: 全局配置 */}
-                                        <section className="space-y-4">
-                                            <h4 className="text-sm font-black text-cyan-400 uppercase tracking-widest border-b border-cyan-900/50 pb-2">1. 全局基础配置 (Global Settings)</h4>
-                                            <div className="grid grid-cols-[180px_1fr] gap-4 text-xs font-mono bg-[var(--input-bg)] p-6 rounded-lg border border-[var(--sidebar-border)]">
-                                                <span className="text-cyan-300 font-bold">Title:</span>
-                                                <span className="text-[var(--sidebar-text)]">图表主标题，显示在顶部中央。</span>
-
-                                                <span className="text-cyan-300 font-bold">Type:</span>
-                                                <span className="text-[var(--sidebar-text)]">矩阵布局类型: L, T, Y, X, C</span>
-
-                                                <span className="text-cyan-300 font-bold">Orientation:</span>
-                                                <span className="text-[var(--sidebar-text)]">渲染方向: Top (默认) 或 Bottom (等轴测视图翻转)</span>
-
-                                                <span className="text-cyan-300 font-bold">CellSize:</span>
-                                                <span className="text-[var(--sidebar-text)]">正方形单元格基础尺寸 (默认 40)</span>
-
-                                                <span className="text-cyan-300 font-bold">Font[Title|Base|Score]:</span>
-                                                <span className="text-[var(--sidebar-text)]">对应位置的字号。示例: Font[Title]: 24</span>
-
-                                                <span className="text-cyan-300 font-bold">Weight[Strong|Medium|Weak]:</span>
-                                                <span className="text-[var(--sidebar-text)]">自定义符号对应的分值。默认: 9, 3, 1</span>
-
-                                                <span className="text-cyan-300 font-bold">Color[Axis|Grid|...]:</span>
-                                                <span className="text-[var(--sidebar-text)]">色彩配置。支持 HEX 颜色值。</span>
-                                            </div>
-                                        </section>
-
-                                        {/* Section 2: 维度定义与权重 */}
-                                        <section className="space-y-4">
-                                            <h4 className="text-sm font-black text-amber-400 uppercase tracking-widest border-b border-amber-900/50 pb-2">2. 轴维度与项目定义 (Axis & Items)</h4>
-                                            <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--sidebar-border)] space-y-6">
-                                                <div className="space-y-3">
-                                                    <p className="text-xs text-[var(--sidebar-text)] font-bold">定义语法：</p>
-                                                    <div className="bg-black/40 p-4 rounded-lg font-mono text-xs text-[var(--sidebar-muted)] space-y-2">
-                                                        <div>Axis: [ID], [Label] <span className="text-slate-600">// 定义一个新的维度轴</span></div>
-                                                        <div>- [ItemID], [ItemLabel], [Weight] <span className="text-slate-600">// 定义轴下的具体项目</span></div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-3">
-                                                    <p className="text-xs text-[var(--sidebar-text)] font-bold">权重定义 (两种方式)：</p>
-                                                    <ul className="text-xs space-y-2 text-[var(--sidebar-text)] list-disc list-inside">
-                                                        <li>三列 CSV 式：<code className="text-amber-500">- a01, 稳定性需求, 10</code></li>
-                                                        <li>标签标注式：<code className="text-amber-500">- a01, 稳定性需求 [10]</code> (更易读)</li>
-                                                    </ul>
-                                                </div>
-
-                                                <div className="space-y-3">
-                                                    <p className="text-xs text-[var(--sidebar-text)] font-bold">X型矩阵专用定义：</p>
-                                                    <p className="text-xs text-[var(--sidebar-text)] font-mono bg-black/40 p-4 rounded-lg">Order: AxisN, AxisE, AxisS, AxisW <br /><span className="text-[10px] text-slate-600">按顺时针方向定义四个轴的位置。</span></p>
-                                                </div>
-                                            </div>
-                                        </section>
-
-                                        {/* Section 3: 矩阵映射规则 */}
-                                        <section className="space-y-4">
-                                            <h4 className="text-sm font-black text-emerald-400 uppercase tracking-widest border-b border-emerald-900/50 pb-2">3. 矩阵创建与数据填充 (Matrix Mapping)</h4>
-                                            <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--sidebar-border)] space-y-6">
-                                                <div className="space-y-3">
-                                                    <p className="text-xs text-[var(--sidebar-text)] font-bold">矩阵声明：</p>
-                                                    <p className="text-xs text-[var(--sidebar-muted)] font-mono bg-black/40 p-4 rounded-lg">Matrix: [AxisID_Row] x [AxisID_Col]</p>
-                                                </div>
-
-                                                <div className="space-y-3">
-                                                    <p className="text-xs text-[var(--sidebar-text)] font-bold">关系录入：</p>
-                                                    <div className="bg-black/40 p-4 rounded-lg font-mono text-xs text-[var(--sidebar-muted)] space-y-2">
-                                                        <div>[RowID]: [ColID]:[Symbol]</div>
-                                                        <div className="text-slate-600 mt-1"> 示例: r1: c1:S, c2:M, c3:W</div>
-                                                        <div className="text-slate-600"> (S=强, M=中, W=弱, 0=清除)</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </section>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-16">
-                                        {/* Methodology Section */}
-                                        <section className="space-y-8">
-                                            <div className="flex items-center gap-4 border-l-4 border-cyan-500 pl-4">
-                                                <h4 className="text-lg font-black text-[var(--sidebar-text)] uppercase tracking-tight italic">矩阵分析法指南 (Methods & Analysis)</h4>
-                                            </div>
-
-                                            <div className="space-y-12">
-                                                {/* L/T Type */}
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 text-[10px] font-black rounded border border-cyan-500/30">L/T 型</span>
-                                                        <h5 className="text-sm font-bold text-[var(--sidebar-text)]">二元/三元传递分析</h5>
-                                                    </div>
-                                                    <div className="grid grid-cols-[240px_1fr] gap-6 bg-[var(--input-bg)] p-6 rounded-lg border border-[var(--sidebar-border)]">
-                                                        <div className="text-xs text-[var(--sidebar-muted)] leading-relaxed italic border-r border-[var(--sidebar-border)] pr-6">
-                                                            "最基础的映射分析，用于将客户需求（WHAT）转化为设计特性（HOW）。"
-                                                        </div>
-                                                        <div className="space-y-3 text-xs">
-                                                            <div className="text-cyan-500 font-bold uppercase tracking-widest text-[10px]">分析逻辑</div>
-                                                            <p>计算每个“输出项”承载的加权总分。分值越高，代表为了满足该项指标，系统需要投入的关注度越大。</p>
-                                                            <div className="mt-2 text-[var(--sidebar-muted)] font-mono text-[10px]">公式: Score = Σ (输入权重 * 关联强度)</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Y Type */}
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] font-black rounded border border-amber-500/30">Y 型</span>
-                                                        <h5 className="text-sm font-bold text-[var(--sidebar-text)]">立体闭环影响分析</h5>
-                                                    </div>
-                                                    <div className="grid grid-cols-[240px_1fr] gap-6 bg-[var(--input-bg)] p-6 rounded-lg border border-[var(--sidebar-border)]">
-                                                        <div className="text-xs text-[var(--sidebar-muted)] leading-relaxed italic border-r border-[var(--sidebar-border)] pr-6">
-                                                            "用于三个维度互相制约的场景，如：需求 &rarr; 功能 &rarr; 零件 &rarr; 需求。"
-                                                        </div>
-                                                        <div className="space-y-3 text-xs">
-                                                            <div className="text-amber-500 font-bold uppercase tracking-widest text-[10px]">分析逻辑</div>
-                                                            <p>通过等轴测视图观察三维度的传递效率。不仅计算单轴得分，还要观察是否存在“逻辑断链”或“过度冗余”。</p>
-                                                            <div className="mt-2 px-3 py-2 bg-black/30 rounded border border-white/5 text-[var(--sidebar-muted)] italic">
-                                                                闭环分析有助于发现：看似不重要的零件（C），可能通过影响关键功能（B）从而极大地满足了核心需求（A）。
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* X Type */}
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-black rounded border border-emerald-500/30">X 型</span>
-                                                        <h5 className="text-sm font-bold text-[var(--sidebar-text)]">四象限约束与匹配分析</h5>
-                                                    </div>
-                                                    <div className="grid grid-cols-[240px_1fr] gap-6 bg-[var(--input-bg)] p-6 rounded-lg border border-[var(--sidebar-border)]">
-                                                        <div className="text-xs text-[var(--sidebar-muted)] leading-relaxed italic border-r border-[var(--sidebar-border)] pr-6">
-                                                            "典型的组织资源匹配矩阵。例如：目标 &harr; 部门 &harr; 流程 &harr; 资源。"
-                                                        </div>
-                                                        <div className="space-y-3 text-xs">
-                                                            <div className="text-emerald-500 font-bold uppercase tracking-widest text-[10px]">分析逻辑</div>
-                                                            <p>边缘得分展示了该项受到两个相邻象限的“双重拉动强度”。高分项通常是跨流程协作的“超级枢纽”。</p>
-                                                            <ul className="text-[10px] space-y-1 text-[var(--sidebar-muted)] list-disc list-inside">
-                                                                <li>均衡性分析：观察象限关系是否分布均匀。</li>
-                                                                <li>瓶颈分析：识别承载过多约束的关键环节。</li>
-                                                            </ul>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* C Type */}
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] font-black rounded border border-purple-500/30">C 型</span>
-                                                        <h5 className="text-sm font-bold text-[var(--sidebar-text)]">屋顶自相关与协同分析</h5>
-                                                    </div>
-                                                    <div className="grid grid-cols-[240px_1fr] gap-6 bg-[var(--input-bg)] p-6 rounded-lg border border-[var(--sidebar-border)]">
-                                                        <div className="text-xs text-[var(--sidebar-muted)] leading-relaxed italic border-r border-[var(--sidebar-border)] pr-6">
-                                                            "HOQ 质量屋的经典屋顶。分析指标间的内部冲突或协同增益。"
-                                                        </div>
-                                                        <div className="space-y-3 text-xs">
-                                                            <div className="text-purple-500 font-bold uppercase tracking-widest text-[10px]">分析逻辑</div>
-                                                            <p>计算项目的<strong>“耦合度分值”</strong>。高分项代表系统中最不稳定的“敏感变量”。</p>
-                                                            <div className="mt-2 text-[var(--sidebar-muted)] font-mono text-[10px]">
-                                                                决策提示：在调整高分项参数时，必须同步评估它对其他所有项目的冲击效应。
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="p-6 bg-cyan-900/10 border border-cyan-800/20 rounded-lg">
-                                                    <div className="flex items-center gap-2 mb-3">
-                                                        <Zap size={14} className="text-cyan-500" />
-                                                        <span className="text-[10px] font-black uppercase text-cyan-500">专家技巧</span>
-                                                    </div>
-                                                    <p className="text-[11px] text-[var(--sidebar-muted)] font-medium italic mb-2">
-                                                        "矩阵图不应仅仅作为记录工具。其真正的价值在于通过加权评分（Weight × Symbol Value）来识别系统中最脆弱或最重要的交叉点。"
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </section>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Modal Footer */}
-                            <div className="p-10 border-t border-[var(--sidebar-border)] bg-[var(--input-bg)] flex justify-center shrink-0">
-                                <button
-                                    onClick={() => setShowDocs(false)}
-                                    className="px-16 py-4 bg-cyan-600 text-white font-black rounded-lg text-[10px] uppercase tracking-widest shadow-xl hover:bg-cyan-500 transition-all shadow-lg"
-                                >
-                                    已阅读规范
-                                </button>
-                            </div>
-                        </div>
-                    </div>,
-                    document.body
-                )
-            }
+            {showDocs && (
+                <CardDocModal kind="matrix" open={showDocs} onClose={() => setShowDocs(false)} />
+            )}
         </div>
     
     );

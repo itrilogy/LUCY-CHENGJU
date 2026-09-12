@@ -12,7 +12,7 @@ export const TOOL_CONFIGS = [
     icon: <GitBranch size={32} />,
     color: 'text-blue-500',
     bg: 'bg-blue-50/50',
-    accent: '#3b82f6'
+    accent: '#0D5E42'
   },
   {
     type: QCToolType.PARETO,
@@ -22,7 +22,7 @@ export const TOOL_CONFIGS = [
     icon: <BarChart3 size={32} />,
     color: 'text-emerald-500',
     bg: 'bg-emerald-50/50',
-    accent: '#10b981'
+    accent: '#00D2FF'
   },
   {
     type: QCToolType.HISTOGRAM,
@@ -32,7 +32,7 @@ export const TOOL_CONFIGS = [
     icon: <BarChart2 size={32} />,
     color: 'text-indigo-500',
     bg: 'bg-indigo-50/50',
-    accent: '#6366f1'
+    accent: '#00D2FF'
   },
   {
     type: QCToolType.SCATTER,
@@ -42,7 +42,7 @@ export const TOOL_CONFIGS = [
     icon: <ScatterChart size={32} />,
     color: 'text-amber-500',
     bg: 'bg-amber-50/50',
-    accent: '#f59e0b'
+    accent: '#F1C40F'
   },
   {
     type: QCToolType.AFFINITY,
@@ -52,7 +52,7 @@ export const TOOL_CONFIGS = [
     icon: <Boxes size={32} />,
     color: 'text-orange-500',
     bg: 'bg-orange-50/50',
-    accent: '#f97316'
+    accent: '#F1C40F'
   },
   {
     type: QCToolType.CONTROL,
@@ -62,7 +62,7 @@ export const TOOL_CONFIGS = [
     icon: <Activity size={32} />,
     color: 'text-rose-500',
     bg: 'bg-rose-50/50',
-    accent: '#f43f5e'
+    accent: '#E74C3C'
   },
   {
     type: QCToolType.RELATION,
@@ -72,7 +72,7 @@ export const TOOL_CONFIGS = [
     icon: <Workflow size={32} />,
     color: 'text-purple-500',
     bg: 'bg-purple-50/50',
-    accent: '#a855f7'
+    accent: '#3498DB'
   },
   {
     type: QCToolType.MATRIX,
@@ -82,7 +82,7 @@ export const TOOL_CONFIGS = [
     icon: <Table size={32} />,
     color: 'text-cyan-500',
     bg: 'bg-cyan-50/50',
-    accent: '#06b6d4'
+    accent: '#00D2FF'
   },
   {
     type: QCToolType.MATRIX_PLOT,
@@ -92,7 +92,7 @@ export const TOOL_CONFIGS = [
     icon: <Grid3X3 size={32} />, // Keeping Grid3X3 for Matrix Plot
     color: 'text-blue-600',
     bg: 'bg-blue-50/50',
-    accent: '#2563eb'
+    accent: '#0D5E42'
   },
   {
     type: QCToolType.PDPC,
@@ -102,7 +102,7 @@ export const TOOL_CONFIGS = [
     icon: <GitFork size={32} />,
     color: 'text-emerald-600',
     bg: 'bg-emerald-50/50',
-    accent: '#059669'
+    accent: '#00A8CC'
   },
   {
     type: QCToolType.ARROW,
@@ -122,7 +122,7 @@ export const TOOL_CONFIGS = [
     icon: <BarChart3 size={32} />,
     color: 'text-blue-500',
     bg: 'bg-blue-50/50',
-    accent: '#3b82f6'
+    accent: '#0D5E42'
   },
   {
     type: QCToolType.RADAR,
@@ -132,7 +132,7 @@ export const TOOL_CONFIGS = [
     icon: <Radar size={32} />,
     color: 'text-amber-600',
     bg: 'bg-amber-50/50',
-    accent: '#d97706'
+    accent: '#D0A50A'
   },
   {
     type: QCToolType.MERMAID,
@@ -142,7 +142,7 @@ export const TOOL_CONFIGS = [
     icon: <Workflow size={32} />, // Using Workflow as a placeholder, or maybe something else? Workflow is already used. Let's use GitFork or GitBranch. GitBranch is Fishbone. Network is Arrow. GitFork is PDPC. Let's use Share2 or something similar if available. Wait, Workflow is Relation. Let's check available icons. Workflow is icon 2. Share2 is not imported. GitMerge or Layers? Let's use Activity or similar. Actually, let's use Workflow but I'll check icons again.
     color: 'text-blue-500',
     bg: 'bg-blue-50/50',
-    accent: '#3b82f6'
+    accent: '#0D5E42'
   },
   {
     type: QCToolType.VCHART,
@@ -167,28 +167,33 @@ export const TOOL_CONFIGS = [
 ];
 
 
-export const INITIAL_FISHBONE_DSL = `Color[Bone]: #475569
-Color[Line]: #cbd5e1
-Color[Root]: #2563eb
+export const INITIAL_FISHBONE_DSL = `Title: 注塑件表面缩水故障分析
+Color[Root]: #E74C3C
 Color[RootText]: #ffffff
-Color[Main]: #3b82f6
+Color[Main]: #0D5E42
 Color[MainText]: #ffffff
-Color[Text]: #1e293b
-Color[End]: #94a3b8
-Title: 生产线停产原因分析
+Color[Bone]: #475569
+Color[Line]: rgba(13,94,66,0.18)
+Color[Text]: #1A2428
 
-# 人员 (Man)
+# 人 (Man)
 ## 调机参数设置不当
 ### 保压压力过低
-## 巡检不及时
+### 保压时间不足
+## 巡检意识淡薄
 
-# 机械 (Machine)
+# 机 (Machine)
 ## 料筒加热温度偏移
 ## 模具冷却水道阻塞
+### 冷却水流量不足
 
-# 物料 (Material)
+# 料 (Material)
 ## 材料缩水率不均匀
-`;
+## 回料比例过高
+
+# 法 (Method)
+## 工艺标准不完善
+## 注射速度过快`;
 
 export const INITIAL_HISTOGRAM_DATA = [
   9.8, 10.2, 10.1, 9.9, 10.0, 10.3, 9.7, 10.1, 9.9, 10.0,
@@ -200,17 +205,17 @@ export const INITIAL_HISTOGRAM_DSL = `Title: 产品直径分布分析
 USL: 10.5
 LSL: 9.5
 Target: 10.0
-Color[Bar]: #3b82f6
-Color[Curve]: #f97316
-Color[USL]: #ef4444
-Color[LSL]: #ef4444
+Color[Bar]: #0D5E42
+Color[Curve]: #F1C40F
+Color[USL]: #E74C3C
+Color[LSL]: #E74C3C
 Color[Target]: #22c55e
 Font[Title]: 18
 Font[Base]: 12
 Bins: auto
 ShowCurve: true
 
-# 原始数据
+// 原始测量数据（一行一个数值）
 - 9.8
 - 10.2
 - 10.1
@@ -240,8 +245,7 @@ ShowCurve: true
 - 9.9
 - 10.2
 - 10.0
-- 9.8
-`;
+- 9.8`;
 
 export const INITIAL_FISHBONE_DATA: FishboneNode = {
   id: 'root',
@@ -277,13 +281,18 @@ export const INITIAL_FISHBONE_DATA: FishboneNode = {
 };
 
 export const INITIAL_PARETO_DSL = `Title: 售后质量问题分布分析
-Color[Title]: #1e293b
-Color[Bar]: #3b82f6
-Color[Line]: #f59e0b
-Color[MarkLine]: #ef4444
-Font[Title]: 20
+Color[Title]: #1A2428
+Color[Bar]: #0D5E42
+Color[Line]: #F1C40F
+Color[MarkLine]: #E74C3C
 Decimals: 1
+ShowValues: true
+Font[Title]: 20
+Font[Base]: 12
+Font[Bar]: 12
+Font[Line]: 12
 
+// 数据项：<项目名称>: <频数或成本>
 - 物流破损: 420
 - 零件缺失: 215
 - 包装老化: 89
@@ -302,22 +311,21 @@ export const INITIAL_CONTROL_DATA = {
   series: [{ name: '轴径', data: [12.01, 11.98, 12.05, 12.01, 11.97, 12.02, 11.99, 12.03, 12.01, 12.04, 11.98, 12.00, 12.02, 11.99, 12.01, 12.03, 11.97, 11.99, 12.01, 12.02] }]
 };
 
-export const INITIAL_CONTROL_DSL = `// 示例：轴类零件外径加工过程监控
-// 包含 25 个连续观测值，若子组大小为 5，则自动计算 5 个子组的均值与极差
-Title: 活塞销外径加工过程监控（高频采样）
+export const INITIAL_CONTROL_DSL = `Title: 缸盖螺栓孔径 X-bar-R 控制图
 Type: X-bar-R
 Size: 5
-Rules: Western-Electric,Nelson
+Rules: Nelson
 Decimals: 3
-Color[Line]: #3b82f6
-Color[Point]: #1d4ed8
+Color[Line]: #0D5E42
+Color[Point]: #0A4A33
+Color[UCL]: #E74C3C
 
-[series]: 测量观测值
-12.012, 11.985, 12.053, 12.001, 11.974
-12.022, 11.991, 12.035, 12.011, 12.042
-11.988, 12.005, 12.021, 11.995, 12.018
-12.031, 11.978, 11.999, 12.015, 12.024
-12.008, 12.026, 11.984, 12.041, 11.992
+[series]: 孔径测量值 (mm)
+12.01, 12.02, 11.99, 12.00, 12.01
+12.03, 11.98, 12.01, 12.02, 11.99
+12.00, 12.01, 12.04, 11.97, 12.02
+12.01, 11.99, 12.00, 12.03, 12.01
+11.98, 12.02, 12.01, 11.99, 12.00
 [/series]`;
 
 
@@ -336,64 +344,57 @@ export const INITIAL_SCATTER_DATA = [
   { id: '12', x: 206.5, y: 91.0, z: 1.55 }
 ];
 
-export const INITIAL_SCATTER_DSL = `Title: 注塑工艺参数三维分析 (温度/压力/收缩率)
+export const INITIAL_SCATTER_DSL = `Title: 注塑工艺参数相关分析
 XAxis: 模具温度(℃)
 YAxis: 注射压力(MPa)
 ZAxis: 收缩率%
-Color[Point]: #3b82f6
-Color[Trend]: #f97316
+Color[Point]: #0D5E42
+Color[Trend]: #F1C40F
 ShowTrend: true
-3D: false
+Show3D: false
+ShowValues: false
 
-# 数据 (X:温度, Y:压力, Z:收缩率)
-# 组1: 低温低压 -> 高收缩 (欠注)
+// 数据点：- <X>, <Y> [, <Z>]
 - 195.5, 85.2, 2.4
 - 192.0, 82.5, 2.5
 - 198.5, 88.0, 2.2
-- 194.2, 84.1, 2.35
-
-# 组2: 优选参数 -> 低收缩 (理想)
 - 215.0, 105.0, 0.6
 - 218.5, 108.2, 0.55
-- 212.0, 102.5, 0.7
-- 216.5, 106.8, 0.58
+- 212.0, 102.5, 0.7`;
 
-# 组3: 高温高压 -> 中收缩 (过保压)
-- 235.0, 125.0, 1.2
-- 238.5, 128.5, 1.3
-- 232.0, 122.0, 1.15
-- 240.0, 130.2, 1.25
-`;
-
-export const INITIAL_AFFINITY_DSL = `Title: 市场环境亲和图分析
+export const INITIAL_AFFINITY_DSL = `Title: 办公环境改善方案（KJ 法）
 Type: Card
 Layout: Horizontal
 
-Color[TitleBg]: #ffffff
-Color[TitleText]: #1e293b
-Font[Title]: 24
-
-Color[GroupHeaderBg]: #eff6ff
-Color[GroupHeaderText]: #1e293b
-Font[GroupHeader]: 16
-
+// 样式
+Color[TitleBg]: #4f46e5
+Color[TitleText]: #ffffff
+Color[GroupHeaderBg]: #e0e7ff
+Color[GroupHeaderText]: #1A2428
 Color[ItemBg]: #ffffff
-Color[ItemText]: #334155
+Color[ItemText]: #1A2428
+Font[Title]: 24
+Font[GroupHeader]: 16
 Font[Item]: 14
-
 Color[Line]: #64748b
-Color[Border]: #cbd5e1
+Color[Border]: rgba(13,94,66,0.18)
 
-Item: root, 市场环境亲和图分析
-Item: g1, 市场机会, root
-Item: i1, 新能源需求增长, g1
-Item: i2, 政策扶持力度大, g1
-Item: g2, 技术风险, root
-Item: i3, 电池技术迭代快, g2
-Item: i4, 供应链不稳定, g2
-Item: g3, 运营挑战, root
-Item: i5, 人才缺口大, g3
-Item: i6, 跨区域管理难, g3`;
+// 核心主题（parentId 写 null 或不写；写 root 时该节点会被解析器作为虚拟根吸收，图上不显示）
+Item: root, 核心目标: 提升员工幸福感, null
+
+// 一级分组
+Item: g1, 空间布局, root
+Item: g2, 行政服务, root
+Item: g3, 数字化工具, root
+
+// 二级条目
+Item: sub1, 增加绿植覆盖, g1
+Item: sub2, 设立静默专注区, g1
+Item: sub3, 升级人体工学椅, g1
+Item: sub4, 现磨咖啡无限供应, g2
+Item: sub5, 每周五下午茶, g2
+Item: sub6, 引入智能看板系统, g3
+Item: sub7, 简化报销流程, g3`;
 
 export const INITIAL_AFFINITY_DATA: any[] = [
   {
@@ -424,14 +425,16 @@ export const INITIAL_AFFINITY_DATA: any[] = [
 
 export const INITIAL_RELATION_DSL = `Title: 多症结系统问题关联分析
 Layout: Free
-Color[Root]: #dc2626
+
+Color[Root]: #CF3A2B
 Color[RootText]: #ffffff
-Color[Middle]: #f97316
+Color[Middle]: #F1C40F
 Color[MiddleText]: #ffffff
 Color[End]: #fbbf24
 Color[EndText]: #92400e
 Color[Line]: #a1a1aa
 
+// 节点定义（ID, 标签）——所有被 Rel 引用的 ID 都必须在此定义
 Node: root1, 症结A：项目交付延期
 Node: root2, 症结B：团队士气低落
 Node: root3, 症结C：客户投诉增加
@@ -449,6 +452,7 @@ Node: e6, 市场竞品压力传导
 Node: e7, 历史遗留系统架构
 Node: e8, 培训体系不完善
 
+// 关系定义：源 -> 目标（类型由引擎按拓扑自动推断）
 Rel: m1 -> root1
 Rel: m2 -> root1
 Rel: m4 -> root1
@@ -509,29 +513,32 @@ export const INITIAL_RELATION_DATA = {
   ]
 };
 
-export const INITIAL_MATRIX_DSL = `Title: 矩阵图分析 (L-Type)
+export const INITIAL_MATRIX_DSL = `Title: 零部件与故障模式关联分析
 Type: L
-CellSize: 40
 ShowScores: true
-Font[Title]: 14
-Font[Base]: 10
+CellSize: 40
+Weight[Strong]: 9
+Weight[Medium]: 3
+Weight[Weak]: 1
 
-Axis: A, 维度轴 A
-- a1, 指标 A1, 9
-- a2, 指标 A2, 6
-- a3, 指标 A3, 3
-- a4, 指标 A4, 1
+// A 轴（行）：零部件，第三列为该行权重
+Axis: A, 零部件
+- a1, 活塞销, 0.8
+- a2, 连杆, 0.9
+- a3, 轴瓦, 1.0
 
-Axis: B, 维度轴 B
-- b1, 特性 B1
-- b2, 特性 B2
-- b3, 特性 B3
-- b4, 特性 B4
+// B 轴（列）：故障模式
+Axis: B, 故障模式
+- b1, 磨损
+- b2, 裂纹
+- b3, 泄漏
+- b4, 异响
 
+// 关系定义：<行项ID>: <列项ID>:<符号>
 Matrix: A x B
 a1: b1:S, b2:M
-a2: b3:S
-`;
+a2: b2:S, b4:W
+a3: b1:M, b3:S, b4:S`;
 
 
 export const MATRIX_SAMPLE_TEMPLATES = {
@@ -653,93 +660,72 @@ Matrix: T x T
 `
 };
 
-export const INITIAL_MATRIX_PLOT_DSL = `Title: 工艺参数关联性分析 (简单矩阵)
+export const INITIAL_MATRIX_PLOT_DSL = `Title: 封装工艺参数相关性研究
 Mode: Matrix
-Dimensions: [温度, 压力, 时间, 强度]
-Smoother: false
+Dimensions: [压力, 温度, 固化时间, 剥离强度]
+Group: 晶圆批次
+Smoother: Lowess
 
 Data:
-- { 温度: 200, 压力: 10.2, 时间: 30, 强度: 450 }
-- { 温度: 210, 压力: 11.5, 时间: 31, 强度: 470 }
-- { 温度: 205, 压力: 10.8, 时间: 32, 强度: 460 }
-- { 温度: 220, 压力: 12.1, 时间: 33, 强度: 480 }
-- { 温度: 225, 压力: 12.5, 时间: 34, 强度: 490 }
-- { 温度: 218, 压力: 11.9, 时间: 35, 强度: 475 }
-- { 温度: 190, 压力: 9.5, 时间: 29, 强度: 430 }
-- { 温度: 195, 压力: 9.8, 时间: 28, 强度: 440 }
-- { 温度: 202, 压力: 10.4, 时间: 29, 强度: 455 }
-- { 温度: 208, 压力: 11.2, 时间: 30, 强度: 465 }
-- { 温度: 212, 压力: 11.6, 时间: 32, 强度: 472 }
-- { 温度: 215, 压力: 11.8, 时间: 33, 强度: 478 }
-- { 温度: 222, 压力: 12.3, 时间: 35, 强度: 485 }
-- { 温度: 228, 压力: 12.7, 时间: 36, 强度: 495 }
-- { 温度: 230, 压力: 13.0, 时间: 37, 强度: 500 }
-- { 温度: 185, 压力: 9.2, 时间: 27, 强度: 420 }
-- { 温度: 198, 压力: 10.0, 时间: 28, 强度: 445 }
-- { 温度: 204, 压力: 10.6, 时间: 31, 强度: 458 }
-- { 温度: 211, 压力: 11.4, 时间: 32, 强度: 468 }
-- { 温度: 216, 压力: 11.9, 时间: 33, 强度: 476 }
-- { 温度: 219, 压力: 12.2, 时间: 34, 强度: 482 }
-- { 温度: 223, 压力: 12.4, 时间: 35, 强度: 488 }
-- { 温度: 226, 压力: 12.6, 时间: 36, 强度: 492 }
-- { 温度: 192, 压力: 9.6, 时间: 28, 强度: 435 }
+- { 压力: 102, 温度: 185, 固化时间: 45, 剥离强度: 8.2, 晶圆批次: "W-01" }
+- { 压力: 105, 温度: 188, 固化时间: 46, 剥离强度: 7.9, 晶圆批次: "W-01" }
+- { 压力: 100, 温度: 186, 固化时间: 44, 剥离强度: 8.0, 晶圆批次: "W-01" }
+- { 压力: 98, 温度: 192, 固化时间: 42, 剥离强度: 9.1, 晶圆批次: "W-02" }
+- { 压力: 96, 温度: 194, 固化时间: 41, 剥离强度: 9.4, 晶圆批次: "W-02" }
+- { 压力: 99, 温度: 191, 固化时间: 43, 剥离强度: 9.0, 晶圆批次: "W-02" }
+- { 压力: 110, 温度: 180, 固化时间: 48, 剥离强度: 7.2, 晶圆批次: "W-03" }
+- { 压力: 112, 温度: 178, 固化时间: 49, 剥离强度: 7.0, 晶圆批次: "W-03" }
+- { 压力: 108, 温度: 182, 固化时间: 47, 剥离强度: 7.4, 晶圆批次: "W-03" }
+- { 压力: 104, 温度: 187, 固化时间: 45, 剥离强度: 8.1, 晶圆批次: "W-01" }
 
 Styles:
-- DisplayMode: Full
-- Diagonal: Label
-- ColorPalette: Industrial
-- PointSize: 5
-- PointOpacity: 0.6
-- ColorPalette: Industrial
-`;
+- DisplayMode: Lower
+- Diagonal: Histogram
+- ColorPalette: Industrial`;
 
-export const INITIAL_PDPC_DSL = `Title: 关键系统迁移 PDPC 风险分析
+export const INITIAL_PDPC_DSL = `Title: 实验室火灾应急 PDPC 演练
 Layout: Directional
 
-// 1. 样式配置
-Color[Start]: #2563eb
-Color[Step]: #3b82f6
-Color[Countermeasure]: #10b981
-Color[End]: #ef4444
+Color[Start]: #DBEAFE
+Color[Step]: #EFF6FF
+Color[Countermeasure]: #ECFDF5
+Color[End]: #FEF2F2
+Color[StartText]: #1E40AF
+Color[StepText]: #1D4ED8
+Color[CountermeasureText]: #047857
+Color[EndText]: #B91C1C
+Color[Line]: #64748B
+Line[Width]: 2
 
-// 2. 节点与分组定义 (多路径多层级)
-Group: p1, 前期准备
-  Item: start, Start, [start]
-  Item: a1, 环境检查
-  Item: a2, 数据备份
+// 阶段 1：发现
+Group: g1, 异常发现
+  Item: n1, 烟雾报警器触发, [start]
+  Item: n2, 确认火情真实性
 EndGroup
 
-Group: p2, 执行迁移
-  Item: b1, 触发脚本
-  Item: b2, 校验完整性
+// 阶段 2：处置
+Group: g2, 应急处置
+  Item: n3, 拨打 119 报警
+  Item: n4, 启动自动灭火系统
+  Item: n5, 灭火系统失效, [countermeasure]
+  Item: n6, 使用手持灭火器补救, [countermeasure]
 EndGroup
 
-Group: p3, 异常应对
-  Item: c1, 空间不足?
-  Item: c2, 清理日志, [countermeasure]
-  Item: c3, 扩容磁盘, [countermeasure]
-  Item: c4, 权限拒绝?
-  Item: c5, 提权重试, [countermeasure]
+// 阶段 3：疏散
+Group: g3, 人员疏散
+  Item: n7, 全员依序撤离
+  Item: n8, 清点人数, [end]
 EndGroup
 
-Item: end, Migration Success, [end]
-
-// 3. 链条定义
-start--a1--a2--b1
-b1--b2 [OK]
-b2--end [OK]
-
-// 路径 1: 空间问题
-b1--c1 [NG]
-c1--c2 [OK]
-c2--b1 [OK]
-c1--c3 [NG]
-c3--b1 [OK]
-
-// 路径 2: 权限问题
-b1--c4 [NG]
-c4--c5 [OK]
-c5--b1 [OK]`;
+// 逻辑链条：id1--id2 [OK|NG]
+n1--n2
+n2--n3 [OK]
+n2--n4 [OK]
+n4--n7 [OK]
+n4--n5 [NG]
+n5--n6
+n6--n7 [OK]
+n7--n8`;
 
 export const INITIAL_PDPC_DATA = {
   title: '关键系统迁移 PDPC 风险分析',
@@ -778,43 +764,32 @@ export const INITIAL_PDPC_DATA = {
   ]
 };
 
-export const INITIAL_ARROW_DSL = `Title: 新产品研发上市网络计划
+export const INITIAL_ARROW_DSL = `Title: 办公软件 V1.0 开发计划
 ShowCritical: true
-Color[Node]: #ffffff
-Color[Line]: #94a3b8
-Color[Critical]: #ef4444
+ShowShortest: false
 
-// 1. 项目启动
-Event: 1, 立项
-Event: 8, 上市发布
+Color[Critical]: #E74C3C
+Color[Line]: #00D2FF
 
-// 2. 研发线 (关键路径)
-Event: 2, 方案定稿
-Event: 5, 样机产出
-1 -> 2: 5, 需求调研
-2 -> 5: 20, 核心研发
-5 -> 8: 15, 量产准备
+// 节点（事件）
+Event: 1, 立项完成
+Event: 2, 需求评审
+Event: 3, 架构设计
+Event: 4, 模块 A 开发
+Event: 5, 模块 B 开发
+Event: 6, 集成测试
+Event: 7, 交付
 
-// 3. 市场线 (非关键)
-Event: 3, 市场策划
-Event: 6, 预热推广
-1 -> 3: 8, 竞品分析
-3 -> 6: 10, 营销方案
-6 -> 8: 12, 渠道铺设
+// 实任务：Src -> Tgt: 工期, 名称
+1 -> 2: 3, 需求分析
+2 -> 3: 2, 架构方案
+3 -> 4: 10, A逻辑实现
+3 -> 5: 8, B逻辑实现
+4 -> 6: 5, 系统集成
+6 -> 7: 2, 验收发布
 
-// 4. 其它关联 (逻辑约束)
-// 方案定稿(5d)后 -> 市场策划(8d+?)
-2 ..> 3: 0, 方案确认
-// 样机产出(25d)后 -> 预热推广(18d+?)
-5 ..> 6: 0, 样机提供
-
-// 5. 备案线 (非关键)
-Event: 4, 合规审查
-Event: 7, 许可证获取
-1 -> 4: 8, 资料准备
-4 -> 7: 15, 资质审批
-7 -> 8: 5, 最终归档
-`;
+// 虚任务：仅表达逻辑依赖，工期恒为 0
+5 ..> 4: 0, 依赖同步`;
 // --- Basic Chart (Bar/Line/Pie) Initial Data ---
 
 export const INITIAL_BASIC_DATA: any = {
@@ -822,31 +797,27 @@ export const INITIAL_BASIC_DATA: any = {
   type: 'bar',
   datasets: [
     { name: '线体', values: ['线体-A', '线体-B', '线体-C', '线体-D', '线体-E'], axisMatch: 'X' },
-    { name: '实时产量', values: [850, 920, 780, 1100, 890], color: '#3b82f6', axisMatch: 'Y' },
-    { name: '能源消耗', values: [420, 450, 390, 520, 440], color: '#10b981', axisMatch: 'Y2' },
-    { name: '一次合格率', values: [98.2, 97.5, 99.1, 96.8, 98.5], color: '#f59e0b', axisMatch: 'Y3' }
+    { name: '实时产量', values: [850, 920, 780, 1100, 890], color: '#0D5E42', axisMatch: 'Y' },
+    { name: '能源消耗', values: [420, 450, 390, 520, 440], color: '#00D2FF', axisMatch: 'Y2' },
+    { name: '一次合格率', values: [98.2, 97.5, 99.1, 96.8, 98.5], color: '#F1C40F', axisMatch: 'Y3' }
   ]
 };
 
-export const INITIAL_BASIC_DSL = `Title: 智慧工厂生产线综合效能分析 (KPI)
+export const INITIAL_BASIC_DSL = `Title: 2024年三季度产线效能对冲分析
 Type: bar
-View: v
-Stacked: false
-Smooth: true
 ShowLegend: true
 Grid: true
-Color[Title]: #3b82f6
-Font[Title]: 22
 
-Axis: 线体, X
-Axis: 产量 (kpcs), Y
-Axis: 能耗 (kWh), Y2
-Axis: 合格率 (%), Y3
+// 1. 分类标签（必填：必须有一个 X 轴 Dataset）
+Dataset: 月份, [7月, 8月, 9月], null, X
 
-Dataset: 线体, [线体-A, 线体-B, 线体-C, 线体-D, 线体-E], null, X
-Dataset: 实时产量, [850, 920, 780, 1100, 890], #3b82f6, Y
-Dataset: 能源消耗, [420, 450, 390, 520, 440], #10b981, Y2
-Dataset: 一次合格率, [98.2, 97.5, 99.1, 96.8, 98.5], #f59e0b, Y3`;
+// 2. 主轴产量（柱状）
+Dataset: 入库合格量, [12000, 14500, 13800], #0D5E42, Y
+
+// 3. 副轴稼动率：重新声明 Type 切换后续 Dataset 的渲染类型为折线
+Type: line
+Smooth: true
+Dataset: 设备稼动率(%), [88.5, 92.1, 91.4], #E74C3C, Y2`;
 
 export const INITIAL_RADAR_DATA: RadarData = {
   title: '投资组合多维风险分析',
@@ -858,64 +829,28 @@ export const INITIAL_RADAR_DATA: RadarData = {
     { name: '资产规模(亿)', max: 100, min: 0 }
   ],
   series: [
-    { name: '策略 A (稳健型)', values: [12, 15, 1.8, 12, 85], color: '#3b82f6', fillOpacity: 0.4 },
-    { name: '策略 B (高收益型)', values: [22, 28, 1.2, 35, 40], color: '#ef4444', fillOpacity: 0.3 }
+    { name: '策略 A (稳健型)', values: [12, 15, 1.8, 12, 85], color: '#0D5E42', fillOpacity: 0.4 },
+    { name: '策略 B (高收益型)', values: [22, 28, 1.2, 35, 40], color: '#E74C3C', fillOpacity: 0.3 }
   ]
 };
 
 // --- VChart Initial Data ---
 
-export const INITIAL_VCHART_DSL = `Title: VChart 示例多维组合图
+export const INITIAL_VCHART_DSL = `Title: 月度设备综合效率 (OEE)
 ColorPalette: tech
-Font[Title]: 24
 ShowTitle: true
-ShowLabel: true
-Animation: false
 
 Spec: {
-  "type": "common",
-  "series": [
-    {
-      "type": "bar",
-      "data": {
-        "id": "barData",
-        "values": [
-          { "year": "2021", "value": 35, "type": "Smartphone" },
-          { "year": "2022", "value": 42, "type": "Smartphone" },
-          { "year": "2023", "value": 48, "type": "Smartphone" },
-          { "year": "2021", "value": 20, "type": "Tablet" },
-          { "year": "2022", "value": 25, "type": "Tablet" },
-          { "year": "2023", "value": 22, "type": "Tablet" }
-        ]
-      },
-      "xField": "year",
-      "yField": "value",
-      "seriesField": "type",
-      "stack": true,
-      "label": { "visible": true }
-    },
-    {
-      "type": "line",
-      "data": {
-        "id": "lineData",
-        "values": [
-          { "year": "2021", "value": 55 },
-          { "year": "2022", "value": 67 },
-          { "year": "2023", "value": 70 }
-        ]
-      },
-      "xField": "year",
-      "yField": "value",
-      "label": { "visible": true },
-      "point": { "visible": true }
-    }
-  ],
+  "type": "bar",
+  "data": [{ "values": [
+    { "month": "1月", "v": 0.85 }, { "month": "2月", "v": 0.88 }
+  ]}],
+  "xField": "month", "yField": "v",
+  "label": { "visible": true },
   "axes": [
-    { "orient": "left", "seriesIndex": [0], "title": { "visible": true, "text": "销量 (M units)" } },
-    { "orient": "right", "seriesIndex": [1], "title": { "visible": true, "text": "总量趋势" } },
-    { "orient": "bottom", "label": { "visible": true } }
-  ],
-  "legends": [{ "visible": true, "orient": "bottom" }]
+    { "orient": "bottom", "label": { "visible": true } },
+    { "orient": "left", "label": { "visible": true } }
+  ]
 }`;
 
 export const VCHART_COLOR_PALETTES = [
@@ -924,104 +859,86 @@ export const VCHART_COLOR_PALETTES = [
     { id: 'dark',       name: '系统暗色 (Dark)',          colors: [] },
     // 自定义注册主题 (通过 VChart.registerTheme 注入)
     { id: 'tech',       name: '科技蓝 (Tech Blue)',       colors: ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de'] },
-    { id: 'vibrant',    name: '活力橙 (Vibrant)',         colors: ['#f97316', '#fbbf24', '#10b981', '#3b82f6', '#8b5cf6'] },
+    { id: 'vibrant',    name: '活力橙 (Vibrant)',         colors: ['#F1C40F', '#fbbf24', '#00D2FF', '#0D5E42', '#3498DB'] },
     { id: 'industrial', name: '工业灰 (Industrial)',      colors: ['#4b5563', '#6b7280', '#9ca3af', '#d1d5db', '#f3f4f6'] },
-    { id: 'deep',       name: '深邃暗 (Deep Dark)',       colors: ['#1e293b', '#334155', '#475569', '#64748b', '#94a3b8'] },
+    { id: 'deep',       name: '深邃暗 (Deep Dark)',       colors: ['#1A2428', '#42525C', '#475569', '#64748b', '#94a3b8'] },
     { id: 'ocean',      name: '海洋蓝 (Ocean)',           colors: ['#0ea5e9', '#38bdf8', '#7dd3fc', '#bae6fd', '#0369a1'] },
     { id: 'forest',     name: '森林绿 (Forest)',          colors: ['#16a34a', '#22c55e', '#4ade80', '#86efac', '#052e16'] },
     { id: 'sunset',     name: '夕阳橙 (Sunset)',          colors: ['#ea580c', '#fb923c', '#fed7aa', '#fca5a5', '#7f1d1d'] },
 ];
 
-export const INITIAL_MERMAID_DSL = `graph TD
-    A[开始] --> B{是否在线?}
-    B -- 是 --> C[加载网络资源]
-    B -- 否 --> D[使用本地缓存]
-    C --> E[渲染页面]
-    D --> E
-    E --> F[结束]`;
+export const INITIAL_MERMAID_DSL = `%%{init: {"theme": "neutral", "look": "handDrawn"}}%%
+graph TD
+    A[提交申请] --> B{经理审批}
+    B -- "通过" --> C[财务放款]
+    B -- "驳回" --> D[退回修改]
+    D --> A
+    C --> E[流程结束]`;
 
-export const INITIAL_RADAR_DSL = `Title: 投资组合多维风险分析
-
-// 统计分析控制
+export const INITIAL_RADAR_DSL = `Title: 方案多维效果对比
 Standardize: true
 ShowAreaScore: true
 ShowSimilarity: true
-
-// 极坐标控制
+ShowValues: false
 StartAngle: -90
 Clockwise: true
 Closed: true
 
-// 轴定义: Axis: 名称, 最大值, [最小值]
-Axis: 年化回报(%), 25, 0
-Axis: 波动率(%), 30, 0
-Axis: 流动性评分, 100, 0
-Axis: 夏普比率, 3.0, 0
-Axis: 最大回撤(%), 40, 0
+// 轴定义：Axis: <名称>, <最大值>[, <最小值>]
+Axis: 质量, 100, 0
+Axis: 成本, 100, 0
+Axis: 交期, 100, 0
+Axis: 安全, 100, 0
+Axis: 可维护性, 100, 0
 
-// 数据系列: Series: 名称, [值列表], 颜色?, 透明度?
-Series: 平衡型组合, [12, 15, 80, 1.8, 12], #3b82f6, 0.4
-Series: 激进型组合, [20, 25, 60, 2.2, 28], #ef4444, 0.3
-Series: 保守型组合, [6, 8, 95, 1.2, 5], #10b981, 0.2`;
+// 系列：Series: <名称>, [<值列表>][, <颜色>[, <透明度>]]
+Series: 方案A, [85, 70, 90, 80, 75], #0D5E42, 0.4
+Series: 方案B, [70, 85, 75, 88, 80], #E74C3C, 0.3`;
 
 // ===== Flow (流程图 / BPMN 子集) =====
 
-export const INITIAL_FLOW_DSL = `Title: 汽车零部件新产品开发与量产质量控制全流程 (APQP/PPAP)
+export const INITIAL_FLOW_DSL = `Title: 卷烟生产批次质量追溯与放行流程
 Layout: H
-
-Dict: D[市场部,研发中心,质量保证部,生产制造部]
-Dict: P[立项评估,设计开发,过程试产,量产放行,项目结项]
-Dict: R[产品经理,系统工程师,质量总监,制造部长]
-
-Lane from D[0,1,2,3] Layout H
+Grid: dashed
+Dict: D[制丝车间,卷包车间,质检中心,技术中心,档案室]
+Dict: P[批次创建,参数采集,并行检测,异常处置,放行归档]
+Dict: R[操作员,质检员,技术员,档案员]
+Dict: worker[创建生产批次,录入工艺参数,质量指标是否合规?,物理指标检测,化学指标检测,偏差分析与处置,技术中心复核,编制批次报告,质量放行,资料归档,复核评审记录,检测数据集]
+Lane from D[0,1,2,3,4] Layout H
 Lane from P[0,1,2,3,4] Layout V
-
-AxisX: 职能部门 Align C
-AxisY: 阶段周期 Align C
-Axis: 汽车零部件新产品开发与量产质量控制全流程 AxisX
-
-Attr active [Role,SOP,Lv,Time,KPI]
-
-W: w1: 客户需求收集 Type[S] Location(D[0],P[0]) Role(R[0]) Lv(重点) Time(5D)
-W: w2: 立项可行性评审 Location(D[0],P[0]) Role(R[0]) SOP(QP-001)
-w1 → #w2
-
-W: q1: 立项评审通过? Type[?] Location(D[0],P[0]) Role(R[0])
-   通过 → #w3
-   驳回 → #w1
+AxisX: 责任部门 Align C
+AxisY: 流程阶段 Align C
+Axis: 卷烟批次质量追溯 AxisY
+Attr active [Role,SOP,Lv,Time,KPI,M]
+W: w1: worker[0] Type[S] Location(D[0],P[0]) Role(R[0]) SOP(ZZ-PC-01) Lv(一般) Time(0.5h)
+W: w2: worker[1] Location(D[0],P[1]) Role(R[0]) SOP(ZZ-PC-02) Time(1h)
+W: g1: worker[2] Type[?] Location(D[2],P[1]) Role(R[1]) KPI(一次合格率)
+   合规 → #p1
+   不合规 → #w5
    End
-w2 → #q1
-
-W: w3: 方案架构与DFMEA设计 Location(D[1],P[1]) Role(R[1]) SOP(QP-008) KPI(DFMEA覆盖率100%) Time(15D)
-w3 → #w4
-
-W: w4: 试制样件制造 Location(D[3],P[2]) Role(R[3]) Time(10D)
-w4 → #w5
-
-W: w5: 首件质检与试产验证 Location(D[2],P[2]) Role(R[2]) SOP(SOP-012)
-w5 → #q2
-
-W: q2: CPK与全尺寸检验达标? Type[?] Location(D[2],P[2]) Role(R[2]) KPI(CPK≥1.67)
-   达标 → #w6
-   不达标 → #w3
+W: p1: worker[3] Type[+] Location(D[1],P[1]) Role(R[1]) SOP(ZD-JC-05)
+   物理检测 → #w3
+   化学检测 → #w4
    End
-
-W: w6: PPAP批准与量产准备 Location(D[2],P[3]) Role(R[2]) SOP(QP-020) Time(7D)
-w6 → #w7
-
-W: w7: 批量试运行与产线爬坡 Location(D[3],P[3]) Role(R[3]) KPI(良率≥99.5%) Time(10D)
-w7 → #q3
-
-W: q3: 终审签发放行? Type[?] Location(D[2],P[3]) Role(R[2])
-   放行 → #w8
-   整改 → #w6
+W: w3: worker[3] Location(D[1],P[2]) Role(R[1]) Time(2h) Lv(重要)
+W: w4: worker[4] Location(D[2],P[2]) Role(R[1]) Time(3h) Lv(重要)
+W: sub1: worker[6] Type[SUB] Location(D[3],P[2]) Role(R[2]) Time(4h)
+   W: s1: 受理复核 Type[S] Role(R[2]) SOP(JS-FH-01)
+   W: s2: 出具意见 Type[E] Role(R[2]) SOP(JS-FH-02)
    End
-
-W: w8: 量产移交与项目总结 Type[E] Location(D[0],P[4]) Role(R[0]) Time(3D)
-
-W: n1: 客户技术规范CTS Type[N] Location(D[1],P[1]) Attach(#w3) Lv(重点)
-W: n2: 控制计划CP与PFMEA Type[N] Location(D[3],P[2]) Attach(#w4) Lv(重点)
-W: n3: PPAP提交报告包 Type[N] Location(D[2],P[3]) Attach(#w6)`;
+W: w5: worker[5] Location(D[3],P[2]) Role(R[2]) SOP(JS-YC-11) Lv(关键) M(强制项)
+W: w8: worker[7] Location(D[2],P[3]) Role(R[1]) SOP(ZD-BG-08) Time(1h)
+W: w9: worker[8] Location(D[1],P[4]) Role(R[1]) Lv(关键) KPI(放行及时率)
+W: w10: worker[9] Type[E] Location(D[4],P[4]) Role(R[3]) Time(0.5h)
+W: n1: worker[10] Type[N] Attach(#w8)
+W: d1: worker[11] Type[DATA] Attach(#p1)
+w2 → #g1
+w3 → #w8
+w4 → #w8
+w5 → #sub1
+sub1 → #w8
+w8 → #w9
+w9 → #w10`;
 
 export const INITIAL_FLOW_DATA: FlowData = parseFlowDSL(INITIAL_FLOW_DSL).data;
 

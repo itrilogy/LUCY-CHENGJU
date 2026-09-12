@@ -51,6 +51,7 @@ function pathBends(pts: Point[]): number {
     const d1x = pts[i - 1].x - pts[i - 2].x, d1y = pts[i - 1].y - pts[i - 2].y;
     const d2x = pts[i].x - pts[i - 1].x, d2y = pts[i].y - pts[i - 1].y;
     if ((d1x !== 0 && d2y !== 0) || (d1y !== 0 && d2x !== 0)) b++;
+    else if (d1x * d2x + d1y * d2y < 0) b += 2;   // AUD-083/107：180° 回折算两次转弯
   }
   return b;
 }

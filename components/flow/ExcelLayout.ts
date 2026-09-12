@@ -5,7 +5,7 @@
 import type { FlowData, FlowChartStyles } from '../../types';
 import { computeCellOrder } from './CellOrder.ts';
 import { computeMainlineOrder } from './MainlineOrder.ts';
-import { applyGuardedShifts, type T2Stats } from './GuardedShift.ts';
+import type { T2Stats } from './GuardedShift.ts';
 
 export interface FlowSvgDims { width: number; height: number; }
 
@@ -429,92 +429,10 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
     }
   }
 
-  // 2. 垂直射线视线松弛 (Vertical Ray Clearance via X-Displacement, 双向支持向上与向下)
-  // 当主干顺序流或关键边在同列跨行垂直直通 (向下如 w6 -> w7，向上如 w4 -> w5) 时：
-  // 精确探测垂直射线上 (同一列 ci，同一槽位 gridX) 的所有障碍节点 (同格下/上方障碍、中间格障碍)。
-  // 自动将阻挡节点右移至扩展格 (gridX -> gridX + 1)，彻底扫清垂直直通走廊，消灭多重折线！
-  for (const e of data.edges) {
-    if (e.parent || e.type !== 'sequence') continue;
-    const u = data.nodes.find((x) => x.id === e.from);
-    const v = data.nodes.find((x) => x.id === e.to);
-    if (!u || !v) continue;
-
-    let uRi = -1, uCi = -1, uGx = 0, uGy = 0;
-    let vRi = -1, vCi = -1, vGx = 0, vGy = 0;
-    for (const [gk, cell] of cellXY) {
-      const itU = cell.items.find((it) => it.n.id === u.id);
-      if (itU) {
-        const [r, c] = gk.split('_').map(Number);
-        uRi = r; uCi = c; uGx = itU.gridX; uGy = itU.gridY;
-      }
-      const itV = cell.items.find((it) => it.n.id === v.id);
-      if (itV) {
-        const [r, c] = gk.split('_').map(Number);
-        vRi = r; vCi = c; vGx = itV.gridX; vGy = itV.gridY;
-      }
-    }
-
-    if (uCi >= 0 && uCi === vCi && uRi !== vRi) {
-      const isDownward = uRi < vRi;
-      const minR = Math.min(uRi, vRi), maxR = Math.max(uRi, vRi);
-
-      // (1) 源单元格内沿射线方向的障碍物
-      const uGk = `${uRi}_${uCi}`;
-      const uCell = cellXY.get(uGk);
-      if (uCell) {
-        const uBlocker = uCell.items.find((it) =>
-          it.n.id !== u.id && (isDownward ? it.gridY > uGy : it.gridY < uGy) && it.gridX === uGx
-        );
-        if (uBlocker) {
-          uBlocker.gridX = uGx + 1;
-          uCell.nx = Math.max(...uCell.items.map((it) => it.gridX + 1), 1);
-        }
-      }
-
-      // (2) 中间行单元格内的障碍物
-      for (let r = minR + 1; r < maxR; r++) {
-        const midGk = `${r}_${uCi}`;
-        const midCell = cellXY.get(midGk);
-        if (!midCell) continue;
-        const midBlocker = midCell.items.find((it) => it.gridX === uGx);
-        if (midBlocker) {
-          midBlocker.gridX = uGx + 1;
-          midCell.nx = Math.max(...midCell.items.map((it) => it.gridX + 1), 1);
-        }
-      }
-
-      // (3) 目标单元格内迎着射线方向的障碍物 (如向上流动时目标单元格内位于 v 下方的节点 q2)
-      const vGk = `${vRi}_${vCi}`;
-      const vCell = cellXY.get(vGk);
-      if (vCell) {
-        const vBlocker = vCell.items.find((it) =>
-          it.n.id !== v.id && (isDownward ? it.gridY < vGy : it.gridY > vGy) && it.gridX === uGx
-        );
-        if (vBlocker) {
-          vBlocker.gridX = uGx + 1;
-          vCell.nx = Math.max(...vCell.items.map((it) => it.gridX + 1), 1);
-        }
-      }
-    }
-  }
-
-  // T2 守护位移：在既有射线初扫之后，对仍 B≥3 的正向边试探格位移，仅 ΔΦ≤−150 接受
-  const t2BandLeft = (() => {
-    const axisTitles = [data.axes?.x?.title || '', data.axes?.y?.title || ''].filter(Boolean);
-    const axisW = axisTitles.length
-      ? Math.max(48, Math.max(...axisTitles.map((t) => textW(t, 12))) + 28)
-      : 0;
-    return axisTitles.length ? axisW : FLOW_SVG.head;
-  })();
-  const t2TitleBandW = data.axes?.page?.place === 'AxisY' ? st.titleFontSize + 32 : 0;
-  const t2 = applyGuardedShifts(data, cellXY, nR, nC, {
-    half: FLOW_SVG.half,
-    titleH: FLOW_SVG.titleH,
-    colLabelH: FLOW_SVG.colLabelH,
-    bandLeft: t2BandLeft,
-    titleBandW: t2TitleBandW,
-    head: FLOW_SVG.head,
-  });
+  // 【已停用】T2 守护位移（审计台账 AUD-090）：该算子为减少折弯而移动节点槽位，
+  // 与「节点位置权威」原则冲突（节点位置来自 泳道×阶段，是结构事实）；
+  // 其「腾挪让位」职责已由 L2/L3 的格位分配与溢出机制承接。
+  const t2: T2Stats | undefined = undefined;
 
   // ④ W列最大宽 / H行最大高（由该列/行中心节点最大宽/高确定）
   const cellWself: number[] = new Array(nC).fill(0);

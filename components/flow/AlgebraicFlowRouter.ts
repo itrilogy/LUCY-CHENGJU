@@ -342,6 +342,9 @@ export function solveAlgebraicRoute(
         const d1x = path[i - 1].x - path[i - 2].x, d1y = path[i - 1].y - path[i - 2].y;
         const d2x = path[i].x - path[i - 1].x, d2y = path[i].y - path[i - 1].y;
         if ((d1x !== 0 && d2y !== 0) || (d1y !== 0 && d2x !== 0)) bends++;
+        // AUD-083/107：折弯判据必须含方向符号 —— 180° 反向回折 ≈ 两次转弯
+        // （原判据仅按轴向，会漏计回折，致「绕外侧再折回」的畸形路径代价被低估而胜出）
+        else if (d1x * d2x + d1y * d2y < 0) bends += 2;
       }
     }
     return bends * 100 + len * 0.01;

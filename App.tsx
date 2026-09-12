@@ -629,7 +629,7 @@ const App: React.FC = () => {
           console.log('[IQS Bridge] Calling getDataURL with options:', options);
           return await diagramRef.current.getDataURL({
             pixelRatio: options?.pixelRatio || 3,
-            backgroundColor: options?.backgroundColor || '#ffffff',
+            backgroundColor: options?.backgroundColor || '#FFFFFF',
             width: options?.width,
             height: options?.height
           });
@@ -949,7 +949,7 @@ const App: React.FC = () => {
             <footer className="h-20 border-t border-[var(--border-light)] px-12 flex items-center justify-between shrink-0 bg-[var(--header-bg)] backdrop-blur-xl transition-colors">
               <div className="flex items-center gap-10">
                 <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-[0.25em] flex items-center gap-4">
-                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_12px_#10b981]" />
+                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_12px_#00D2FF]" />
                   Precision Computing Active
                 </p>
                 <div className="h-5 w-px bg-[var(--border-light)]" />

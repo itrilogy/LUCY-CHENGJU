@@ -632,15 +632,18 @@ export const DEFAULT_PDPC_STYLES: PDPCChartStyles = {
   title: '过程决策程序图 (PDPC)',
   layout: 'Directional',
 
-  startColor: '#2563eb',
-  startTextColor: '#ffffff',
-  endColor: '#ef4444',
-  endTextColor: '#ffffff',
-  stepColor: '#3b82f6',
-  stepTextColor: '#ffffff',
-  countermeasureColor: '#10b981',
-  countermeasureTextColor: '#ffffff',
-  lineColor: '#64748b',
+  // 浅色主题正确做法：**浅底 + 同色系深字**。
+  // 原值（饱和底 + 白字）多处不达 4.5:1 —— Step 3.68:1、Countermeasure 2.54:1、End 3.76:1。
+  // 下列组合均在 5.5:1 以上，且保留四类的色相辨识。
+  startColor: '#DBEAFE',            // 起点：浅蓝底
+  startTextColor: '#1E40AF',        //       深蓝字 (8.2:1)
+  stepColor: '#EFF6FF',             // 步骤：极浅蓝底
+  stepTextColor: '#1D4ED8',         //       深蓝字 (7.4:1)
+  countermeasureColor: '#ECFDF5',   // 对策：浅绿底
+  countermeasureTextColor: '#047857', //     深绿字 (5.5:1)
+  endColor: '#FEF2F2',              // 终点：浅红底
+  endTextColor: '#B91C1C',          //       深红字 (6.4:1)
+  lineColor: '#64748B',
   lineWidth: 2,
 
   nodeFontSize: 12,

@@ -3,11 +3,15 @@ import { MermaidChartStyles, DEFAULT_MERMAID_STYLES, QCToolType } from '../types
 import {
     Cpu, Edit3, Code, Sparkles, Settings2, HelpCircle, X, RotateCcw,
     Loader2, Zap, LayoutGrid, ChevronRight, Palette, Type,
-    Database, GitBranch
+    Database, GitBranch,
+    AlertTriangle,
 } from 'lucide-react';
-import { createPortal } from 'react-dom';
-import { generateLogicDSL, getAIStatus } from '../services/aiService';
+import {generateLogicDSL} from '../services/aiService';
 import { INITIAL_MERMAID_DSL } from '../constants';
+import { CardDocModal } from './CardDocModal';
+import { Switch } from './ui/Switch';
+import { useAIEngine } from '../hooks/useAIEngine';
+import { ConfirmInline } from './ui/ConfirmInline';
 
 interface MermaidEditorProps {
     data: string;
@@ -23,6 +27,7 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({
     onStylesChange
 }) => {
     const [activeTab, setActiveTab] = useState<'style' | 'dsl' | 'ai'>('style');
+    const [confirmReset, setConfirmReset] = useState(false);
     const [showDocs, setShowDocs] = useState(false);
     const [docTab, setDocTab] = useState<'syntax' | 'examples'>('syntax');
     const [error, setError] = useState<string | null>(null);
@@ -59,17 +64,13 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({
     // AI State
     const [aiPrompt, setAiPrompt] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
-    const [engineName, setEngineName] = useState('DeepSeek');
+    const engineName = useAIEngine();
 
-    useEffect(() => {
-        getAIStatus().then(setEngineName);
-    }, []);
 
-    const handleReset = () => {
-        if (confirm('确定要恢复到示例数据吗？当前所有修改将丢失。')) {
+    const doReset = () => {
             onDataChange(INITIAL_MERMAID_DSL);
             onStylesChange(DEFAULT_MERMAID_STYLES);
-        }
+        setConfirmReset(false);
     };
 
     const generateAI = async () => {
@@ -81,7 +82,7 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({
             onDataChange(dslResult);
             setActiveTab('dsl');
         } catch (err) {
-            console.error('AI Generation failed:', err);
+            console.error('AI Generation failed:', err), setError(`AI Generation failed: ${err instanceof Error ? err.message : String(err)}`);
             alert('AI 生成失败，请检查网络连接或 API 配置。');
         } finally {
             setIsGenerating(false);
@@ -91,28 +92,35 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({
     return (
         <div className="flex flex-col h-[calc(100vh-80px)] bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] relative">
             {/* Header Area */}
-            <div className="p-6 border-b border-[var(--sidebar-border)] space-y-6">
+            <div className="p-6 border-b border-[var(--border-line-r)] space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-blue-600/20 rounded-lg flex items-center justify-center border border-blue-500/30">
-                            <Cpu size={22} className="text-blue-400" />
+                        <div className="w-10 h-10 bg-primary/20 rounded-md flex items-center justify-center border border-primary/30">
+                            <Cpu size={22} className="text-primary" />
                         </div>
                         <div>
                             <h2 className="text-sm font-black text-[var(--sidebar-text)] tracking-widest uppercase">Mermaid 流程图分析</h2>
-                            <p className="text-[8px] text-[var(--sidebar-muted)] font-bold tracking-[0.2em] mt-1 uppercase">IQS Mermaid Engine | LUXI LAB</p>
+                            <p className="text-[11px] text-[var(--sidebar-muted)] font-bold tracking-[0.2em] mt-1 uppercase">IQS Mermaid Engine | LUXI LAB</p>
                         </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
+                        {confirmReset && (
+                            <ConfirmInline
+                                message="恢复示例？当前修改将丢失"
+                                onConfirm={doReset}
+                                onCancel={() => setConfirmReset(false)}
+                            />
+                        )}
                         <button
-                            onClick={handleReset}
-                            className="p-3 bg-[var(--input-bg)] rounded-lg text-[var(--sidebar-text)] hover:text-blue-400 transition-all border border-[var(--input-border)]"
+                            onClick={() => setConfirmReset(true)} disabled={confirmReset}
+                            className="p-3 bg-[var(--input-bg)] rounded-md text-[var(--sidebar-text)] hover:text-primary transition-all border border-[var(--input-border)]"
                             title="恢复示例"
                         >
                             <RotateCcw size={18} />
                         </button>
                         <button
                             onClick={() => setShowDocs(true)}
-                            className="p-3 bg-[var(--input-bg)] rounded-lg text-[var(--sidebar-text)] hover:text-white transition-all border border-[var(--input-border)]"
+                            className="p-3 bg-[var(--input-bg)] rounded-md text-[var(--sidebar-text)] hover:text-primary transition-all border border-[var(--input-border)]"
                             title="帮助文档"
                         >
                             <HelpCircle size={18} />
@@ -120,7 +128,7 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({
                     </div>
                 </div>
 
-                <nav className="flex gap-2 p-1.5 bg-[var(--nav-bg)] rounded-lg border border-[var(--sidebar-border)]">
+                <nav className="flex gap-2 p-1.5 bg-[var(--nav-bg)] rounded-md border border-[var(--border-line-r)]">
                     {[
                         { id: 'style', label: '面板配置', icon: <Database size={14} /> },
                         { id: 'dsl', label: 'DSL 编辑器', icon: <Code size={14} /> },
@@ -129,7 +137,7 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({
                         <button
                             key={t.id}
                             onClick={() => setActiveTab(t.id as any)}
-                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === t.id ? 'bg-blue-600 text-white shadow-xl' : 'text-[var(--sidebar-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--input-bg)]'
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === t.id ? 'bg-primary text-white shadow-lg' : 'text-[var(--text-secondary)] hover:text-[var(--sidebar-text)] hover:bg-[var(--input-bg)]'
                                 }`}
                         >
                             {t.icon} {t.label}
@@ -140,34 +148,44 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({
 
             {/* Content Area */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+                {error && (
+                    <div role="alert" className="p-4 rounded-md bg-[var(--alert-red)]/10 border border-[var(--alert-red)]/30 flex items-start gap-3">
+                        <AlertTriangle size={16} className="text-[var(--text-danger)] shrink-0 mt-0.5" />
+                        <p className="text-[11px] font-bold text-[var(--text-danger)] leading-relaxed flex-1">{error}</p>
+                        <button type="button" onClick={() => setError(null)} aria-label="关闭错误提示"
+                            className="text-[var(--text-muted)] hover:text-[var(--text-danger)] transition-colors shrink-0">
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
                 {activeTab === 'style' ? (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="space-y-4">
                             <div className="flex items-center gap-3 pl-2">
-                                <ChevronRight size={14} className="text-blue-500" />
-                                <span className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">图表核心信息</span>
+                                <ChevronRight size={14} className="text-primary" />
+                                <span className="text-[11px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">图表核心信息</span>
                             </div>
                             <input
                                 value={styles.title}
                                 onChange={e => onStylesChange({ ...styles, title: e.target.value })}
-                                className="w-full h-12 px-4 logic-terminal-input text-xs font-bold bg-[var(--input-bg)] text-[var(--sidebar-text)] border-[var(--input-border)] rounded-lg focus:border-blue-500"
+                                className="iqs-input h-11"
                                 placeholder="图表标题"
                             />
                         </div>
 
-                        <div className="p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--sidebar-border)] space-y-6 shadow-2xl">
-                            <div className="flex items-center gap-3 border-b border-[var(--sidebar-border)] pb-3">
-                                <Palette size={14} className="text-blue-400" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">颜色方案与样式</span>
+                        <div className="p-8 bg-[var(--card-bg)] rounded-md border border-[var(--border-line-r)] space-y-6 shadow-md">
+                            <div className="flex items-center gap-3 border-b border-[var(--border-line-r)] pb-3">
+                                <Palette size={14} className="text-primary" />
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">颜色方案与样式</span>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <span className="text-[9px] font-black text-[var(--sidebar-muted)] uppercase tracking-widest pl-1">内置主题</span>
+                                    <span className="text-[11px] font-black text-[var(--sidebar-muted)] uppercase tracking-widest pl-1">内置主题</span>
                                     <select
                                         value={styles.theme}
                                         onChange={e => onStylesChange({ ...styles, theme: e.target.value as any })}
-                                        className="w-full h-12 px-4 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-sm font-bold text-[var(--sidebar-text)] outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                        className="w-full h-12 px-4 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-md text-sm font-bold text-[var(--sidebar-text)] outline-none transition-all appearance-none cursor-pointer"
                                     >
                                         <option value="default">默认主题 (Default)</option>
                                         <option value="forest">森林草木 (Forest)</option>
@@ -178,63 +196,48 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({
                                 </div>
 
                                 <div className="space-y-2">
-                                    <span className="text-[9px] font-black text-[var(--sidebar-muted)] uppercase tracking-widest pl-1">背景颜色</span>
-                                    <div className="flex items-center gap-1.5 bg-[var(--input-bg)] p-2 rounded-lg border border-[var(--input-border)]">
+                                    <span className="text-[11px] font-black text-[var(--sidebar-muted)] uppercase tracking-widest pl-1">背景颜色</span>
+                                    <div className="flex items-center gap-1.5 bg-[var(--input-bg)] p-2 rounded-md border border-[var(--input-border)]">
                                         <input
                                             type="color"
                                             value={styles.backgroundColor}
                                             onChange={e => onStylesChange({ ...styles, backgroundColor: e.target.value })}
                                             className="w-5 h-5 rounded bg-transparent cursor-pointer border-none p-0"
                                         />
-                                        <span className="text-[9px] font-mono text-[var(--sidebar-text)] leading-none">画布背景</span>
+                                        <span className="text-[11px] font-mono text-[var(--sidebar-text)] leading-none">画布背景</span>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="space-y-3 pt-2">
                                 <div className="flex items-center justify-between px-1">
-                                    <span className="text-[9px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">外观风格 (手绘模式)</span>
-                                    <button
-                                        onClick={() => onStylesChange({ ...styles, look: styles.look === 'handDrawn' ? 'classic' : 'handDrawn' })}
-                                        className={`w-10 h-5 rounded-full transition-all relative ${styles.look === 'handDrawn' ? 'bg-blue-600' : 'bg-[var(--sidebar-muted)]'}`}
-                                    >
-                                        <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${styles.look === 'handDrawn' ? 'right-1' : 'left-1'}`} />
-                                    </button>
+                                    <span className="text-[11px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">外观风格 (手绘模式)</span>
+                                    <Switch checked={styles.look === 'handDrawn'} onChange={v => onStylesChange({ ...styles, look: v ? 'handDrawn' : 'classic' })} ariaLabel="外观风格（手绘模式）" />
                                 </div>
-                                <p className="text-[8px] text-[var(--sidebar-muted)] font-medium tracking-wider leading-relaxed px-1">开启手绘模式 (Hand-drawn) 将展示更具艺术感的草描效果。</p>
+                                <p className="text-[11px] text-[var(--sidebar-muted)] font-medium tracking-wider leading-relaxed px-1">开启手绘模式 (Hand-drawn) 将展示更具艺术感的草描效果。</p>
                             </div>
 
                             <div className="space-y-3 pt-2">
                                 <div className="flex items-center justify-between px-1">
-                                    <span className="text-[9px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">高级布局引擎 (ELK)</span>
-                                    <button
-                                        onClick={() => onStylesChange({ ...styles, useElk: !styles.useElk })}
-                                        className={`w-10 h-5 rounded-full transition-all relative ${styles.useElk ? 'bg-emerald-600' : 'bg-[var(--sidebar-muted)]'}`}
-                                    >
-                                        <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${styles.useElk ? 'right-1' : 'left-1'}`} />
-                                    </button>
+                                    <span className="text-[11px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">高级布局引擎 (ELK)</span>
+                                    <Switch checked={!!styles.useElk} onChange={v => onStylesChange({ ...styles, useElk: v })} ariaLabel="高级布局引擎（ELK）" />
                                 </div>
-                                <p className="text-[8px] text-[var(--sidebar-muted)] font-medium tracking-wider leading-relaxed px-1">启用 ELK 布局引擎可获得更优化的复杂图表排列方案。</p>
+                                <p className="text-[11px] text-[var(--sidebar-muted)] font-medium tracking-wider leading-relaxed px-1">启用 ELK 布局引擎可获得更优化的复杂图表排列方案。</p>
                             </div>
 
                             {styles.useElk && (
-                                <div className="space-y-4 pt-4 border-t border-[var(--sidebar-border)] animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="space-y-4 pt-4 border-t border-[var(--border-line-r)] animate-in fade-in slide-in-from-top-2 duration-300">
                                     <div className="flex items-center justify-between px-1">
-                                        <span className="text-[9px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">合并平行边 (Merge Edges)</span>
-                                        <button
-                                            onClick={() => onStylesChange({ ...styles, elkMergeEdges: !styles.elkMergeEdges })}
-                                            className={`w-8 h-4 rounded-full transition-all relative ${styles.elkMergeEdges ? 'bg-blue-600' : 'bg-[var(--sidebar-muted)]'}`}
-                                        >
-                                            <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${styles.elkMergeEdges ? 'right-0.5' : 'left-0.5'}`} />
-                                        </button>
+                                        <span className="text-[11px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">合并平行边 (Merge Edges)</span>
+                                        <Switch checked={!!styles.elkMergeEdges} onChange={v => onStylesChange({ ...styles, elkMergeEdges: v })} ariaLabel="合并重复边" />
                                     </div>
 
                                     <div className="space-y-2">
-                                        <span className="text-[9px] font-black text-[var(--sidebar-muted)] uppercase tracking-widest pl-1">节点放置策略</span>
+                                        <span className="text-[11px] font-black text-[var(--sidebar-muted)] uppercase tracking-widest pl-1">节点放置策略</span>
                                         <select
                                             value={styles.elkNodePlacementStrategy}
                                             onChange={e => onStylesChange({ ...styles, elkNodePlacementStrategy: e.target.value as any })}
-                                            className="w-full h-10 px-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg text-[10px] font-bold text-[var(--sidebar-text)] outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                            className="w-full h-10 px-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-md text-[11px] font-bold text-[var(--sidebar-text)] outline-none transition-all appearance-none cursor-pointer"
                                         >
                                             <option value="SIMPLE">简单策略 (SIMPLE)</option>
                                             <option value="NETWORK_SIMPLE">网络简单 (NETWORK_SIMPLE)</option>
@@ -246,29 +249,29 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({
                             )}
                         </div>
 
-                        <div className="p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--sidebar-border)] space-y-6 shadow-2xl">
-                            <div className="flex items-center gap-3 border-b border-[var(--sidebar-border)] pb-3">
-                                <Type size={14} className="text-blue-400" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">排版设置</span>
+                        <div className="p-8 bg-[var(--card-bg)] rounded-md border border-[var(--border-line-r)] space-y-6 shadow-md">
+                            <div className="flex items-center gap-3 border-b border-[var(--border-line-r)] pb-3">
+                                <Type size={14} className="text-primary" />
+                                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">排版设置</span>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <span className="text-[9px] font-black text-[var(--sidebar-muted)] uppercase tracking-widest pl-1">标题字号</span>
+                                    <span className="text-[11px] font-black text-[var(--sidebar-muted)] uppercase tracking-widest pl-1">标题字号</span>
                                     <input
                                         type="number"
                                         value={styles.titleFontSize}
                                         onChange={e => onStylesChange({ ...styles, titleFontSize: parseInt(e.target.value) })}
-                                        className="w-full h-10 px-3 text-[10px] font-bold bg-[var(--input-bg)] text-[var(--sidebar-text)] border border-[var(--input-border)] rounded-lg focus:border-blue-500"
+                                        className="w-full h-10 px-3 text-[11px] font-bold bg-[var(--input-bg)] text-[var(--sidebar-text)] border border-[var(--input-border)] rounded-md"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <span className="text-[9px] font-black text-[var(--sidebar-muted)] uppercase tracking-widest pl-1">内部字号</span>
+                                    <span className="text-[11px] font-black text-[var(--sidebar-muted)] uppercase tracking-widest pl-1">内部字号</span>
                                     <input
                                         type="number"
                                         value={styles.fontSize}
                                         onChange={e => onStylesChange({ ...styles, fontSize: parseInt(e.target.value) })}
-                                        className="w-full h-10 px-3 text-[10px] font-bold bg-[var(--input-bg)] text-[var(--sidebar-text)] border border-[var(--input-border)] rounded-lg focus:border-blue-500"
+                                        className="w-full h-10 px-3 text-[11px] font-bold bg-[var(--input-bg)] text-[var(--sidebar-text)] border border-[var(--input-border)] rounded-md"
                                     />
                                 </div>
                             </div>
@@ -277,41 +280,41 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({
                 ) : activeTab === 'dsl' ? (
                     <div className="h-full flex flex-col space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="flex items-center justify-between pl-2">
-                            <span className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">Mermaid 脚本指令</span>
+                            <span className="text-[11px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">Mermaid 脚本指令</span>
                         </div>
                         <textarea
                             value={data}
                             onChange={(e) => onDataChange(e.target.value)}
-                            className="flex-1 w-full bg-[var(--input-bg)] text-[var(--sidebar-text)] p-8 font-mono text-[11px] leading-relaxed border border-[var(--input-border)] rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all resize-none custom-scrollbar shadow-inner"
+                            className="iqs-input iqs-code flex-1 min-h-[400px] resize-y"
                             placeholder="输入 Mermaid 脚本..."
                             spellCheck={false}
                         />
                     </div>
                 ) : activeTab === 'ai' ? (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--sidebar-border)] space-y-8 shadow-2xl relative overflow-hidden group">
-                            <div className="flex items-center justify-between border-b border-[var(--sidebar-border)] pb-3">
+                    <div className="h-full flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="p-6 bg-[var(--card-bg)] rounded-md border border-[var(--border-line-r)] flex flex-col gap-4 flex-1 min-h-0 overflow-hidden">
+                            <div className="flex items-center justify-between border-b border-[var(--border-line-r)] pb-3">
                                 <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--sidebar-text)]">AI 智能逻辑推演</span>
-                                <div className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
-                                    <span className="text-[9px] font-black text-emerald-500 uppercase">Engine Active: {engineName}</span>
+                                <div className="px-3 py-1 iqs-badge rounded-full flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 bg-[var(--state-up)] rounded-full animate-pulse " />
+                                    <span className="text-[11px] font-black text-[var(--text-ok)] uppercase">Engine Active: {engineName}</span>
                                 </div>
                             </div>
                             <textarea
                                 value={aiPrompt}
                                 onChange={(e) => setAiPrompt(e.target.value)}
-                                className="w-full  rounded-lg "
+                                className="iqs-input flex-1 min-h-[200px] resize-none"
                                 placeholder="例如：画一个电商购物流程图，包含浏览、下单、支付、发货等环节..."
                             />
                             <button
                                 onClick={generateAI}
                                 disabled={isGenerating || !aiPrompt.trim()}
-                                className={`w-full h-16 rounded-lg flex items-center justify-center gap-4 transition-all shadow-2xl relative overflow-hidden group ${isGenerating ? 'bg-[var(--sidebar-muted)]' : 'bg-blue-600 hover:bg-blue-500 active:scale-[0.98]'
+                                className={`shrink-0 ${isGenerating ? 'iqs-btn-pending' : 'iqs-btn-primary'
                                     }`}
                             >
                                 {isGenerating ? (
                                     <>
-                                        <Loader2 size={18} className="animate-spin text-blue-400" />
+                                        <Loader2 size={18} className="animate-spin text-primary" />
                                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">正在解析图形结构...</span>
                                     </>
                                 ) : (
@@ -322,9 +325,9 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({
                                 )}
                             </button>
 
-                            <div className="p-8 bg-blue-900/10 border border-blue-800/20 rounded-lg space-y-4">
-                                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">推理提示</p>
-                                <p className="text-xs text-[var(--sidebar-text)] leading-relaxed font-medium">
+                            <div className="iqs-note space-y-4">
+                                <p className="text-[11px] font-black text-[var(--text-info)] uppercase tracking-widest">推理提示</p>
+                                <p className="text-[11px] text-[var(--sidebar-text)] leading-relaxed font-medium">
                                     您可以输入原始文本、逻辑流程描述或业务规则。AI 会自动识别**节点关系**与**流程走向**，并依据“逻辑建模”为您配置好分析视角与架构。
                                 </p>
                             </div>
@@ -333,213 +336,9 @@ const MermaidEditor: React.FC<MermaidEditorProps> = ({
                 ) : null}
             </div>
 
-            {
-                showDocs && createPortal(
-                    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-8 bg-black/60 backdrop-blur-md">
-                        <div className="bg-[var(--sidebar-bg)] w-[800px] max-h-[85vh] rounded-lg border border-[var(--sidebar-border)] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-                            {/* Header */}
-                            <div className="px-10 py-8 flex flex-col border-b border-[var(--sidebar-border)] shrink-0 gap-6">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-3 bg-blue-600/20 rounded-lg border border-blue-500/30">
-                                            <Zap size={24} className="text-blue-400" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-black text-[var(--sidebar-text)] uppercase tracking-tighter">Mermaid 知识库</h3>
-                                            <p className="text-[10px] text-[var(--sidebar-muted)] font-bold uppercase tracking-widest mt-1">Logic Mapping Base V3.0</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => setShowDocs(false)} className="p-3 hover:bg-[var(--input-bg)] rounded-lg transition-all text-[var(--sidebar-muted)] hover:text-[var(--sidebar-text)]">
-                                        <X size={24} />
-                                    </button>
-                                </div>
-
-                                <nav className="flex bg-[var(--nav-bg)] p-1 rounded-lg border border-[var(--sidebar-border)] w-fit">
-                                    {[
-                                        { id: 'syntax', label: '语法规范说明' },
-                                        { id: 'examples', label: '常用示例手册' },
-                                    ].map(t => (
-                                        <button
-                                            key={t.id}
-                                            onClick={() => setDocTab(t.id as any)}
-                                            className={`px-8 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${docTab === t.id ? 'bg-blue-600 text-white shadow-lg' : 'text-[var(--sidebar-muted)] hover:text-[var(--sidebar-text)]'}`}
-                                        >
-                                            {t.label}
-                                        </button>
-                                    ))}
-                                </nav>
-                            </div>
-
-                            {/* Content */}
-                            <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar text-[var(--sidebar-muted)]">
-                                {docTab === 'syntax' ? (
-                                    <div className="space-y-12">
-                                        <section className="space-y-6">
-                                            <div className="flex items-center gap-3 text-blue-400 border-b border-blue-500/20 pb-4">
-                                                <Code size={18} />
-                                                <span className="text-[12px] font-black uppercase tracking-widest">核心语法规范</span>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-6">
-                                                <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--input-border)] space-y-3">
-                                                    <h5 className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest underline decoration-blue-500 decoration-2 underline-offset-4">流程图 (Flowchart)</h5>
-                                                    <p className="text-[10px] text-[var(--sidebar-text)] leading-relaxed">使用 `graph TD` (自上而下) 或 `graph LR` (从左至右)。节点使用 `[]` (矩形), `()` (圆角), `{ }` (菱形)。</p>
-                                                    <pre className="text-[9px] font-mono text-blue-300/70 p-2 bg-[var(--card-bg)] rounded">A[开始] --{'>'} B{'{'}判断{'}'}</pre>
-                                                </div>
-                                                <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--input-border)] space-y-3">
-                                                    <h5 className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest underline decoration-blue-500 decoration-2 underline-offset-4">思维导图 (Mindmap)</h5>
-                                                    <p className="text-[10px] text-[var(--sidebar-text)] leading-relaxed">树状知识梳理。根节点使用 `(( ))`，分支使用缩进区分。支持多种形状如 `[ ]`, `( )`。</p>
-                                                    <pre className="text-[9px] font-mono text-blue-300/70 p-2 bg-[var(--card-bg)] rounded">mindmap\n  root((\"中心\"))\n    [分支]</pre>
-                                                </div>
-                                                <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--input-border)] space-y-3">
-                                                    <h5 className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest underline decoration-blue-500 decoration-2 underline-offset-4">序列图 (Sequence)</h5>
-                                                    <p className="text-[10px] text-[var(--sidebar-text)] leading-relaxed">描述对象间的交互。使用 `participant` 定义角色，`-{'>>'}` 表示异步消息。</p>
-                                                    <pre className="text-[9px] font-mono text-blue-300/70 p-2 bg-[var(--card-bg)] rounded">Alice -{'>'}{'>>'} Bob: 你好</pre>
-                                                </div>
-                                                <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--input-border)] space-y-3">
-                                                    <h5 className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest underline decoration-blue-500 decoration-2 underline-offset-4">看板图 (Kanban)</h5>
-                                                    <p className="text-[10px] text-[var(--sidebar-text)] leading-relaxed">任务状态跟踪。使用 `kanban` 声明，节点支持 `@{ }` 属性（如负责人、优先级）。</p>
-                                                    <pre className="text-[9px] font-mono text-blue-300/70 p-2 bg-[var(--card-bg)] rounded">kanban\n  [待办]\n    [任务] </pre>
-                                                </div>
-                                                <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--input-border)] space-y-3">
-                                                    <h5 className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest underline decoration-blue-500 decoration-2 underline-offset-4">状态图 (State)</h5>
-                                                    <p className="text-[10px] text-[var(--sidebar-text)] leading-relaxed">描述状态流转。`[*]` 表示起点/终点，`--&gt;` 表示状态转移。</p>
-                                                    <pre className="text-[9px] font-mono text-blue-300/70 p-2 bg-[var(--card-bg)] rounded">[*] --{'>'} 流转 --{'>'} [*]</pre>
-                                                </div>
-                                                <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--input-border)] space-y-3">
-                                                    <h5 className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest underline decoration-blue-500 decoration-2 underline-offset-4">类图 (Class)</h5>
-                                                    <p className="text-[10px] text-[var(--sidebar-text)] leading-relaxed">面向对象结构。`{'{'}` `{'}'}` 定义类内容，`&lt;|--` 定义继承等关系。</p>
-                                                    <pre className="text-[9px] font-mono text-blue-300/70 p-2 bg-[var(--card-bg)] rounded">A &lt;|-- B\nclass A {'{'} +move() {'}'}</pre>
-                                                </div>
-                                                <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--input-border)] space-y-3">
-                                                    <h5 className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest underline decoration-blue-500 decoration-2 underline-offset-4">实体关系 (ER)</h5>
-                                                    <p className="text-[10px] text-[var(--sidebar-text)] leading-relaxed">数据建模。`||--o{'{'}` 等符号表示数量关系，块内定义实体属性。</p>
-                                                    <pre className="text-[9px] font-mono text-blue-300/70 p-2 bg-[var(--card-bg)] rounded">USER ||--o{'{'} ORDER : places</pre>
-                                                </div>
-                                                <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--input-border)] space-y-3">
-                                                    <h5 className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest underline decoration-blue-500 decoration-2 underline-offset-4">饼图 (Pie)</h5>
-                                                    <p className="text-[10px] text-[var(--sidebar-text)] leading-relaxed">占比分布。`pie title xxx`，每行 `"标签" : 数值`。</p>
-                                                    <pre className="text-[9px] font-mono text-blue-300/70 p-2 bg-[var(--card-bg)] rounded">pie title 分布\n  "A" : 60\n  "B" : 40</pre>
-                                                </div>
-                                                <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--input-border)] space-y-3">
-                                                    <h5 className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest underline decoration-blue-500 decoration-2 underline-offset-4">旅程图 (Journey)</h5>
-                                                    <p className="text-[10px] text-[var(--sidebar-text)] leading-relaxed">用户体验旅程。使用 `journey`，`section` 分段，评分 `任务: 分数: 角色`。</p>
-                                                    <pre className="text-[9px] font-mono text-blue-300/70 p-2 bg-[var(--card-bg)] rounded">任务: 5: 用户</pre>
-                                                </div>
-                                                <div className="p-6 bg-[var(--input-bg)] rounded-lg border border-[var(--input-border)] space-y-3">
-                                                    <h5 className="text-[10px] font-black text-[var(--sidebar-text)] uppercase tracking-widest underline decoration-blue-500 decoration-2 underline-offset-4">时间线 (Timeline)</h5>
-                                                    <p className="text-[10px] text-[var(--sidebar-text)] leading-relaxed">发展历程记录。格式 `节点名 : 事件描述`。</p>
-                                                    <pre className="text-[9px] font-mono text-blue-300/70 p-2 bg-[var(--card-bg)] rounded">2024 : 发布 V1.0</pre>
-                                                </div>
-                                            </div>
-                                        </section>
-
-                                        <section className="space-y-6">
-                                            <div className="flex items-center gap-3 text-emerald-400 border-b border-emerald-500/20 pb-4">
-                                                <LayoutGrid size={18} />
-                                                <span className="text-[12px] font-black uppercase tracking-widest">其他支持类型</span>
-                                            </div>
-                                            <div className="space-y-4">
-                                                <table className="w-full text-[10px] font-mono border-collapse bg-[var(--card-bg)] rounded-lg overflow-hidden">
-                                                    <thead>
-                                                        <tr className="text-[var(--sidebar-text)] text-left bg-[var(--input-bg)]">
-                                                            <th className="p-3 border-b border-[var(--input-border)]">类型</th>
-                                                            <th className="p-3 border-b border-[var(--input-border)]">声明关键字</th>
-                                                            <th className="p-3 border-b border-[var(--input-border)]">典型用途</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-[var(--input-border)]">
-                                                        <tr><td className="p-3 text-blue-400">流程图</td><td className="p-3 font-bold">graph / flowchart</td><td className="p-3 text-[var(--sidebar-text)]">制程逻辑与决策分支</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">序列图</td><td className="p-3 font-bold">sequenceDiagram</td><td className="p-3 text-[var(--sidebar-text)]">对象交互与消息时序</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">甘特图</td><td className="p-3 font-bold">gantt</td><td className="p-3 text-[var(--sidebar-text)]">项目进度与任务排程</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">状态图</td><td className="p-3 font-bold">stateDiagram-v2</td><td className="p-3 text-[var(--sidebar-text)]">系统状态跃迁分析</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">类图</td><td className="p-3 font-bold">classDiagram</td><td className="p-3 text-[var(--sidebar-text)]">面向对象系统架构建模</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">实体关系</td><td className="p-3 font-bold">erDiagram</td><td className="p-3 text-[var(--sidebar-text)]">数据库/数据实体建模</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">思维导图</td><td className="p-3 font-bold">mindmap</td><td className="p-3 text-[var(--sidebar-text)]">发散性思维与知识梳理</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">看板图</td><td className="p-3 font-bold">kanban</td><td className="p-3 text-[var(--sidebar-text)]">任务状态可视化跟踪</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">时间线</td><td className="p-3 font-bold">timeline</td><td className="p-3 text-[var(--sidebar-text)]">历史事件与里程碑记录</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">Git 分支</td><td className="p-3 font-bold">gitGraph</td><td className="p-3 text-[var(--sidebar-text)]">版本演进与分支合并</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">四象限</td><td className="p-3 font-bold">quadrantChart</td><td className="p-3 text-[var(--sidebar-text)]">多维度评估与分类</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">桑基图</td><td className="p-3 font-bold">sankey-beta</td><td className="p-3 text-[var(--sidebar-text)]">资源/能量流向可视化</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">架构图</td><td className="p-3 font-bold">architecture</td><td className="p-3 text-[var(--sidebar-text)]">云架构与拓扑布局</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">XY 图表</td><td className="p-3 font-bold">xychart</td><td className="p-3 text-[var(--sidebar-text)]">通用数值坐标系绘图</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">报文图</td><td className="p-3 font-bold">packet</td><td className="p-3 text-[var(--sidebar-text)]">网络/通信协议报文结构</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">需求图</td><td className="p-3 font-bold">requirement</td><td className="p-3 text-[var(--sidebar-text)]">系统需求与派生关系分析</td></tr>
-                                                        <tr><td className="p-3 text-blue-400">块图</td><td className="p-3 font-bold">block</td><td className="p-3 text-[var(--sidebar-text)]">组件堆叠与层次逻辑描述</td></tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </section>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-12">
-                                        <section className="space-y-6">
-                                            <div className="p-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg space-y-4">
-                                                <h4 className="text-sm font-black text-blue-400 uppercase tracking-widest">标准流程图示例</h4>
-                                                <div className="bg-[var(--card-bg)] p-6 rounded-lg font-mono text-[10px] text-blue-300/80 leading-relaxed whitespace-pre">
-                                                    {`graph TD
-    A[用户请求] --> B{鉴权中心}
-    B -- 成功 --> C[访问资源]
-    B -- 失败 --> D[重定向登录]
-    C --> E((结束))`}
-                                                </div>
-                                            </div>
-
-                                            <div className="p-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg space-y-4">
-                                                <h4 className="text-sm font-black text-purple-400 uppercase tracking-widest">思维导图示例</h4>
-                                                <div className="bg-[var(--card-bg)] p-6 rounded-lg font-mono text-[10px] text-purple-300/80 leading-relaxed whitespace-pre">
-                                                    {`mindmap
-  root(("知识管理"))
-    输入
-      笔记
-      阅读
-    处理
-      分类
-      标签
-    输出
-      写作`}
-                                                </div>
-                                            </div>
-
-                                            <div className="p-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg space-y-4">
-                                                <h4 className="text-sm font-black text-amber-400 uppercase tracking-widest">工作看板示例</h4>
-                                                <div className="bg-[var(--card-bg)] p-6 rounded-lg font-mono text-[10px] text-amber-300/80 leading-relaxed whitespace-pre">
-                                                    {`kanban
-    待办[制作计划]
-        [任务A] @{ assigned: "张三", priority: "High" }
-    进行中[正在实施]
-        [任务B] @{ assigned: "李四" }`}
-                                                </div>
-                                            </div>
-
-                                            <div className="p-8 bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg space-y-4">
-                                                <h4 className="text-sm font-black text-emerald-400 uppercase tracking-widest">甘特图示例</h4>
-                                                <div className="bg-[var(--card-bg)] p-6 rounded-lg font-mono text-[10px] text-emerald-300/80 leading-relaxed whitespace-pre">
-                                                    {`gantt
-    title 产品迭代计划
-    dateFormat  YYYY-MM-DD
-    section 调研
-    需求梳理 :a1, 2024-01-01, 3d
-    section 开发
-    核心重构 :after a1, 7d`}
-                                                </div>
-                                            </div>
-                                        </section>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="p-10 border-t border-[var(--sidebar-border)] bg-[var(--input-bg)] flex justify-center shrink-0">
-                                <button
-                                    onClick={() => setShowDocs(false)}
-                                    className="px-16 py-4 bg-blue-600 text-white font-black rounded-lg text-[10px] uppercase tracking-widest shadow-xl hover:bg-blue-500 transition-all font-sans"
-                                >
-                                    我已了解语法
-                                </button>
-                            </div>
-                        </div>
-                    </div >,
-                    document.body
-                )
-            }
+            {showDocs && (
+                <CardDocModal kind="mermaid" open={showDocs} onClose={() => setShowDocs(false)} />
+            )}
 
         </div >
         

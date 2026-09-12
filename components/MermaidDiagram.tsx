@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import { MermaidChartStyles, DEFAULT_MERMAID_STYLES, BaseDiagramRef } from '../types';
 import { ZoomIn, ZoomOut, RefreshCw, Move } from 'lucide-react';
 import { INITIAL_MERMAID_DSL } from '../constants';
+import { genId } from '../utils/id';
 
 export interface MermaidDiagramRef extends BaseDiagramRef {}
 
@@ -136,7 +137,7 @@ export const MermaidDiagram = forwardRef<MermaidDiagramRef, Props>(({ data, styl
                     mermaid.initialize(config);
 
                     containerRef.current.innerHTML = '';
-                    const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
+                    const id = genId('mermaid');
                     const { svg } = await mermaid.render(id, data);
                     containerRef.current.innerHTML = svg;
 
@@ -171,7 +172,7 @@ export const MermaidDiagram = forwardRef<MermaidDiagramRef, Props>(({ data, styl
                     }
                 } catch (error) {
                     console.error('Mermaid render error:', error);
-                    containerRef.current.innerHTML = `<div class="p-8 text-red-500 font-mono text-sm bg-red-50 rounded-lg border border-red-100">
+                    containerRef.current.innerHTML = `<div class="p-8 text-[var(--text-danger)] font-mono text-sm bg-red-50 rounded-md border border-[var(--alert-red)]">
             <p className="font-bold mb-2">渲染错误:</p>
             <pre className="whitespace-pre-wrap">${error instanceof Error ? error.message : String(error)}</pre>
           </div>`;
@@ -255,7 +256,7 @@ export const MermaidDiagram = forwardRef<MermaidDiagramRef, Props>(({ data, styl
                 const padding = 16;
                 const horizontalPadding = 40;
                 const pixelRatio = options?.pixelRatio || 3;
-                const backgroundColor = options?.backgroundColor || '#ffffff';
+                const backgroundColor = options?.backgroundColor || '#FFFFFF';
                 const transparent = backgroundColor === 'transparent';
 
                 const exportWidth = options?.width || (bBox.width + horizontalPadding * 2);
@@ -304,18 +305,18 @@ export const MermaidDiagram = forwardRef<MermaidDiagramRef, Props>(({ data, styl
                         .node text, .label text, .edgeLabel, .markdown-embed text, 
                         .node div, .node span, .label div, .label span, tspan, p, h1, h2, h3, h4, 
                         .node-label, .label-box { 
-                            fill: #ffffff !important; 
-                            color: #ffffff !important; 
+                            fill: #FFFFFF !important; 
+                            color: #FFFFFF !important; 
                             font-weight: 500 !important; 
-                            -webkit-text-fill-color: #ffffff !important;
+                            -webkit-text-fill-color: #FFFFFF !important;
                         }
                         .edgePath path, .arrowheadPath, .edge-thickness-normal, .edge-thickness-thick { 
-                            stroke: #ffffff !important; 
+                            stroke: #FFFFFF !important; 
                             stroke-width: 1.5px !important; 
                             opacity: 1 !important;
                         }
                         .node rect, .node circle, .node ellipse, .node polygon, .node path { 
-                            stroke: #ffffff !important; 
+                            stroke: #FFFFFF !important; 
                         }
                     `;
                 } else {
@@ -323,7 +324,7 @@ export const MermaidDiagram = forwardRef<MermaidDiagramRef, Props>(({ data, styl
                 }
 
                 const dataUrl = await toPng(svg, {
-                    backgroundColor: transparent ? 'transparent' : (finalStyles.backgroundColor || '#ffffff'),
+                    backgroundColor: transparent ? 'transparent' : (finalStyles.backgroundColor || '#FFFFFF'),
                     pixelRatio: scale,
                     width: bBox.width + horizontalPadding * 2,
                     height: bBox.height + padding * 2,
@@ -331,8 +332,8 @@ export const MermaidDiagram = forwardRef<MermaidDiagramRef, Props>(({ data, styl
                         transform: 'none',
                         margin: '0',
                         padding: `${padding}px ${horizontalPadding}px`,
-                        background: transparent ? 'transparent' : (finalStyles.backgroundColor || '#ffffff'),
-                        backgroundColor: transparent ? 'transparent' : (finalStyles.backgroundColor || '#ffffff'),
+                        background: transparent ? 'transparent' : (finalStyles.backgroundColor || '#FFFFFF'),
+                        backgroundColor: transparent ? 'transparent' : (finalStyles.backgroundColor || '#FFFFFF'),
                     }
                 });
 
@@ -368,19 +369,19 @@ export const MermaidDiagram = forwardRef<MermaidDiagramRef, Props>(({ data, styl
                 if (isDark && transparent) {
                     styleTag.innerHTML = `
                         .node text, .label text, .edgeLabel, .node div, .node span, .label div, .label span, tspan, p { 
-                            fill: #ffffff !important; 
-                            color: #ffffff !important; 
-                            -webkit-text-fill-color: #ffffff !important;
+                            fill: #FFFFFF !important; 
+                            color: #FFFFFF !important; 
+                            -webkit-text-fill-color: #FFFFFF !important;
                         }
-                        .edgePath path, .arrowheadPath { stroke: #ffffff !important; }
-                        .node rect, .node circle, .node ellipse, .node polygon, .node path { stroke: #ffffff !important; }
+                        .edgePath path, .arrowheadPath { stroke: #FFFFFF !important; }
+                        .node rect, .node circle, .node ellipse, .node polygon, .node path { stroke: #FFFFFF !important; }
                     `;
                 } else {
                     styleTag.innerHTML = '';
                 }
 
                 const dataUrl = await toPng(svg, {
-                    backgroundColor: transparent ? 'transparent' : (finalStyles.backgroundColor || '#ffffff'),
+                    backgroundColor: transparent ? 'transparent' : (finalStyles.backgroundColor || '#FFFFFF'),
                     pixelRatio: scale,
                     width: bBox.width + horizontalPadding * 2,
                     height: bBox.height + padding * 2,
@@ -388,8 +389,8 @@ export const MermaidDiagram = forwardRef<MermaidDiagramRef, Props>(({ data, styl
                         transform: 'none',
                         margin: '0',
                         padding: `${padding}px ${horizontalPadding}px`,
-                        background: transparent ? 'transparent' : (finalStyles.backgroundColor || '#ffffff'),
-                        backgroundColor: transparent ? 'transparent' : (finalStyles.backgroundColor || '#ffffff'),
+                        background: transparent ? 'transparent' : (finalStyles.backgroundColor || '#FFFFFF'),
+                        backgroundColor: transparent ? 'transparent' : (finalStyles.backgroundColor || '#FFFFFF'),
                     }
                 });
 

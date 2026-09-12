@@ -26,7 +26,7 @@ const FishboneDiagram = forwardRef<FishboneDiagramRef, FishboneDiagramProps>(({ 
       }
 
       return await graphRef.current.toDataURL({
-        backgroundColor: options?.backgroundColor || '#ffffff',
+        backgroundColor: options?.backgroundColor || '#FFFFFF',
         pixelRatio: options?.pixelRatio || 3
       } as any);
     },
@@ -49,7 +49,7 @@ const FishboneDiagram = forwardRef<FishboneDiagramRef, FishboneDiagramProps>(({ 
         canvas.height = img.height;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.fillStyle = finalStyles.background || '#ffffff';
+          ctx.fillStyle = finalStyles.background || '#FFFFFF';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0);
           const link = document.createElement('a');
@@ -63,7 +63,7 @@ const FishboneDiagram = forwardRef<FishboneDiagramRef, FishboneDiagramProps>(({ 
     exportPDF: async (transparent = false) => {
       if (!graphRef.current) return;
       const dataURL = await graphRef.current.toDataURL({
-        backgroundColor: finalStyles.background || '#ffffff'
+        backgroundColor: finalStyles.background || '#FFFFFF'
       } as any);
 
       const win = window.open('', '_blank');
@@ -71,7 +71,7 @@ const FishboneDiagram = forwardRef<FishboneDiagramRef, FishboneDiagramProps>(({ 
         win.document.write(`
                     <html>
                         <head><title>导出 PDF - 澄矩 · ChengJu</title></head>
-                        <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#f8fafc;">
+                        <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#F5F7FA;">
                             <img src="${dataURL}" style="max-width:95%; max-height:95%; object-fit:contain; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);" />
                         </body>
                     </html>
@@ -314,13 +314,13 @@ const FishboneDiagram = forwardRef<FishboneDiagramRef, FishboneDiagramProps>(({ 
         autoFit: 'view',
         data: { nodes, edges },
         behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
-        background: '#ffffff',
+        background: '#FFFFFF',
       });
       graphRef.current.render().then(() => {
         graphRef.current?.fitView({ duration: 500, padding: 120 } as any);
       });
     } else {
-      graphRef.current.setOptions({ background: '#ffffff' });
+      graphRef.current.setOptions({ background: '#FFFFFF' });
       graphRef.current.setData({ nodes, edges });
       graphRef.current.render().then(() => {
         graphRef.current?.fitView({ duration: 500, padding: 120 } as any);

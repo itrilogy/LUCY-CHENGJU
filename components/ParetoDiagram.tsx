@@ -61,7 +61,7 @@ export const ParetoDiagram = forwardRef<ParetoDiagramRef, Props>(({ data, styles
                 win.document.write(`
           <html>
             <head><title>导出 PDF - 澄矩 · ChengJu</title></head>
-            <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#f8fafc; font-family: -apple-system, sans-serif;">
+            <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#F5F7FA; font-family: -apple-system, sans-serif;">
               <div style="padding: 40px; background: #fff; box-shadow: 0 40px 100px rgba(0,0,0,0.05); border-radius: 20px; text-align: center;">
                 <img src="${dataURL}" style="max-width:100%; height:auto;" />
                 <div style="margin-top: 20px; color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: uppercase; tracking-widest: 0.1em;">
@@ -126,9 +126,9 @@ export const ParetoDiagram = forwardRef<ParetoDiagramRef, Props>(({ data, styles
                 trigger: 'axis',
                 axisPointer: { type: 'shadow' },
                 backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                borderColor: '#e2e8f0',
+                borderColor: 'rgba(13,94,66,0.10)',
                 padding: [12, 16],
-                textStyle: { color: '#0f172a', fontSize: 13 },
+                textStyle: { color: '#1A2428', fontSize: 13 },
                 formatter: (params: any[]) => {
                     const barParam = params.find(p => p.seriesType === 'custom');
                     if (!barParam) return '';
@@ -136,10 +136,10 @@ export const ParetoDiagram = forwardRef<ParetoDiagramRef, Props>(({ data, styles
                     const item = processedData[idx];
                     if (!item) return '';
                     return `
-            <div style="font-weight: 900; color: #0f172a; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">${item.name}</div>
+            <div style="font-weight: 900; color: #1A2428; margin-bottom: 8px; border-bottom: 1px solid #EEF2F5; padding-bottom: 4px;">${item.name}</div>
             <div style="display: flex; justify-content: space-between; gap: 32px; margin-bottom: 4px;">
               <span style="color: #64748b; font-size: 12px;">频数:</span>
-              <span style="font-weight: 700; color: #2563eb">${item.value}</span>
+              <span style="font-weight: 700; color: #0D5E42">${item.value}</span>
             </div>
             <div style="display: flex; justify-content: space-between; gap: 32px;">
               <span style="color: #64748b; font-size: 12px;">累计频率:</span>
@@ -167,7 +167,7 @@ export const ParetoDiagram = forwardRef<ParetoDiagramRef, Props>(({ data, styles
                         return '';
                     }
                 },
-                axisLine: { lineStyle: { color: '#cbd5e1' } },
+                axisLine: { lineStyle: { color: 'rgba(13,94,66,0.18)' } },
                 axisTick: {
                     show: true,
                     interval: (idx: number, val: number) => val === Math.floor(val) // Only show ticks at integer boundaries
@@ -182,9 +182,9 @@ export const ParetoDiagram = forwardRef<ParetoDiagramRef, Props>(({ data, styles
                     min: 0,
                     max: total,
                     interval: total / 5,
-                    axisLine: { show: true, onZero: false, lineStyle: { color: '#cbd5e1' } },
+                    axisLine: { show: true, onZero: false, lineStyle: { color: 'rgba(13,94,66,0.18)' } },
                     nameTextStyle: { color: '#64748b', fontWeight: 'bold' },
-                    splitLine: { lineStyle: { type: 'dashed', color: '#f1f5f9' } },
+                    splitLine: { lineStyle: { type: 'dashed', color: '#EEF2F5' } },
                     axisLabel: { color: '#64748b', fontSize: finalStyles.baseFontSize }
                 },
                 {
@@ -193,7 +193,7 @@ export const ParetoDiagram = forwardRef<ParetoDiagramRef, Props>(({ data, styles
                     nameGap: 30, // Move title higher
                     min: 0, max: 100,
                     interval: 20,
-                    axisLine: { show: true, onZero: false, lineStyle: { color: '#cbd5e1' } },
+                    axisLine: { show: true, onZero: false, lineStyle: { color: 'rgba(13,94,66,0.18)' } },
                     nameTextStyle: { color: '#64748b', fontWeight: 'bold' },
                     splitLine: { show: false },
                     axisLabel: { formatter: '{value}%', color: '#64748b', fontSize: finalStyles.baseFontSize }
@@ -268,8 +268,8 @@ export const ParetoDiagram = forwardRef<ParetoDiagramRef, Props>(({ data, styles
     if (processedData.length === 0 || !option) {
         return (
             <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50/30">
-                <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">初始化数据矩阵...</p>
+                <div className="w-10 h-10 border-4 border-primary border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                <p className="text-[11px] font-bold text-[var(--sidebar-text)] uppercase tracking-widest">初始化数据矩阵...</p>
             </div>
         );
     }

@@ -1057,7 +1057,7 @@ export const MatrixDiagram = forwardRef<MatrixDiagramRef, MatrixDiagramProps>(({
             if (!svgRef.current) return '';
             return await svgToDataURL(svgRef.current, {
                 pixelRatio: options?.pixelRatio || 3,
-                backgroundColor: options?.backgroundColor || '#ffffff',
+                backgroundColor: options?.backgroundColor || '#FFFFFF',
                 width: options?.width,
                 height: options?.height
             });
@@ -1084,7 +1084,7 @@ export const MatrixDiagram = forwardRef<MatrixDiagramRef, MatrixDiagramProps>(({
                 if (ctx) {
                     ctx.scale(scale, scale);
                     if (!transparent) {
-                        ctx.fillStyle = "#ffffff";
+                        ctx.fillStyle = "#FFFFFF";
                         ctx.fillRect(0, 0, width, height);
                     }
                     ctx.drawImage(img, 0, 0);
@@ -1119,7 +1119,7 @@ export const MatrixDiagram = forwardRef<MatrixDiagramRef, MatrixDiagramProps>(({
             img.onload = () => {
                 if (ctx) {
                     ctx.scale(2, 2);
-                    ctx.fillStyle = "#ffffff";
+                    ctx.fillStyle = "#FFFFFF";
                     ctx.fillRect(0, 0, width, height);
                     ctx.drawImage(img, 0, 0);
                     const imgData = canvas.toDataURL("image/png");
@@ -1129,7 +1129,7 @@ export const MatrixDiagram = forwardRef<MatrixDiagramRef, MatrixDiagramProps>(({
                         win.document.write(`
                             <html>
                             <head><title>Export PDF - 澄矩 · ChengJu</title></head>
-                            <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#f8fafc; font-family: -apple-system, sans-serif;">
+                            <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh; background:#F5F7FA; font-family: -apple-system, sans-serif;">
                                 <div style="padding: 40px; background: #fff; box-shadow: 0 40px 100px rgba(0,0,0,0.05); border-radius: 20px; text-align: center;">
                                 <img src="${imgData}" style="max-width:100%; height:auto;" />
                                 <div style="margin-top: 20px; color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: uppercase;">
@@ -1180,7 +1180,7 @@ export const MatrixDiagram = forwardRef<MatrixDiagramRef, MatrixDiagramProps>(({
 
     if (!layout) {
         return (
-            <div className="w-full h-full flex items-center justify-center bg-white text-slate-400">
+            <div className="w-full h-full flex items-center justify-center bg-white text-[var(--sidebar-text)]">
                 <div className="text-center space-y-2">
                     <div className="text-lg font-medium">等待矩阵数据定义...</div>
                     <div className="text-sm">请在左侧编辑器中定义维度轴和项目</div>

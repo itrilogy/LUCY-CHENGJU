@@ -173,7 +173,7 @@ export const ScatterDiagram = forwardRef<ScatterDiagramRef, Props>(({ data, styl
                     textStyle: {
                         fontSize: finalStyles.titleFontSize,
                         fontWeight: 'bold',
-                        color: '#1e293b'
+                        color: '#1A2428'
                     }
                 },
                 tooltip: {},
@@ -251,21 +251,21 @@ export const ScatterDiagram = forwardRef<ScatterDiagramRef, Props>(({ data, styl
                 textStyle: {
                     fontSize: finalStyles.titleFontSize,
                     fontWeight: 'bold',
-                    color: '#1e293b'
+                    color: '#1A2428'
                 }
             },
             tooltip: {
                 trigger: 'item',
                 backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                borderColor: '#e2e8f0',
+                borderColor: 'rgba(13,94,66,0.10)',
                 borderWidth: 1,
                 padding: [10, 14],
-                textStyle: { color: '#1e293b', fontSize: 12 },
+                textStyle: { color: '#1A2428', fontSize: 12 },
                 formatter: (params: any) => {
                     if (params.seriesType === 'line') return '';
                     const [x, y, z] = params.value;
                     return `
-                        <div style="font-weight:bold; margin-bottom:6px; color:#1e293b;">数据点详情</div>
+                        <div style="font-weight:bold; margin-bottom:6px; color:#1A2428;">数据点详情</div>
                         <div style="display:flex; justify-content:space-between; gap:20px;">
                             <span style="color:#64748b">${finalStyles.xAxisLabel || 'X'}:</span>
                             <span style="font-weight:600">${x}</span>
@@ -295,10 +295,10 @@ export const ScatterDiagram = forwardRef<ScatterDiagramRef, Props>(({ data, styl
                 nameGap: 35,
                 type: 'value',
                 scale: true,
-                axisLine: { lineStyle: { color: '#e2e8f0' } },
+                axisLine: { lineStyle: { color: 'rgba(13,94,66,0.10)' } },
                 axisLabel: { color: '#64748b', fontSize: finalStyles.baseFontSize || 12 },
-                nameTextStyle: { color: '#1e293b', fontSize: (finalStyles.baseFontSize || 12) + 2, fontWeight: 'bold' },
-                splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }
+                nameTextStyle: { color: '#1A2428', fontSize: (finalStyles.baseFontSize || 12) + 2, fontWeight: 'bold' },
+                splitLine: { lineStyle: { color: '#EEF2F5', type: 'dashed' } }
             },
             yAxis: {
                 name: finalStyles.yAxisLabel,
@@ -306,10 +306,10 @@ export const ScatterDiagram = forwardRef<ScatterDiagramRef, Props>(({ data, styl
                 nameGap: 50,
                 type: 'value',
                 scale: true,
-                axisLine: { lineStyle: { color: '#e2e8f0' } },
+                axisLine: { lineStyle: { color: 'rgba(13,94,66,0.10)' } },
                 axisLabel: { color: '#64748b', fontSize: finalStyles.baseFontSize || 12 },
-                nameTextStyle: { color: '#1e293b', fontSize: (finalStyles.baseFontSize || 12) + 2, fontWeight: 'bold' },
-                splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }
+                nameTextStyle: { color: '#1A2428', fontSize: (finalStyles.baseFontSize || 12) + 2, fontWeight: 'bold' },
+                splitLine: { lineStyle: { color: '#EEF2F5', type: 'dashed' } }
             },
             dataZoom: [
                 {

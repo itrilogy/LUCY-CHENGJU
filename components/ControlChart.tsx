@@ -287,7 +287,7 @@ export const ControlChart = forwardRef<ControlChartRef, ControlChartProps>(
             // --- 3. 绘制数据点 ---
             stats.points.forEach((val, i) => {
                 const isOutlier = stats.outliers.includes(i);
-                ctx.fillStyle = isOutlier ? '#ef4444' : finalStyles.pointColor;
+                ctx.fillStyle = isOutlier ? '#E74C3C' : finalStyles.pointColor;
                 ctx.beginPath();
                 ctx.arc(getX(i), getY(val), isOutlier ? 5 : 4, 0, Math.PI * 2);
                 ctx.fill();
@@ -299,7 +299,7 @@ export const ControlChart = forwardRef<ControlChartRef, ControlChartProps>(
                 }
 
                 if (finalStyles.showValues) {
-                    ctx.fillStyle = isOutlier ? '#ef4444' : finalStyles.lineColor;
+                    ctx.fillStyle = isOutlier ? '#E74C3C' : finalStyles.lineColor;
                     ctx.font = `bold ${finalStyles.labelFontSize - 2}px sans-serif`;
                     ctx.textAlign = 'center';
                     ctx.fillText(val.toFixed(finalStyles.decimals), getX(i), getY(val) - 10);
@@ -316,7 +316,7 @@ export const ControlChart = forwardRef<ControlChartRef, ControlChartProps>(
         useImperativeHandle(ref, () => ({
             getDataURL: async (options) => {
                 const pixelRatio = options?.pixelRatio || 3;
-                const backgroundColor = options?.backgroundColor || '#ffffff';
+                const backgroundColor = options?.backgroundColor || '#FFFFFF';
                 const transparent = backgroundColor === 'transparent';
                 
                 // 🚨 Explicitly use provided dimensions or current ones
@@ -359,7 +359,7 @@ export const ControlChart = forwardRef<ControlChartRef, ControlChartProps>(
                     win.document.write(`
                         <html>
                             <head><title>导出 PDF - 澄矩 · ChengJu</title></head>
-                            <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#f8fafc;">
+                            <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#F5F7FA;">
                                 <img src="${dataURL}" style="max-width:98%; max-height:98%; object-fit:contain; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-radius: 8px;" />
                             </body>
                         </html>
@@ -388,11 +388,11 @@ export const ControlChart = forwardRef<ControlChartRef, ControlChartProps>(
         }, [draw]);
 
         return (
-            <div ref={containerRef} className={`${className || ''} w-full h-full relative bg-[var(--card-bg)] rounded-lg overflow-hidden transition-colors duration-500`}>
+            <div ref={containerRef} className={`${className || ''} w-full h-full relative bg-[var(--card-bg)] rounded-md overflow-hidden transition-colors duration-500`}>
                 {!stats ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
-                        <p className="text-[10px] font-black uppercase tracking-widest mb-2">No Valid Data</p>
-                        <p className="text-xs">请在左侧侧边栏录入数据</p>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-[var(--sidebar-text)]">
+                        <p className="text-[11px] font-black uppercase tracking-widest mb-2">No Valid Data</p>
+                        <p className="text-[11px]">请在左侧侧边栏录入数据</p>
                     </div>
                 ) : (
                     <canvas
