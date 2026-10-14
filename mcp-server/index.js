@@ -207,7 +207,7 @@ function createServer() {
         "intents: 流程图, 泳道图, 程序文件, 跨部门流程, BPMN, swimlane",
         "NOT mermaid: 企业泳道/审批/程序文件必须用本工具，禁止 render_mermaid_flowchart。",
         "must: Dict 先于 Lane 与 W；Type[?]/[+] 必须分支行并以 End 闭合；纯文本非 JSON。",
-        `read: protocol://segments/iqs_native/flow | prompt: protocol://prompts/${slug}`,
+        `语法详查: read_protocol("flow") | read: protocol://segments/iqs_native/flow`,
         "dsl: IQS-DSL v1 pure text (not JSON)"
       ].join(" | ");
     }
@@ -222,9 +222,43 @@ function createServer() {
       tool.description,
       intents ? `intents: ${intents}` : '',
       extra,
-      `read: protocol://segments/${tool.parent_type}/${tool.sub_type} | prompt: protocol://prompts/${slug}`,
+      `语法详查: read_protocol("${slug}") | read: protocol://segments/${tool.parent_type}/${tool.sub_type}`,
       tier === 'core' ? 'dsl: IQS-DSL v1 pure text (not JSON)' : 'dsl: dialect text (not bare JSON object)'
     ].filter(Boolean).join(' | ');
+  }
+
+  function getToolDslDescription(tool) {
+    const kind = tool.sub_type;
+    const parent = tool.parent_type;
+    const readHint = `【完整语法规范调用 read_protocol("${tool.name.replace(/^render_/, '')}")】`;
+
+    if (parent === "mermaid") {
+      return `纯文本 Mermaid 代码（严禁 Markdown 代码块围栏 \`\`\` ）。例如: graph TD\\n  A --> B。${readHint}`;
+    }
+    if (parent === "vchart") {
+      return `纯文本外壳（严禁直接传裸 JSON）。格式必须为: Title: 标题\\nSpec: { ... }。${readHint}`;
+    }
+
+    switch (kind) {
+      case "fishbone":
+        return `纯文本 DSL。层级必须严格使用 # 一级大骨、## 二级中骨、### 三级小骨（严禁 - 列表，严禁 JSON）。范式: Title: 问题\\n# 分类名\\n## 原因\\n### 根因。${readHint}`;
+      case "flow":
+        return `纯文本 DSL（严禁 JSON/Mermaid）。体系文件字典-泳道图。范式: Title: 标题\\nDict: D[...]\\nLane from D[...] Layout H\\nW: w1: 节点 Type[S]... ${readHint}`;
+      case "pareto":
+        return `纯文本 DSL。二八定律排列图。范式: Title: 标题\\nData:\\n  缺陷A: 40\\n  缺陷B: 20。${readHint}`;
+      case "control":
+        return `纯文本 DSL。SPC 控制图。范式: Title: 标题\\nType: I-MR\\nData: 10, 12, 11, ... ${readHint}`;
+      case "affinity":
+        return `纯文本 DSL。KJ法亲和图。范式: Title: 标题\\nItem: id, 标签, 父ID。${readHint}`;
+      case "histogram":
+        return `纯文本 DSL。直方图。范式: Title: 标题\\n- 10.2\\n- 10.5\\nUSL: 12\\nLSL: 8。${readHint}`;
+      case "radar":
+        return `纯文本 DSL。雷达图。范式: Title: 标题\\nAxis: 维度1, 100\\nSeries: 样本A, [80, 90]。${readHint}`;
+      case "scatter":
+        return `纯文本 DSL。散点图。范式: Title: 标题\\n- 1.2, 3.4\\n- 2.3, 4.5。${readHint}`;
+      default:
+        return `纯文本 DSL 字符串（严禁 JSON，严禁 Markdown 围栏）。${readHint}`;
+    }
   }
 
   function lintFlowDsl(dsl) {
@@ -243,6 +277,253 @@ function createServer() {
     } catch (e) {
       return null;
     }
+  }
+
+  function getToolSegmentContent(tool) {
+    const parent = tool.parent_type;
+    const sub = tool.sub_type;
+    const slug = tool.name.replace(/^render_/, '');
+    const candidates = [
+      `${slug}.md`,
+      `${sub}.md`,
+      `${parent}_${sub}.md`,
+      `${parent}.md`
+    ];
+    for (const c of candidates) {
+      const p = path.join(SEGMENTS_DIR, c);
+      if (fs.existsSync(p)) return fs.readFileSync(p, 'utf-8');
+    }
+    return "";
+  }
+
+  function getToolPromptContent(tool) {
+    const slug = tool.name.replace(/^render_/, '');
+    const candidates = [
+      `${slug}.md`,
+      `${tool.sub_type}.md`,
+      `${tool.parent_type}_${tool.sub_type}.md`
+    ];
+    for (const c of candidates) {
+      const p = path.join(PROTOCOL_DIR, `prompts/${c}`);
+      if (fs.existsSync(p)) return fs.readFileSync(p, 'utf-8');
+    }
+    return "";
+  }
+
+  /**
+   * 工具通用查找器：支持简写、工具全名、单层与双层 URI、以及各种下划线/驼峰别名
+   */
+  function findMatchingTool(rawInput, allTools) {
+    let q = String(rawInput || "").trim().toLowerCase();
+    q = q.replace(/^protocol:\/\/(segments|prompts)\//, "");
+    q = q.replace(/^render_/, "");
+
+    if (q.includes("/")) {
+      const parts = q.split("/");
+      const parent = parts[0];
+      const sub = parts[parts.length - 1];
+      const sameParent = allTools.filter(t => t.parent_type.toLowerCase() === parent);
+      const byExactName = sameParent.find(t => t.name.toLowerCase() === `render_${parent}_${sub}` || t.name.toLowerCase() === `render_${sub}`);
+      if (byExactName) return byExactName;
+      const found = sameParent.find(t => t.sub_type.toLowerCase() === sub || t.name.toLowerCase().endsWith(`_${sub}`));
+      if (found) return found;
+      q = sub;
+    }
+
+    // 1. 全名精确匹配
+    let match = allTools.find((t) => t.name.toLowerCase() === `render_${q}` || t.name.toLowerCase() === q);
+    if (match) return match;
+
+    // 2. slug 精确匹配
+    match = allTools.find((t) => {
+      const slug = t.name.replace(/^render_/, "").toLowerCase();
+      return slug === q || `${t.parent_type}_${t.sub_type}`.toLowerCase() === q;
+    });
+    if (match) return match;
+
+    // 3. sub_type 优先匹配 name 中包含 sub_type 的那个（防止同 sub_type 冲突）
+    const candidates = allTools.filter((t) => t.sub_type.toLowerCase() === q);
+    if (candidates.length === 1) return candidates[0];
+    if (candidates.length > 1) {
+      const exactSub = candidates.find((t) => t.name.toLowerCase().endsWith(`_${q}`));
+      if (exactSub) return exactSub;
+      return candidates[0];
+    }
+
+    // 4. 名称后缀匹配 (如 correlation_heat -> render_vchart_correlation_heat)
+    match = allTools.find((t) => t.name.toLowerCase().endsWith(`_${q}`));
+    if (match) return match;
+
+    // 5. inference_key 兜底匹配
+    return allTools.find((t) => t.inference_key && t.inference_key.toLowerCase() === q);
+  }
+
+  /**
+   * 核心装配流水线：全量无缝拼接【图表类型 + 家族总纲 + 专家协议切片 + 官方标准语法示例 + AI提示词与输出红线】
+   */
+  function buildFullProtocolDoc(tool, allTools) {
+    const parent = tool.parent_type;
+    const sub = tool.sub_type;
+    const master = allTools.find((t) => t.parent_type === parent && t.sub_type === "master");
+
+    const rawSegment = getToolSegmentContent(tool);
+    const promptDoc = getToolPromptContent(tool);
+    const tier = tool.tier || (parent === "iqs_native" ? "core" : "relief");
+    const tierLabel = tier === "core" ? "CORE" : "RELIEF";
+
+    // 特判 flow 流程图：融合编译卡 agent、切片全文、官方示例与 prompt
+    if (parent === "iqs_native" && sub === "flow") {
+      const agent = getProtocolFile("segments/flow.agent.md");
+      const segment = getProtocolFile("segments/flow.md");
+      const prompt = getProtocolFile("prompts/flow.md");
+      return [
+        `# [CORE] IQS 企业流程图/泳道图（完整协议切片与语法规范）`,
+        `\n- **图表类型**: \`render_flow\` (企业流程图/泳道图)`,
+        `- **分层定义**: CORE (面向体系文件 CX：谁×做什么×走哪条路，IQS-DSL v1 严格语言)`,
+        `- **意图触发**: 流程图, 泳道图, 程序文件, 跨部门流程, BPMN, swimlane`,
+        `- **核心红线**: Dict 先于 Lane 与 W；Type[?]/[+] 必须分支行并以 End 闭合；严禁输出 JSON，严禁输出 Mermaid。`,
+        `\n---\n## 一、编译卡与红线指令 (Agent Guide)\n\n${agent || ""}`,
+        `\n---\n## 二、专家协议切片全文 (The Protocol Segment)\n\n${segment || ""}`,
+        `\n---\n## 三、官方范式示例 (Official Example)\n\n> 必须以纯文本输出以下 DSL 范式，严禁 Markdown 代码块围栏，严禁 JSON 对象：\n\n\`\`\`dsl\n${tool.official_example || ""}\n\`\`\``,
+        prompt ? `\n---\n## 四、AI 生成提示词与输出规范 (Prompt Template)\n\n${prompt}` : ""
+      ].filter(Boolean).join("\n");
+    }
+
+    const sections = [
+      `# [${tierLabel}] ${tool.display_name}（完整协议切片与语法规范）`,
+      `\n- **图表类型**: \`${tool.name}\` (${tool.parent_type}/${tool.sub_type})`,
+      `- **分层定义**: ${tierLabel} (${parent === "iqs_native" ? "IQS-DSL v1 核心质量控制图表" : "救济通道方言建模"})`,
+      tool.intent_trigger?.length ? `- **意图触发**: ${tool.intent_trigger.join(", ")}` : "",
+      tool.description ? `- **功能概述**: ${tool.description}` : "",
+      tool.expertise ? `- **业务专长**: ${tool.expertise}` : ""
+    ];
+
+    // 1. 家族总纲 (Master Protocol)
+    if (master && master.name !== tool.name) {
+      sections.push(
+        `\n---\n## 一、家族总纲 (Master Protocol: ${master.display_name})\n` +
+        `${master.expert_logic || ""}\n\n${master.syntax_rules || ""}`
+      );
+    }
+
+    // 2. 专家协议切片全文 (Segment: Soul & Flesh，含正反例、参数与语法约束)
+    if (rawSegment) {
+      sections.push(`\n---\n## 二、专家协议切片全文 (The Protocol Segment)\n\n${rawSegment}`);
+    } else {
+      if (tool.expert_logic) sections.push(`\n---\n## 二、专家逻辑 (Expert Logic)\n\n${tool.expert_logic}`);
+      if (tool.syntax_rules) sections.push(`\n---\n## 三、语法规则 (Syntax Rules)\n\n${tool.syntax_rules}`);
+    }
+
+    // 3. 官方范式示例 (Official Example)
+    if (tool.official_example) {
+      sections.push(
+        `\n---\n## 三、官方范式示例 (Official Example)\n\n` +
+        `> 必须以纯文本输出以下 DSL 范式，严禁 Markdown 代码块围栏，严禁 JSON 对象：\n\n` +
+        `\`\`\`dsl\n${tool.official_example}\n\`\`\``
+      );
+    }
+
+    // 4. AI 生成提示词与全局输出红线 (Prompt & Output Controls)
+    if (promptDoc) {
+      sections.push(`\n---\n## 四、AI 生成提示词与输出规范 (Prompt Template)\n\n${promptDoc}`);
+    } else {
+      sections.push(
+        `\n---\n## 四、全局输出红线 (Output Controls)\n\n` +
+        `1. 必须输出纯文本 DSL，严禁使用 \`\`\`dsl 等 Markdown 代码块围栏。\n` +
+        `2. dsl 参数必须是纯字符串文本，绝对禁止传导 JSON 对象。\n` +
+        `3. 严禁输出任何前后缀客套说明文字，只输出符合语法的 DSL 正文。`
+      );
+    }
+
+    return sections.filter(Boolean).join("\n");
+  }
+
+  /** 统一资源解析逻辑：支持 protocol:// URI 与简写名称（如 "flow", "fishbone", "intents"） */
+  function resolveResourceContent(uri) {
+    const raw = String(uri || "").trim();
+    if (!raw) throw new Error("资源 URI 不能为空");
+
+    const governance = getProtocolFile("governance.md");
+    const dslV1 = getProtocolFile("DSL_V1.md");
+    const allTools = getMCPTools();
+
+    const lower = raw.toLowerCase().replace(/^render_/, '');
+
+    // 1. 系统级特殊文档
+    if (raw === "protocol://governance" || lower === "governance" || lower === "治理") {
+      return { uri: "protocol://governance", mimeType: "text/markdown", text: governance };
+    }
+
+    if (raw === "protocol://intents" || lower === "intents" || lower === "router" || lower === "路由") {
+      const intents = getProtocolFile("intents.md");
+      if (!intents) throw new Error("protocol/intents.md 不存在 —— 请先运行 npm run build:cards");
+      return { uri: "protocol://intents", mimeType: "text/markdown", text: intents };
+    }
+
+    if (raw === "protocol://dsl/v1" || lower === "dsl" || lower === "v1" || lower === "dsl_v1") {
+      const text = [
+        dslV1 || "# IQS-DSL v1",
+        "\n---\n",
+        "Full document path in repo: docs/IQS_DSL_V1_SPEC.md",
+        "Kind registry: dsl/kinds.json"
+      ].join("\n");
+      return { uri: "protocol://dsl/v1", mimeType: "text/markdown", text };
+    }
+
+    if (raw === "protocol://segments" || lower === "segments" || lower === "index") {
+      const files = fs.existsSync(SEGMENTS_DIR) ? fs.readdirSync(SEGMENTS_DIR) : [];
+      let allContent = "# IQS Protocol Segments Index\n\n## File segments\n\n";
+      files.forEach((file) => {
+        if (file.endsWith(".md")) {
+          allContent += `- [${file.replace(".md", "")}](protocol://segments/${file.replace(".md", "")})\n`;
+        }
+      });
+      allContent += "\n## Kind resources (prefer these for generation)\n\n";
+      allContent += "> 每行给出该 kind 的**语法切片**与**生成提示词**两个 URI。路由入口见 `protocol://intents`。\n\n";
+      allTools
+        .filter((t) => t.sub_type !== "master")
+        .forEach((t) => {
+          const slug = t.name.replace(/^render_/, "");
+          allContent +=
+            `- [${t.name}](protocol://segments/${t.parent_type}/${t.sub_type}) tier=${t.tier || "?"}` +
+            ` · prompt: \`protocol://prompts/${slug}\`\n`;
+        });
+      return { uri: "protocol://segments", mimeType: "text/markdown", text: allContent };
+    }
+
+    // 2. 通用组件匹配与四合一全景拼接（图表类型 + 协议切片 + 语法示例 + 提示词）
+    const matchedTool = findMatchingTool(raw, allTools);
+    if (matchedTool) {
+      const targetUri = `protocol://segments/${matchedTool.parent_type}/${matchedTool.sub_type}`;
+      const text = buildFullProtocolDoc(matchedTool, allTools);
+      return { uri: targetUri, mimeType: "text/markdown", text };
+    }
+
+    // 3. 兜底未挂载工具的切片物理文件直接读取
+    const segMatch = raw.match(/^protocol:\/\/segments\/(.+)$/);
+    if (segMatch) {
+      const key = segMatch[1].replace(/\.md$/, "");
+      const segment = getProtocolFile(`segments/${key}.md`);
+      if (segment) {
+        return {
+          uri: raw,
+          mimeType: "text/markdown",
+          text: `# IQS Segment Knowledge: ${key}\n\n${segment}`
+        };
+      }
+    }
+
+    // 4. 兜底未挂载工具的 Prompt 物理文件直接读取
+    const promptMatch = raw.match(/^protocol:\/\/prompts\/(.+)$/);
+    if (promptMatch) {
+      const key = promptMatch[1].replace(/\.md$/, "");
+      const prompt = getProtocolFile(`prompts/${key}.md`);
+      if (prompt) {
+        return { uri: raw, mimeType: "text/markdown", text: prompt };
+      }
+    }
+
+    throw new Error(`未知协议资源: ${raw}。可用图表名称例如: flow, fishbone, pareto, control 等，或查看 protocol://intents`);
   }
 
   // --- Resources (single registration; governance + dsl + kind segments) ---
@@ -291,122 +572,33 @@ function createServer() {
   });
 
   newServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    const uri = request.params.uri;
-    const governance = getProtocolFile("governance.md");
-    const dslV1 = getProtocolFile("DSL_V1.md");
-
-    if (uri === "protocol://governance") {
-      return { contents: [{ uri, mimeType: "text/markdown", text: governance }] };
-    }
-
-    // ── 意图路由目录 ──────────────────────────────────────────────
-    // 由 dsl/cards/*.card.ts 的 meta.intents 生成（npm run build:cards）。
-    // 这是「先路由到意图层面」的入口：读一个资源即可完成选型，无需遍历 55 条 tool description。
-    if (uri === "protocol://intents") {
-      const intents = getProtocolFile("intents.md");
-      if (!intents) throw new Error("protocol/intents.md 不存在 —— 请先运行 npm run build:cards");
-      return { contents: [{ uri, mimeType: "text/markdown", text: intents }] };
-    }
-
-    // ── 具体提示词：protocol://prompts/<kind> ─────────────────────
-    // 由各卡片的 soul + syntax + example + outputControls 生成。
-    // <kind> = mcpName 去掉 render_ 前缀（master 卡去掉 _master）：flow / affinity / matrix_plot / mermaid / vchart …
-    const promptMatch = uri.match(/^protocol:\/\/prompts\/([^/]+)$/);
-    if (promptMatch) {
-      const kind = promptMatch[1];
-      const prompt = getProtocolFile(`prompts/${kind}.md`);
-      if (!prompt) throw new Error(`Prompt not found: ${uri} —— 可用 kind 见 protocol://intents`);
-      return { contents: [{ uri, mimeType: "text/markdown", text: prompt }] };
-    }
-
-    if (uri === "protocol://dsl/v1") {
-      const text = [
-        dslV1 || "# IQS-DSL v1",
-        "\n---\n",
-        "Full document path in repo: docs/IQS_DSL_V1_SPEC.md",
-        "Kind registry: dsl/kinds.json"
-      ].join("\n");
-      return { contents: [{ uri, mimeType: "text/markdown", text }] };
-    }
-
-    if (uri === "protocol://segments") {
-      const files = fs.existsSync(SEGMENTS_DIR) ? fs.readdirSync(SEGMENTS_DIR) : [];
-      const allTools = getMCPTools();
-      let allContent = "# IQS Protocol Segments Index\n\n## File segments\n\n";
-      files.forEach((file) => {
-        if (file.endsWith(".md")) {
-          allContent += `- [${file.replace(".md", "")}](protocol://segments/${file.replace(".md", "")})\n`;
-        }
-      });
-      allContent += "\n## Kind resources (prefer these for generation)\n\n";
-      allContent += "> 每行给出该 kind 的**语法切片**与**生成提示词**两个 URI。路由入口见 `protocol://intents`。\n\n";
-      allTools
-        .filter((t) => t.sub_type !== "master")
-        .forEach((t) => {
-          const slug = t.name.replace(/^render_/, "");
-          allContent +=
-            `- [${t.name}](protocol://segments/${t.parent_type}/${t.sub_type}) tier=${t.tier || "?"}` +
-            ` · prompt: \`protocol://prompts/${slug}\`\n`;
-        });
-      return { contents: [{ uri, mimeType: "text/markdown", text: allContent }] };
-    }
-
-    // Kind-spliced resource: protocol://segments/{parent}/{sub}
-    const kindMatch = uri.match(/^protocol:\/\/segments\/([^/]+)\/([^/]+)$/);
-    if (kindMatch) {
-      const [, parent, sub] = kindMatch;
-      if (parent === "iqs_native" && sub === "flow") {
-        const agent = getProtocolFile("segments/flow.agent.md");
-        const segment = getProtocolFile("segments/flow.md");
-        const text = [agent || "# IQS-Flow", "\n---\n", "## 人读协议切片", segment || ""].join("\n");
-        return { contents: [{ uri, mimeType: "text/markdown", text }] };
-      }
-      const allTools = getMCPTools();
-      const master = allTools.find((t) => t.parent_type === parent && t.sub_type === "master");
-      const tool = allTools.find((t) => t.parent_type === parent && t.sub_type === sub);
-      if (!tool) throw new Error(`Resource not found: ${uri}`);
-
-      const content = [
-        `# ${tool.display_name} (Spliced Protocol)`,
-        `tier: ${tool.tier || (parent === "iqs_native" ? "core" : "relief")}`,
-        master
-          ? `\n## 1. Master Protocol\n${master.expert_logic}\n\n${master.syntax_rules}`
-          : "",
-        `\n## 2. Expert Logic\n${tool.expert_logic || ""}`,
-        `\n## 3. Syntax Rules\n${tool.syntax_rules || ""}`,
-        `\n## 4. Official Example\n\`\`\`dsl\n${tool.official_example || ""}\n\`\`\``,
-        `\n## 5. Output Controls\n1. CoT self-check against syntax before emit.\n2. Pure text only — no markdown fences, no prose.`,
-        parent === "iqs_native"
-          ? `\n## 6. Language\nFollow IQS-DSL v1 (protocol://dsl/v1).`
-          : `\n## 6. Language\nRelief dialect — do not use for core QC SPC/Pareto final reports when native tools exist.`
-      ].join("\n");
-
-      return { contents: [{ uri, mimeType: "text/markdown", text: content }] };
-    }
-
-    // Legacy single-segment file: protocol://segments/{key}
-    if (uri.startsWith("protocol://segments/")) {
-      const key = uri.replace("protocol://segments/", "");
-      if (key.includes("/")) throw new Error(`Resource not found: ${uri}`);
-      const segment = getProtocolFile(`segments/${key}.md`);
-      if (!segment) throw new Error(`Segment [${key}] not found`);
-      // flow：L2 只给切片全文，不再拼接 governance（避免重复吞 token）
-      if (key === "flow") {
-        return { contents: [{ uri, mimeType: "text/markdown", text: segment }] };
-      }
-      const combined = [
-        `# IQS Segment Knowledge: ${key}`,
-        `\n## 1. Governance\n${governance}`,
-        `\n## 2. Segment\n${segment}`
-      ].join("\n");
-      return { contents: [{ uri, mimeType: "text/markdown", text: combined }] };
-    }
-
-    throw new Error(`Unknown resource: ${uri}`);
+    const res = resolveResourceContent(request.params.uri);
+    return { contents: [res] };
   });
 
   newServer.setRequestHandler(ListToolsRequestSchema, async () => {
     const allTools = getMCPTools();
+
+    // 核心桥梁工具：让任何 LLM 客户端均能主动调取语法资源，彻底消除协议割裂
+    const readProtocolTool = {
+      name: "read_protocol",
+      description: [
+        "[CORE-TOOL] IQS 协议与语法规范读取工具",
+        "【必须调用的语法查询工具】在调用任何 render_* 图表工具前，若对 DSL 语法格式、关键字或正例不确定，必须先调用本工具获取语法规范与官方示例。",
+        "支持参数: 完整协议 URI (如 protocol://segments/iqs_native/fishbone、protocol://prompts/flow、protocol://intents) 或直接传入图表名称 (如 fishbone, flow, pareto, control 等)。"
+      ].join(" | "),
+      inputSchema: {
+        type: "object",
+        properties: {
+          uri: {
+            type: "string",
+            description: "协议 URI 或图表名。例如: 'protocol://segments/iqs_native/fishbone', 'flow', 'pareto', 'control', 'protocol://intents'"
+          }
+        },
+        required: ["uri"]
+      }
+    };
+
     // Core tools first (routing priority for agents), then relief
     const published = allTools
       .filter((t) => t.sub_type !== "master")
@@ -424,7 +616,7 @@ function createServer() {
           properties: {
             dsl: {
               type: "string",
-              description: "Pure-text DSL string (not a JSON object). See tool resource for grammar."
+              description: getToolDslDescription(tool)
             },
             width: { type: "number", default: 1200 },
             height: { type: "number", default: 800 }
@@ -433,12 +625,43 @@ function createServer() {
         }
       }));
 
-    return { tools: published };
+    return { tools: [readProtocolTool, ...published] };
   });
 
   newServer.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     const isSse = !!PUBLIC_URL;
+
+    // 1. 处理协议语法读取工具调用
+    if (name === "read_protocol") {
+      const uriArg = args?.uri || args?.name || args?.kind || "";
+      if (!uriArg) {
+        return {
+          content: [{
+            type: "text",
+            text: "错误: 请指定要读取的协议 URI 或图表名（例如 'flow', 'fishbone', 'pareto', 'protocol://intents'）"
+          }],
+          isError: true
+        };
+      }
+      try {
+        const res = resolveResourceContent(uriArg);
+        return {
+          content: [{
+            type: "text",
+            text: res.text
+          }]
+        };
+      } catch (err) {
+        return {
+          content: [{
+            type: "text",
+            text: `协议资源读取失败: ${err.message}\n提示: 可用图表名称例如: flow, fishbone, pareto, control, matrix, arrow, basic 等，或查看 protocol://intents`
+          }],
+          isError: true
+        };
+      }
+    }
 
     let type = "";
     let dsl = args.dsl;
@@ -451,7 +674,7 @@ function createServer() {
       type = name.replace("render_", "");
     }
 
-    // ILDR 2.0: 增强型 JSON 检测。
+    // ILDR 2.0: 增强型 JSON 检测
     const isJsonLike = (typeof dsl === 'object' && dsl !== null) || 
                        (typeof dsl === 'string' && dsl.trim().startsWith('{'));
 
@@ -462,11 +685,13 @@ function createServer() {
         ? "Title: 采购申请审批流程\nLayout: H\nDict: D[部门A,部门B]\nDict: P[申请,审批]\nLane from D[0,1] Layout H\nLane from P[0,1] Layout V\nW: w1: 提交 Type[S] Location(D[0],P[0])\nW: w2: 结束 Type[E] Location(D[1],P[1])"
         : (tool?.official_example || "Title: 标题\nSpec: { ... }");
       
+      const slug = name.replace(/^render_/, '');
       return {
         content: [{
           type: "text",
           text: [
             `🔴【格式错误】严禁在 dsl 字段传导 JSON！该字段必须为【纯文本字符串】。`,
+            `可调用 read_protocol("${slug}") 查询该图表的官方 DSL 规范。`,
             `请立即按照以下范式重写（注意没有外层括号）：`,
             `\n${example}\n`,
             `🔴 严禁输出任何 Markdown 代码块，严禁输出任何解释性描述。`
@@ -474,6 +699,31 @@ function createServer() {
         }],
         isError: true
       };
+    }
+
+    // 鱼骨图特定防呆：防止大模型写 - 列表导致空骨架图
+    if (name === "render_fishbone") {
+      const dslText = String(dsl || "");
+      const hasHeader = /^\s*#\s+/m.test(dslText);
+      if (!hasHeader) {
+        return {
+          content: [{
+            type: "text",
+            text: [
+              "🔴【语法错误】鱼骨图（fishbone）层级必须严格使用 #（大骨/分类）、##（中骨/原因）、###（小骨/根因），严禁使用 - 列表！",
+              "当前输入未包含任何 # 分类骨架，会导致生成只有中轴线的空图。",
+              "可调用 read_protocol('fishbone') 查看官方规范。请参考以下标准范式重写：",
+              "Title: 生产线停产原因分析",
+              "# 人 (Man)",
+              "## 技能不足",
+              "### 培训缺少",
+              "# 机 (Machine)",
+              "## 压力不足"
+            ].join("\n")
+          }],
+          isError: true
+        };
+      }
     }
     
     let flowLint = null;

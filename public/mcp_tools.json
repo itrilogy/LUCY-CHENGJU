@@ -1049,7 +1049,7 @@
   {
     "name": "render_vchart_correlation_heat",
     "parent_type": "vchart",
-    "sub_type": "heatmap",
+    "sub_type": "correlation_heat",
     "display_name": "VChart 相关矩阵图",
     "description": "工业级多维指标相关性分析工具。通过 2D 矩阵热力颜色展示变量之间的正负相关强度，是韦恩图 (Venn) 的标准等效替代方案。",
     "expertise": "多因果相关性分析, 质量指标矩阵建模, 相关强度可视化",
