@@ -9,7 +9,8 @@ import {
 import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
+import { getToolLinter, formatLinterError, formatLinterDiag } from "./linters.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express from "express";
 import cors from "cors";
@@ -54,6 +55,33 @@ function getLocalIP() {
 const SERVER_IP = getLocalIP();
 let PUBLIC_URL = "";
 
+/**
+ * 解析客户端可达的 MCP 基准地址（用于拼接 /renders 图片链接）。
+ * 优先级：IQS_SERVER_PUBLIC_URL ＞ 受信代理的 X-Forwarded-* ／ Host ＞ 本机网卡地址。
+ * 协议与主机交由 Express 的 req.protocol / req.host 解析：二者遵循 `trust proxy` 设置，
+ * 且多级代理的逗号分隔值只取第一个（AUD-157）。
+ */
+function resolveBaseUrl(req) {
+  if (process.env.IQS_SERVER_PUBLIC_URL) {
+    return process.env.IQS_SERVER_PUBLIC_URL.replace(/\/$/, "");
+  }
+  if (req) {
+    const proto = req.protocol || "http";
+    const host = req.host || req.get("host");
+    let prefix = "";
+    const trustFn = req.app?.get("trust proxy fn");
+    const fromTrustedProxy = typeof trustFn === "function" && trustFn(req.socket?.remoteAddress, 0);
+    if (fromTrustedProxy) {
+      const rawPrefix = String(req.get("x-forwarded-prefix") || "").split(",")[0].trim();
+      if (rawPrefix.startsWith("/")) prefix = rawPrefix;
+    }
+    if (host) {
+      return `${proto}://${host}${prefix}`.replace(/\/$/, "");
+    }
+  }
+  return (PUBLIC_URL || `http://${SERVER_IP}:${process.env.PORT || 12001}`).replace(/\/$/, "");
+}
+
 // --- Path Configuration ---
 const CHART_SPEC_PATH = path.join(__dirname, "../public/config.json");
 
@@ -87,7 +115,7 @@ async function getExecutablePath() {
   return undefined;
 }
 
-async function renderChart(type, dsl, width = 1200, height = 800, saveToFile = false) {
+async function renderChart(type, dsl, width = 1200, height = 800, saveToFile = false, baseUrlOverride = "") {
   const executablePath = await getExecutablePath();
 
   const launchOptions = {
@@ -157,7 +185,8 @@ async function renderChart(type, dsl, width = 1200, height = 800, saveToFile = f
       
       fs.writeFileSync(filePath, base64Data, 'base64');
       
-      const fileUrl = `${PUBLIC_URL}/renders/${filename}`;
+      const activeBaseUrl = (baseUrlOverride || PUBLIC_URL || `http://${SERVER_IP}:${process.env.PORT || 12001}`).replace(/\/$/, "");
+      const fileUrl = `${activeBaseUrl}/renders/${filename}`;
       await browser.close();
       return { url: fileUrl };
     } else {
@@ -172,7 +201,7 @@ async function renderChart(type, dsl, width = 1200, height = 800, saveToFile = f
 
 // --- MCP Server Factory ---
 
-function createServer() {
+function createServer(context = {}) {
   const newServer = new Server(
     {
       name: "iqs-expert-chart-server",
@@ -258,24 +287,6 @@ function createServer() {
         return `纯文本 DSL。散点图。范式: Title: 标题\\n- 1.2, 3.4\\n- 2.3, 4.5。${readHint}`;
       default:
         return `纯文本 DSL 字符串（严禁 JSON，严禁 Markdown 围栏）。${readHint}`;
-    }
-  }
-
-  function lintFlowDsl(dsl) {
-    try {
-      const script = path.join(__dirname, "../scripts/lint_flow.ts");
-      const r = spawnSync(process.execPath, ["--experimental-strip-types", script], {
-        input: String(dsl ?? ""),
-        encoding: "utf8",
-        timeout: 8000,
-        maxBuffer: 2 * 1024 * 1024,
-      });
-      const out = (r.stdout || "").trim();
-      if (!out) return { errors: [r.stderr || "lint_flow 无输出"], warnings: [], nodes: 0, edges: 0, lanes: 0 };
-      const line = out.split("\n").filter(Boolean).pop();
-      return JSON.parse(line);
-    } catch (e) {
-      return null;
     }
   }
 
@@ -365,29 +376,13 @@ function createServer() {
     const parent = tool.parent_type;
     const sub = tool.sub_type;
     const master = allTools.find((t) => t.parent_type === parent && t.sub_type === "master");
-
+    const slug = tool.name.replace(/^render_/, '');
+    const agentDoc = getProtocolFile(`segments/${sub}.agent.md`) || 
+                     getProtocolFile(`segments/${slug}.agent.md`);
     const rawSegment = getToolSegmentContent(tool);
     const promptDoc = getToolPromptContent(tool);
     const tier = tool.tier || (parent === "iqs_native" ? "core" : "relief");
     const tierLabel = tier === "core" ? "CORE" : "RELIEF";
-
-    // 特判 flow 流程图：融合编译卡 agent、切片全文、官方示例与 prompt
-    if (parent === "iqs_native" && sub === "flow") {
-      const agent = getProtocolFile("segments/flow.agent.md");
-      const segment = getProtocolFile("segments/flow.md");
-      const prompt = getProtocolFile("prompts/flow.md");
-      return [
-        `# [CORE] IQS 企业流程图/泳道图（完整协议切片与语法规范）`,
-        `\n- **图表类型**: \`render_flow\` (企业流程图/泳道图)`,
-        `- **分层定义**: CORE (面向体系文件 CX：谁×做什么×走哪条路，IQS-DSL v1 严格语言)`,
-        `- **意图触发**: 流程图, 泳道图, 程序文件, 跨部门流程, BPMN, swimlane`,
-        `- **核心红线**: Dict 先于 Lane 与 W；Type[?]/[+] 必须分支行并以 End 闭合；严禁输出 JSON，严禁输出 Mermaid。`,
-        `\n---\n## 一、编译卡与红线指令 (Agent Guide)\n\n${agent || ""}`,
-        `\n---\n## 二、专家协议切片全文 (The Protocol Segment)\n\n${segment || ""}`,
-        `\n---\n## 三、官方范式示例 (Official Example)\n\n> 必须以纯文本输出以下 DSL 范式，严禁 Markdown 代码块围栏，严禁 JSON 对象：\n\n\`\`\`dsl\n${tool.official_example || ""}\n\`\`\``,
-        prompt ? `\n---\n## 四、AI 生成提示词与输出规范 (Prompt Template)\n\n${prompt}` : ""
-      ].filter(Boolean).join("\n");
-    }
 
     const sections = [
       `# [${tierLabel}] ${tool.display_name}（完整协议切片与语法规范）`,
@@ -398,10 +393,15 @@ function createServer() {
       tool.expertise ? `- **业务专长**: ${tool.expertise}` : ""
     ];
 
+    // 0. 若存在该图表专属的编译卡 (Agent Guide)，作为核心红线指令优先引入
+    if (agentDoc) {
+      sections.push(`\n---\n## 一、编译卡与红线指令 (Agent Guide)\n\n${agentDoc}`);
+    }
+
     // 1. 家族总纲 (Master Protocol)
     if (master && master.name !== tool.name) {
       sections.push(
-        `\n---\n## 一、家族总纲 (Master Protocol: ${master.display_name})\n` +
+        `\n---\n## 二、家族总纲 (Master Protocol: ${master.display_name})\n` +
         `${master.expert_logic || ""}\n\n${master.syntax_rules || ""}`
       );
     }
@@ -679,11 +679,10 @@ function createServer() {
                        (typeof dsl === 'string' && dsl.trim().startsWith('{'));
 
     if (isJsonLike) {
-      const allTools = getMCPTools();
-      const tool = allTools.find(t => t.parent_type === type && (t.sub_type === args.sub_type || name.includes(t.sub_type)));
-      const example = name === "render_flow"
-        ? "Title: 采购申请审批流程\nLayout: H\nDict: D[部门A,部门B]\nDict: P[申请,审批]\nLane from D[0,1] Layout H\nLane from P[0,1] Layout V\nW: w1: 提交 Type[S] Location(D[0],P[0])\nW: w2: 结束 Type[E] Location(D[1],P[1])"
-        : (tool?.official_example || "Title: 标题\nSpec: { ... }");
+      // AUD-156：按工具全名查找。原实现按 parent_type === type 匹配，原生图表（parent_type=iqs_native）
+      // 永远匹配不上，回落到 VChart 外壳示例，误导模型。
+      const tool = getMCPTools().find(t => t.name === name);
+      const example = tool?.official_example || "Title: 标题";
       
       const slug = name.replace(/^render_/, '');
       return {
@@ -701,45 +700,16 @@ function createServer() {
       };
     }
 
-    // 鱼骨图特定防呆：防止大模型写 - 列表导致空骨架图
-    if (name === "render_fishbone") {
-      const dslText = String(dsl || "");
-      const hasHeader = /^\s*#\s+/m.test(dslText);
-      if (!hasHeader) {
+    // 通用前置校验管道：若该图表注册了专用 Linter（如 render_flow），优先执行离线语义与语法诊断
+    const linter = getToolLinter(name);
+    let lintResult = null;
+    if (linter) {
+      lintResult = await linter(dsl);
+      if (lintResult && Array.isArray(lintResult.errors) && lintResult.errors.length) {
         return {
           content: [{
             type: "text",
-            text: [
-              "🔴【语法错误】鱼骨图（fishbone）层级必须严格使用 #（大骨/分类）、##（中骨/原因）、###（小骨/根因），严禁使用 - 列表！",
-              "当前输入未包含任何 # 分类骨架，会导致生成只有中轴线的空图。",
-              "可调用 read_protocol('fishbone') 查看官方规范。请参考以下标准范式重写：",
-              "Title: 生产线停产原因分析",
-              "# 人 (Man)",
-              "## 技能不足",
-              "### 培训缺少",
-              "# 机 (Machine)",
-              "## 压力不足"
-            ].join("\n")
-          }],
-          isError: true
-        };
-      }
-    }
-    
-    let flowLint = null;
-    if (name === "render_flow") {
-      flowLint = lintFlowDsl(dsl);
-      if (flowLint && Array.isArray(flowLint.errors) && flowLint.errors.length) {
-        return {
-          content: [{
-            type: "text",
-            text: [
-              "error: true",
-              "parser_errors:",
-              ...flowLint.errors.map((e) => `  - ${e}`),
-              flowLint.warnings?.length ? "parser_warnings:\n" + flowLint.warnings.map((w) => `  - ${w}`).join("\n") : "",
-              "hint: Dict 必须先于 Lane/W；Type[?]/[+] 必须分支行并以 End 闭合。见 protocol://segments/iqs_native/flow"
-            ].filter(Boolean).join("\n")
+            text: formatLinterError(lintResult)
           }],
           isError: true
         };
@@ -747,22 +717,23 @@ function createServer() {
     }
 
     try {
-      const result = await renderChart(type, dsl, args.width, args.height, isSse);
-      const diag = name === "render_flow" && flowLint
-        ? [
-            "error: false",
-            `nodes: ${flowLint.nodes}`,
-            `edges: ${flowLint.edges}`,
-            `lanes: ${flowLint.lanes}`,
-            flowLint.warnings?.length ? `warnings:\n${flowLint.warnings.map((w) => `  - ${w}`).join("\n")}` : "warnings: []"
-          ].join("\n")
-        : "";
+      const result = await renderChart(type, dsl, args.width, args.height, isSse, context.clientBaseUrl);
+      const diag = formatLinterDiag(lintResult);
       if (isSse && result.url) {
+        const displayName = getMCPTools().find(t => t.name === name)?.display_name;
+        const chartTitle = (displayName || (type ? `${type} 图表` : "IQS 图表")).replace(/[\[\]]/g, "");
+        const mdImage = `![${chartTitle}](${result.url})`;
+
         return {
           content: [
             {
               type: "text",
-              text: [diag, `【系统强制指令：必须显示图片】图表已生成。请务必在最终回复中包含以下内容：\n\n![IQS Chart](${result.url})\n\n(查看链接: ${result.url})`].filter(Boolean).join("\n\n")
+              text: [
+                mdImage,
+                diag,
+                "---",
+                `【系统指令：图片渲染规约】图表已成功生成。\n请务必在最终回复中直接使用下方 Markdown 图片语法进行内嵌渲染，严禁将其降级或改写为普通纯文本超链接：\n\n${mdImage}`
+              ].filter(Boolean).join("\n\n")
             }
           ]
         };
@@ -773,8 +744,8 @@ function createServer() {
         return { content };
       }
     } catch (error) {
-      const extra = name === "render_flow" && flowLint?.errors?.length
-        ? "\nparser_errors:\n" + flowLint.errors.map((e) => `  - ${e}`).join("\n")
+      const extra = lintResult?.errors?.length
+        ? "\nparser_errors:\n" + lintResult.errors.map((e) => `  - ${e}`).join("\n")
         : "";
       return {
         content: [{ type: "text", text: `渲染错误: ${error.message}${extra}` }],
@@ -795,13 +766,26 @@ async function main() {
 
   if (transportType === "sse") {
     const app = express();
+    // AUD-157：默认只信任本机与私网来源（含 Docker 桥接网段）的 X-Forwarded-* 头；
+    // 可用 IQS_TRUST_PROXY 覆盖（Express trust proxy 语法：true / false / 跳数 / 网段列表）。
+    const trustProxyEnv = (process.env.IQS_TRUST_PROXY || "").trim();
+    let trustProxy = "loopback, linklocal, uniquelocal";
+    if (trustProxyEnv === "true") trustProxy = true;
+    else if (trustProxyEnv === "false") trustProxy = false;
+    else if (/^\d+$/.test(trustProxyEnv)) trustProxy = Number(trustProxyEnv);
+    else if (trustProxyEnv) trustProxy = trustProxyEnv;
+    app.set("trust proxy", trustProxy);
     app.use(cors());
     app.use('/renders', express.static(RENDERS_DIR));
 
+    const port = process.env.PORT || 12001;
+    PUBLIC_URL = (process.env.IQS_SERVER_PUBLIC_URL || `http://${SERVER_IP}:${port}`).replace(/\/$/, "");
+
     app.get("/sse", async (req, res) => {
-      console.error("New SSE connection established");
+      const clientBaseUrl = resolveBaseUrl(req);
+      console.error(`New SSE connection established (clientBaseUrl: ${clientBaseUrl})`);
       const transport = new SSEServerTransport("/messages", res);
-      const server = createServer();
+      const server = createServer({ clientBaseUrl });
       await server.connect(transport);
 
       const sessionId = transport.sessionId;
@@ -824,9 +808,6 @@ async function main() {
       }
       await transport.handlePostMessage(req, res);
     });
-
-    const port = process.env.PORT || 12001;
-    PUBLIC_URL = process.env.IQS_SERVER_PUBLIC_URL || `http://${SERVER_IP}:${port}`;
 
     app.listen(port, () => {
       console.error(`IQS Expert Chart MCP Server (SSE) running on port ${port}`);

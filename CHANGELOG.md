@@ -20,6 +20,10 @@
 
 ### 修复
 
+- **MCP 容器内 Flow 诊断缺失阻断出图**（R25 / AUD-155）：通过 esbuild 将 FlowParser 诊断逻辑打包为独立产物 `mcp-server/lib/flow_lint.mjs`，消除对开发目录的硬性依赖；诊断异常时自动降级放行，保证主图表渲染链路通畅
+- **MCP JSON 拦截示例误匹配**（R25 / AUD-156）：修复图表匹配逻辑，原生图表误传 JSON 时正确返回本类型 DSL 示例，避免误导为 VChart 外壳
+- **MCP 反向代理地址解析与持久化**（R25 / AUD-157）：规范多级反代头（`X-Forwarded-*`）解析，防止逗号分隔非法 URL；收紧 `trust proxy` 默认信任域；图表标题采用 `display_name`；挂载 `iqs-renders` 命名卷保障历史图片访问稳定
+- **MCP 通用 Linter 解耦与 Flow 诊断增强**（R25 / AUD-158）：主调度器彻底移除 fishbone 正则特判与 flow 专用硬编码；多段协议通用化自动合并 `.agent.md`；抽象 `linters.js` 通用管道；增强 Flow 诊断：行号与代码切片安全定位（Annotated Errors）、动态分类针对性自愈指引（Fix Hints）及网关/子流程拓扑健康度指标回传
 - **Flow 子流程框底色**与画布 `panelColor` 一致；标题用 `textColor`；超宽时衬底也用面板色+子流程描边，不再用深色底板配白字
 - **Flow 走廊假合并**：A1 前瞻（朝向侧占用预留），合规不再抢并行网关底边；物理/化学同出共干
 - **Flow N/DATA 水平原则**：虚线先分配、锁定依附节点**右入口**，0 折弯水平对接（`g7-doc-horizontal`）

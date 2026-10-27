@@ -16,9 +16,17 @@ services:
       - IQS_BASE_URL=http://localhost:12000
       - WEB_PORT=12000
       - PORT=12001
+      - IQS_SERVER_PUBLIC_URL=${IQS_SERVER_PUBLIC_URL:-}
+      - IQS_TRUST_PROXY=${IQS_TRUST_PROXY:-}
+    volumes:
+      # 渲染图片持久化：容器重建后已返回给客户端的图片链接仍可访问
+      - iqs-renders:/app/mcp-server/renders
     restart: unless-stopped
     networks:
       - qc-network
+
+volumes:
+  iqs-renders:
 
 networks:
   qc-network:

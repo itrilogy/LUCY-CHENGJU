@@ -29,6 +29,9 @@ dist-ssr
 # MCP Server Renders
 mcp-server/renders/*.png
 
+# MCP 内置 flow 诊断打包产物（npm run build:mcp-lint 生成）
+mcp-server/lib/
+
 # Local agent / IDE session metadata
 .reasonix/
 

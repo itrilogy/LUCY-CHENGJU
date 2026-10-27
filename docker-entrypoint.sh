@@ -12,6 +12,8 @@ WEB_PORT="${WEB_PORT:-12000}"
 MCP_PORT="${PORT:-12001}"
 export PORT="$MCP_PORT"
 export IQS_BASE_URL="${IQS_BASE_URL:-http://localhost:${WEB_PORT}}"
+export IQS_SERVER_PUBLIC_URL="${IQS_SERVER_PUBLIC_URL:-}"
+export IQS_TRUST_PROXY="${IQS_TRUST_PROXY:-}"
 
 # Start the Frontend (Vite preview for production build)
 echo "Starting Frontend on port ${WEB_PORT}..."

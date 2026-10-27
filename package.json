@@ -19,7 +19,8 @@
     "scaffold:cards": "node --experimental-strip-types scripts/scaffold_cards.ts",
     "test:flow": "node --experimental-strip-types scripts/assert_flow_parser.ts && node --experimental-strip-types scripts/assert_flow_svg.ts && node --experimental-strip-types scripts/assert_flow_bpmn.ts && node --experimental-strip-types scripts/assert_mainline.ts && node --experimental-strip-types scripts/assert_cell_order.ts && node --experimental-strip-types scripts/assert_flow_alignment.ts && node --experimental-strip-types scripts/assert_flow_geometry.ts",
     "dev": "npm run sync-tools && vite --port 12000 --host 0.0.0.0 --strictPort",
-    "build": "npm run validate:dsl && npm run test:flow && npm run sync-tools && vite build",
+    "build:mcp-lint": "esbuild scripts/flow_lint_core.ts --bundle --platform=node --format=esm --target=node22 --outfile=mcp-server/lib/flow_lint.mjs --log-level=warning",
+    "build": "npm run validate:dsl && npm run test:flow && npm run sync-tools && npm run build:mcp-lint && vite build",
     "preview": "vite preview --port 12000 --host 0.0.0.0 --strictPort",
     "mcp:stdio": "IQS_BASE_URL=${IQS_BASE_URL:-http://localhost:12000} node mcp-server/index.js",
     "mcp:sse": "IQS_BASE_URL=${IQS_BASE_URL:-http://localhost:12000} PORT=${PORT:-12001} node mcp-server/index.js --transport=sse"

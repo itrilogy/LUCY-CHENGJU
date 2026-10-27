@@ -41,6 +41,7 @@
 | R22 | 2026-09-12 | **R21 复测驱动**：复核 R21 三项修复（1 正确 / 1 不完整 / 1 机制判错）· 端口朝向 + 回折穿盒 + 子流程整数倍格 · 新增几何门禁 G1–G5 + 注入回归 · 断言口径勘误 | 6 | 141–146 |
 | R23 | 2026-09-12 | **出入口红线 + 子流程范式**：同入/同出可复用、同侧既入又出为硬约束；R22 `relaxNodes` 误把 A1 对网关关闭；子流程内部仍是缩略图而非 3×3 绘制格 | 5 | 147–151 |
 | R24 | 2026-09-13 | **口径补全 + 代数下降性能 + 子流程画布同底**：N/DATA 水平右入、扩展格射线、A1 前瞻、共干非槽位；端口下降改为代数核+缓存；子流程框/标题/溢出跟面板色 | 3 | 152–154 |
+| R25 | 2026-10-27 | **MCP 服务容器化与健壮性修复**：Docker 镜像剥离后 flow lint 独立打包加载（AUD-155）· JSON 拦截示例按名称精准查找（AUD-156）· 多级反代头规范化解析与渲染卷持久化（AUD-157）· 通用 Linter 抽象解耦与 Flow 诊断能力增强（AUD-158） | 4 | 155–158 |
 
 ---
 
@@ -1029,4 +1030,19 @@ npm run check:cards-fresh EXIT=0  PASS（重生成前后一致）
 
 ---
 
+## R25 — MCP 服务容器化与健壮性修复（2026-10-27）
+
+> **触发**：容器部署后反向代理地址失真、图片链接不可达；代码审计发现容器内缺失 `scripts/` 与 `components/` 导致 `render_flow` 必然拦截失败（P0）；JSON 拦截返回错误外壳示例（P1）。
+> **完整评估报告**：[mcp_server_review.md](file:///Users/kwangwah/.gemini/antigravity-ide/brain/a5a7ab7c-cbf1-4ec4-8e91-1f078de6eca7/mcp_server_review.md)
+
+| 编号 | 级别 | 状态 | 主题 | 结论 |
+|:--|:--:|:--|:--|:--|
+| **AUD-155** | **P0** | **已修复** | 容器内 `render_flow` 因依赖源码脚本必然失败 | `lintFlowDsl` 依赖 `../scripts/lint_flow.ts` 与 `../components/flow/FlowParser.ts`，生产 Dockerfile 未复制该目录。执行抛 `Cannot find module` → stdout 为空 → 被误判为语法错误全部拦截。**修复**：抽离 `scripts/flow_lint_core.ts` 纯函数，构建阶段 `npm run build:mcp-lint` 通过 esbuild 打包至 `mcp-server/lib/flow_lint.mjs` 并随镜像分发；MCP 进程内优先直接 import 打包产物，无打包时回退子进程，彻底断开源码依赖；若诊断模块自身异常统一安全放行，避免辅助校验阻塞核心出图。 |
+| **AUD-156** | **P1** | **已修复** | JSON 误传拦截示例匹配失效（误导模型） | [index.js:699](file:///Users/kwangwah/Copyright/LUCY-CHENGJU/mcp-server/index.js#L699) 按 `t.parent_type === type` 匹配，原生图表（`parent_type="iqs_native"`）永远匹配不上，回落到 VChart 外壳示例 `Title: 标题\nSpec: { ... }`，反向诱导模型。**修复**：改为精确按 `t.name === name` 查找对应图表，展示真实的 `official_example`，消除错误引导。 |
+| **AUD-157** | **P1** | **已修复** | 多级反代头非法拼接与渲染图片无持久化 | 多级反向代理注入逗号分隔的 `X-Forwarded-*` 标头时直接拼接产生非法 URL；`trust proxy: true` 过于宽泛；Docker 重建后历史生成图片全部 404。**修复**：改用 Express 内置代理感知解析真实协议与主机（自动取第一跳有效地址）；`trust proxy` 默认收敛为回环与私网网段并支持 `IQS_TRUST_PROXY` 灵活配置；图片标题改用图表 `display_name` 增强可读性；`docker-compose.yml` 为 `/app/mcp-server/renders` 挂载命名卷 `iqs-renders` 保障图片持久化访问。 |
+| **AUD-158** | **P1** | **已修复** | 通用 Linter 抽象解耦与 Flow 诊断能力增强 | 主入口特化硬编码 `render_fishbone` 正则防呆与 `render_flow` 专用分支违背开闭原则；原始诊断信息单一死板无行号与分类建议。**修复**：彻底移除 `fishbone` 正则特化（交由协议传导与前端容错）；将多段协议合并通用化，自动探测 `.agent.md`；抽离 `mcp-server/linters.js` 通用 Linter 调度槽位；外层增强 Flow 诊断：行号与代码切片安全标注（Annotated Errors）、动态分类针对性自愈指引（Fix Hints）、拓扑健康度（Gateways/Subprocesses）元数据回传，完全不破坏底座 206 项门禁。 |
+
+---
+
 *台账维护：逐轮追加新条目，编号严格递增不回收；已修复条目改状态为 `已修复(commit)` 并保留原文。*
+
