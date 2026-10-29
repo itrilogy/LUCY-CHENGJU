@@ -59,7 +59,7 @@ related:
 | **P6** | **2026-10-27** | **R28：G6 渲染缺陷诊断 + 关联图因果代数重构 + 全组件确定性布局** | `docs/IQS_MCP_DETERMINISTIC_LAYOUT_DESIGN_R28.md` · 台账 `AUD-170..174` · `utils/relationGraph.ts`（469 行纯数学布局）· `PDPCDiagram` / `RelationDiagram` 帧同步 |
 | **P6** | **2026-10-28** | **R29：鱼骨图布局数学评估 + 算法重构实施 + 全仓审计**（已落地，工程记录见 `IQS_FISHBONE_ENGINEERING_LOG_R29.md`） | `docs/IQS_FISHBONE_LAYOUT_MATH_AUDIT_R29.md` · 台账 `AUD-175..183` 全部修复 · `utils/fishboneGraph.ts` 五遍闭式解重写 · `scripts/assert_fishbone_math.ts`（G1–G7 / 44 断言）· `npm run test:fishbone` 入 build+CI · `docs/IQS_DIAGRAM_MATHEMATICAL_LAYOUT_SPEC.md` 第三章重写 |
 | **P7** | **2026-10-28** | **规划：全量自研 SVG 迁移与 G6 归零技术规划** | `docs/IQS_MIGRATION_PLAN_SVG_DE_G6.md` · 规划关联图与 PDPC 自研闭式解与原生 SVG 替代 · 剥离 `@antv/g6` 与 MCP Tier-1 毫秒级直出下沉 |
-| **P7** | **2026-10-28** | **R30：全仓 G6 归零与关联图/PDPC 原生 SVG 迁移实施落地** | `utils/{relationSvg,pdpcGraph,pdpcSvg,fishboneSvg}.ts` · `components/{RelationDiagram,PDPCDiagram}.tsx` · `scripts/assert_{relation,pdpc}_math.ts` · `mcp-server` Tier-1 覆盖 `flow/fishbone/relation/pdpc` 四大拓扑图 · 彻底卸载 `@antv/g6` |
+| **P7** | **2026-10-28** | **R30：全仓 G6 归零与关联图/PDPC 原生 SVG 迁移实施落地**（工程记录见 `docs/IQS_SVG_DE_G6_ENGINEERING_LOG_R30.md`） | `docs/IQS_SVG_DE_G6_ENGINEERING_LOG_R30.md` · 台账 `AUD-188..194` 全部闭环 · `utils/{relationSvg,pdpcGraph,pdpcSvg,fishboneSvg}.ts` · `components/{RelationDiagram,PDPCDiagram}.tsx` · `scripts/assert_{relation,pdpc}_math.ts` · `mcp-server` Tier-1 覆盖 `flow/fishbone/relation/pdpc` 四大拓扑图 · 彻底卸载 `@antv/g6` |
 
 ### 时间线读法（三条主线）
 
@@ -125,6 +125,8 @@ related:
 | `docs/IQS_DIAGRAM_MATHEMATICAL_LAYOUT_SPEC.md` | ~630 | **10-28** | 🟡 | **图形组件布局数学实现规范（SSOT 草案）**：关联图三类布局公式、复杂度对照；鱼骨图分形/避障/排版阶梯。⚠️ §3.1 仍描述旧算法（均分脊椎 + 线性骨长），与现行 `utils/fishboneGraph.ts` 包络推进不一致，见 `AUD-183` |
 | `docs/IQS_FISHBONE_ENGINEERING_LOG_R29.md` | ~330 | **10-28** | 🟢 | **鱼骨图引擎工程记录（R29 全轮次）**：10 项已落地能力 · 6 次失败尝试与回退根因 · 三条"改了几轮没变化"的教训（G6 字段名/`center` 下 offset 不生效/探针对≠页面对）· 代码结构 7 处问题 · **范式重构建议（几何清单 + 渲染分离）** · **§10 抛弃 G6 可行性（仅鱼骨图，6 处依赖全部可替代 + 三步迁移 + 已有原型）** · **§11 与 MCP 链路的关系（鱼骨图可进 Tier-1 免浏览器；MCP 整体仍需 Tier-2）** · **A1–A10 待审计清单** |
 | `docs/IQS_FISHBONE_LAYOUT_MATH_AUDIT_R29.md` | ~330 | **10-28** | 🟢 | **鱼骨图布局数学评估 + 算法重构实施（R29）**：五条定理（串联紧性 / 成对绑定弱劣界 / 包络低估 / 垂直自洽必要式 / 缩放闭环判据）· 用户五步方案逐条裁定 · 闭式五遍算法**已实现** · 前后实测（4 骨 61.6%→83.1%、长文本 66.8%→95.1%、6 骨按设计 warn）· G1–G7 验收 + 44 断言 · 台账 `AUD-175..183` 全修复 |
+| `docs/IQS_MIGRATION_PLAN_SVG_DE_G6.md` | ~290 | **10-28** | 🟢 | **图表引擎全量 SVG 化与 G6 归零设计规划书**：关联图与 PDPC 剥离 `@antv/g6` 四阶段 WBS 与 Geometry Spec 契约设计 |
+| `docs/IQS_SVG_DE_G6_ENGINEERING_LOG_R30.md` | ~220 | **10-28** | 🟢 | **全仓 G6 归零与关联图/PDPC 原生 SVG 闭式重构工程记录（R30）**：预检与规划勘误 `AUD-188..194` 全部闭环 · 关联图精确边界求交与双向弧线分离 · PDPC 阶段凝聚 K-Rank 分层与正交避障路由 · MCP Tier-1 四大拓扑图直出下沉 · 卸载 `@antv/g6`（移除 92 个子包） |
 
 ### 3.3 功能手册
 
