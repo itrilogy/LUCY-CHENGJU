@@ -1,23 +1,42 @@
 /**
- * 关联图（Relation Diagram）图论工具 · 单一真源
+ * 关联图（Relation Diagram）图论工具、纯数学确定性布局与几何清单（Geometry Spec SSOT）
  *
- * 背景：`RelationEditor` 原先在 **DSL 解析路径**与 **手工编辑路径** 各自实现了一遍
- * 自引用 / 环检测与入度·出度统计。两处独立演进，且**手工路径完全没有校验** ——
- * 可以直接造出自环、逻辑环与重复边，再交给渲染层。
- *
- * 本模块把这两件事收敛为唯一实现，供两条路径共用。
+ * 背景：
+ * 1. `RelationEditor` 原先在 **DSL 解析路径**与 **手工编辑路径** 各自实现了一遍
+ *    自引用 / 环检测与入度·出度统计。本模块将其收敛为唯一实现。
+ * 2. R28 完成了方向型（Directional）、中央型（Centralized）、自由型（Free）三类
+ *    因果代数闭式拓扑解算；R30 进一步将节点尺寸度量（estimateTextWidth）、
+ *    椭圆/圆角矩形精确边界求交、双向边弧线分离、跨层长边避障与标题排版收敛为
+ *    `RelationGeometrySpec`，彻底剥离 G6，支撑前端原生 SVG 与 MCP Tier-1 进程内直出。
  */
-import type { RelationNode, RelationLink } from '../types';
+import type {
+    RelationNode,
+    RelationLink,
+    RelationChartStyles,
+    RelationLayoutType,
+} from '../types.ts';
+import { estimateTextWidth } from './textMetrics.ts';
+
+/** 本地默认样式（避免跨文件导入含 enum 的 types.ts 运行时依赖，便于 Node strip-types 独立测试） */
+const DEFAULT_RELATION_STYLES: RelationChartStyles = {
+    title: '关联图分析',
+    titleFontSize: 24,
+    rootColor: '#2563eb',
+    rootTextColor: '#ffffff',
+    middleColor: '#3b82f6',
+    middleTextColor: '#ffffff',
+    endColor: '#93c5fd',
+    endTextColor: '#1e3a8a',
+    lineColor: '#64748b',
+    nodeFontSize: 14,
+    layout: 'Directional',
+};
 
 /**
  * 节点在因果链中的角色：
  *  · `sink`   无出边 —— 所有因果汇聚于此，即**主要症结**（对应 `Color[Root]`）
  *  · `source` 无入边 —— 因果链起点，即**末端因素**（对应 `Color[End]`）
  *  · `middle` 其余
- *
- * 注：原 `RelationNode.type` 用 `'root' | 'middle' | 'end'` 命名，但把「无出边」
- * 叫作 root、「无入边」叫作 end，语义与名称相反、极易误读。此处改以**图论方向**
- * 表述，映射关系由调用方在 `type` 赋值处显式体现。
  */
 export type RelationNodeRole = 'source' | 'middle' | 'sink';
 
@@ -33,8 +52,6 @@ export interface RelationGraphAnalysis {
 
 /**
  * 单次 O(V+E) 遍历算出入度 / 出度与角色。
- * 原实现把这段逻辑写在 JSX 的 IIFE 里，**每次渲染重算一遍**，且与 DSL 解析路径的
- * 统计口径重复 —— 这里统一。
  */
 export function analyzeRelation(
     nodes: readonly RelationNode[],
@@ -69,9 +86,7 @@ export function analyzeRelation(
 
 /**
  * 校验连线的合法性。返回错误文案；合法则返回 `null`。
- *
  * 检查项：端点存在 → 自引用 → 重复边 → 环路（DFS）。
- * 原先只有 DSL 路径做前两三项中的一部分，手工路径一项都没做。
  */
 export function validateRelationLinks(
     nodes: readonly RelationNode[],
@@ -131,8 +146,6 @@ export function validateRelationLinks(
 
 /**
  * 生成一个尚未占用的节点 id。
- * 原实现用 `` `n${Date.now().toString(36).substr(-4)}` ``，同毫秒内连点会**碰撞**
- * 产生重复 id（React key 冲突 + 数据串行）。
  */
 export function nextRelationNodeId(nodes: readonly RelationNode[]): string {
     const used = new Set(nodes.map(n => n.id));
@@ -143,8 +156,6 @@ export function nextRelationNodeId(nodes: readonly RelationNode[]): string {
 
 /**
  * 在 `nodes` 中挑一对「尚未建立连线」的节点，用于「添加连线」。
- * 原实现硬编码取 `nodes[len-2] → nodes[len-1]`，既不符合直觉，
- * 也会不断生成重复边（而重复边此前的校验完全缺失）。
  */
 export function pickUnlinkedPair(
     nodes: readonly RelationNode[],
@@ -161,6 +172,89 @@ export function pickUnlinkedPair(
     return null;
 }
 
+/** Color[Slot] → RelationChartStyles 字段名 */
+const COLOR_KEY_MAP: Record<string, keyof RelationChartStyles> = {
+    Root: 'rootColor',
+    RootText: 'rootTextColor',
+    Middle: 'middleColor',
+    MiddleText: 'middleTextColor',
+    End: 'endColor',
+    EndText: 'endTextColor',
+    Line: 'lineColor',
+};
+
+/**
+ * 纯函数关联图 DSL 解析器（零 React/DOM 依赖，供前端 RelationEditor 与 MCP Tier-1 共用）
+ */
+export function parseRelationDSL(
+    content: string,
+    currentStyles: RelationChartStyles = DEFAULT_RELATION_STYLES,
+): { nodes: RelationNode[]; links: RelationLink[]; styles: RelationChartStyles } {
+    const newStyles: RelationChartStyles = { ...currentStyles };
+    const newNodes: RelationNode[] = [];
+    const newLinks: RelationLink[] = [];
+
+    content.split('\n').forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('//')) return;
+
+        if (trimmed.startsWith('Title:')) {
+            newStyles.title = trimmed.slice('Title:'.length).trim();
+            return;
+        }
+
+        if (trimmed.startsWith('Layout:')) {
+            const layoutVal = trimmed.slice('Layout:'.length).trim();
+            if (['Centralized', 'Directional', 'Free'].includes(layoutVal)) {
+                newStyles.layout = layoutVal as RelationLayoutType;
+            }
+            return;
+        }
+
+        const colorMatch = trimmed.match(/Color\[(Root|RootText|Middle|MiddleText|End|EndText|Line)\]\s*:\s*(#[0-9a-fA-F]{3,8})/i);
+        if (colorMatch) {
+            const matchedSlot = Object.keys(COLOR_KEY_MAP).find(k => k.toLowerCase() === colorMatch[1].toLowerCase());
+            const key = matchedSlot ? COLOR_KEY_MAP[matchedSlot] : undefined;
+            if (key) (newStyles as unknown as Record<string, unknown>)[key] = colorMatch[2];
+            return;
+        }
+
+        const fontMatch = trimmed.match(/Font\[(Title|Node)\]\s*:\s*(\d+)/i);
+        if (fontMatch) {
+            if (fontMatch[1].toLowerCase() === 'title') newStyles.titleFontSize = parseInt(fontMatch[2], 10);
+            if (fontMatch[1].toLowerCase() === 'node') newStyles.nodeFontSize = parseInt(fontMatch[2], 10);
+            return;
+        }
+
+        if (trimmed.startsWith('Node:')) {
+            const body = trimmed.slice('Node:'.length).trim();
+            const comma = body.indexOf(',');
+            if (comma > 0) {
+                newNodes.push({ id: body.slice(0, comma).trim(), label: body.slice(comma + 1).trim() });
+            }
+            return;
+        }
+
+        if (trimmed.startsWith('Rel:')) {
+            const parts = trimmed.slice('Rel:'.length).trim().split('->').map(t => t.trim());
+            if (parts.length === 2 && parts[0] && parts[1]) {
+                newLinks.push({ source: parts[0], target: parts[1] });
+            }
+        }
+    });
+
+    const invalid = validateRelationLinks(newNodes, newLinks);
+    if (invalid) throw new Error(invalid);
+
+    const graph = analyzeRelation(newNodes, newLinks);
+    newNodes.forEach(n => {
+        const role = graph.roleOf(n.id);
+        n.type = role === 'sink' ? 'root' : role === 'source' ? 'end' : 'middle';
+    });
+
+    return { nodes: newNodes, links: newLinks, styles: newStyles };
+}
+
 /**
  * 确定性因果拓扑坐标
  */
@@ -170,23 +264,40 @@ export interface NodeCoordinate {
 }
 
 /**
+ * 计算每个节点的真实盒子尺寸（供防重叠与几何清单统一调用）
+ */
+export function measureRelationNodeSize(
+    label: string,
+    shape: 'rect' | 'ellipse',
+    fontSize: number,
+): { width: number; height: number } {
+    const textW = estimateTextWidth(label, fontSize);
+    if (shape === 'rect') {
+        return { width: Math.round(Math.max(126, textW + 40)), height: 50 };
+    }
+    // 椭圆外接矩形需比文本宽多留余量（椭圆内接矩形宽约为 0.707 * 2 * rx）
+    return { width: Math.round(Math.max(112, textW * 1.18 + 32)), height: 44 };
+}
+
+/**
  * 方向型（Directional）因果拓扑分层布局算法（纯数学闭式解）
- * 
+ *
  * 核心原理：
  * 1. 因果最长链分层（Longest-path layering）：源点（末端根因）位于 Rank 0，依次拓扑推进；
  * 2. 质心列内排序（Barycenter order）：按前驱节点的平均 Y 坐标重排各列节点，极小化连线交叉；
- * 3. 确定性几何映射：居中对称投影，耗时 <2ms，无异步迭代。
+ * 3. 确定性几何映射：按每列真实最大节点宽度自适应计算列间距，杜绝长标签列间挤压。
  */
 export function computeDirectionalLayout(
     nodes: readonly RelationNode[],
     links: readonly RelationLink[],
     width: number,
-    height: number
+    height: number,
+    fontSize = 14,
 ): Map<string, NodeCoordinate> {
     const coords = new Map<string, NodeCoordinate>();
     if (nodes.length === 0) return coords;
     if (nodes.length === 1) {
-        coords.set(nodes[0].id, { x: width / 2, y: height / 2 });
+        coords.set(nodes[0].id, { x: Math.round(width / 2), y: Math.round(height / 2) });
         return coords;
     }
 
@@ -195,12 +306,14 @@ export function computeDirectionalLayout(
     const outDegree = new Map<string, number>();
     const adj = new Map<string, string[]>();
     const revAdj = new Map<string, string[]>();
+    const nodeById = new Map<string, RelationNode>();
 
     for (const n of nodes) {
         inDegree.set(n.id, 0);
         outDegree.set(n.id, 0);
         adj.set(n.id, []);
         revAdj.set(n.id, []);
+        nodeById.set(n.id, n);
     }
 
     for (const l of validLinks) {
@@ -221,17 +334,15 @@ export function computeDirectionalLayout(
         }
     }
 
-    // 若无入度为 0 的节点（存在环回路），取净出度最大者作为起点
     if (queue.length === 0) {
-        const sortedByOut = [...nodes].sort((a, b) => 
-            ((outDegree.get(b.id) || 0) - (inDegree.get(b.id) || 0)) - 
+        const sortedByOut = [...nodes].sort((a, b) =>
+            ((outDegree.get(b.id) || 0) - (inDegree.get(b.id) || 0)) -
             ((outDegree.get(a.id) || 0) - (inDegree.get(a.id) || 0))
         );
         ranks.set(sortedByOut[0].id, 0);
         queue.push(sortedByOut[0].id);
     }
 
-    // 迭代推进拓扑层级，限制步数防止环死循环
     for (let iter = 0; iter < nodes.length; iter++) {
         let updated = false;
         for (const l of validLinks) {
@@ -263,7 +374,7 @@ export function computeDirectionalLayout(
         layers[r].push(n.id);
     }
 
-    // 3. Barycenter 质心列内排序（减少交叉）
+    // 3. Barycenter 质心列内排序（前向 + 反向双遍扫描极小化交叉）
     for (let r = 1; r <= maxRank; r++) {
         const layer = layers[r];
         const prevLayerPositions = new Map<string, number>();
@@ -282,18 +393,37 @@ export function computeDirectionalLayout(
         });
     }
 
-    // 4. 坐标映射（确定性防重叠几何展开，依靠 G6 fitView 全景居中包围）
+    // 4. 坐标映射（结合每列真实最大节点宽度自适应推进）
+    const colMaxW = layers.map(layer => {
+        let m = 140;
+        for (const id of layer) {
+            const n = nodeById.get(id);
+            if (!n) continue;
+            const isSink = (outDegree.get(id) || 0) === 0;
+            const sz = measureRelationNodeSize(n.label, isSink ? 'rect' : 'ellipse', fontSize);
+            if (sz.width > m) m = sz.width;
+        }
+        return m;
+    });
+
     const usableWidth = Math.max(300, width - 160);
-    const stepX = Math.max(260, usableWidth / (maxRank || 1));
+    const defaultStepX = Math.max(260, usableWidth / (maxRank || 1));
+    const colXs: number[] = [0];
+    for (let r = 1; r <= maxRank; r++) {
+        const neededStep = (colMaxW[r - 1] + colMaxW[r]) / 2 + 88;
+        colXs.push(colXs[r - 1] + Math.max(defaultStepX, neededStep));
+    }
+    const totalSpanX = colXs[colXs.length - 1] || 0;
 
     for (let r = 0; r <= maxRank; r++) {
         const layer = layers[r];
         const count = layer.length;
-        const x = width / 2 + (r - maxRank / 2) * stepX;
-        const layerHeight = (count - 1) * 90;
+        const x = width / 2 - totalSpanX / 2 + colXs[r];
+        const rowStepY = 88;
+        const layerHeight = (count - 1) * rowStepY;
 
         layer.forEach((id, idx) => {
-            const y = height / 2 - layerHeight / 2 + idx * 90;
+            const y = height / 2 - layerHeight / 2 + idx * rowStepY;
             coords.set(id, { x: Math.round(x), y: Math.round(y) });
         });
     }
@@ -303,17 +433,18 @@ export function computeDirectionalLayout(
 
 /**
  * 中央型（Centralized）极坐标同心环因果投影算法（纯数学闭式解）
- * 
+ *
  * 核心原理：
  * 1. 核心症结锚定：净因果流入度最高者作为圆心 (width/2, height/2)；
  * 2. 因果同心环反向分层：反向 BFS 测量各节点到核心症结的最短因果距离；
- * 3. 极坐标防碰撞投影：按同心椭圆展开，切线与径向均满足节点边界间隔，通过 fitView 极速收敛。
+ * 3. 极坐标防碰撞投影：按同心椭圆展开，切线与径向均满足真实节点边界安全间隔。
  */
 export function computeCentralizedLayout(
     nodes: readonly RelationNode[],
     links: readonly RelationLink[],
     width: number,
-    height: number
+    height: number,
+    fontSize = 14,
 ): Map<string, NodeCoordinate> {
     const coords = new Map<string, NodeCoordinate>();
     if (nodes.length === 0) return coords;
@@ -321,7 +452,7 @@ export function computeCentralizedLayout(
     const centerY = height / 2;
 
     if (nodes.length === 1) {
-        coords.set(nodes[0].id, { x: centerX, y: centerY });
+        coords.set(nodes[0].id, { x: Math.round(centerX), y: Math.round(centerY) });
         return coords;
     }
 
@@ -329,11 +460,13 @@ export function computeCentralizedLayout(
     const inDegree = new Map<string, number>();
     const outDegree = new Map<string, number>();
     const revAdj = new Map<string, string[]>();
+    const nodeById = new Map<string, RelationNode>();
 
     for (const n of nodes) {
         inDegree.set(n.id, 0);
         outDegree.set(n.id, 0);
         revAdj.set(n.id, []);
+        nodeById.set(n.id, n);
     }
 
     for (const l of validLinks) {
@@ -371,7 +504,6 @@ export function computeCentralizedLayout(
         }
     }
 
-    // 兜底未连通节点，置于外环
     let maxDist = 0;
     dist.forEach(d => { if (d > maxDist) maxDist = d; });
     for (const n of nodes) {
@@ -389,27 +521,41 @@ export function computeCentralizedLayout(
         concentricRings[d].push(n.id);
     }
 
-    // 中心节点位于坐标原点
-    coords.set(centerId, { x: centerX, y: centerY });
+    coords.set(centerId, { x: Math.round(centerX), y: Math.round(centerY) });
 
     // 4. 自适应确定性无碰撞同心椭圆极坐标投影
     let currentRadius = 0;
+    let prevRingNodeW = 160;
+    const centerNodeObj = nodeById.get(centerId);
+    if (centerNodeObj) {
+        prevRingNodeW = measureRelationNodeSize(centerNodeObj.label, 'rect', fontSize).width;
+    }
+
     for (let ringIdx = 1; ringIdx <= maxDist; ringIdx++) {
         const ringNodes = concentricRings[ringIdx];
         const count = ringNodes.length;
         if (count === 0) continue;
 
-        // 环向切线无碰撞最小半径：2 * PI * R >= count * 180
-        const minTangentialRadius = (count * 180) / (2 * Math.PI);
-        // 径向层间距保证至少 180px
-        currentRadius = Math.max(currentRadius + 180, minTangentialRadius, 240);
+        let maxNodeW = 160;
+        for (const id of ringNodes) {
+            const n = nodeById.get(id);
+            if (n) {
+                const isSink = (outDegree.get(id) || 0) === 0;
+                const sz = measureRelationNodeSize(n.label, isSink ? 'rect' : 'ellipse', fontSize);
+                if (sz.width > maxNodeW) maxNodeW = sz.width;
+            }
+        }
 
-        // 错位旋转，提升视觉分散度
+        const arcSlot = Math.max(190, maxNodeW + 32);
+        const minTangentialRadius = (count * arcSlot) / (2 * Math.PI);
+        // 径向步长保证相邻环在水平轴 (radiusX = R * 1.3) 上不发生长节点盒重叠
+        const minRadialStep = Math.max(190, Math.ceil(((prevRingNodeW + maxNodeW) / 2 + 48) / 1.3));
+        currentRadius = Math.max(currentRadius + minRadialStep, minTangentialRadius, 240);
+        prevRingNodeW = maxNodeW;
+
         const baseAngle = (ringIdx % 2 === 1 ? 0 : Math.PI / count);
-
-        // 椭圆展宽系数：横向长半轴 1.3，纵向短半轴 0.9，匹配横屏画布与节点宽高比
         const radiusX = currentRadius * 1.3;
-        const radiusY = currentRadius * 0.9;
+        const radiusY = currentRadius * 0.92;
 
         ringNodes.forEach((id, idx) => {
             const angle = baseAngle + (2 * Math.PI * idx) / count;
@@ -419,24 +565,60 @@ export function computeCentralizedLayout(
         });
     }
 
+    // 5. 极坐标投影后执行轻量刚体 AABB 微调（彻底消除极端同角度跨环或切向擦边）
+    const nodeList = [...nodes];
+    const sizes = nodeList.map(nd =>
+        measureRelationNodeSize(nd.label, (outDegree.get(nd.id) || 0) === 0 ? 'rect' : 'ellipse', fontSize)
+    );
+    for (let iter = 0; iter < 15; iter++) {
+        let moved = false;
+        for (let i = 0; i < nodeList.length; i++) {
+            for (let j = i + 1; j < nodeList.length; j++) {
+                const idA = nodeList[i].id, idB = nodeList[j].id;
+                const cA = coords.get(idA)!, cB = coords.get(idB)!;
+                const minW = (sizes[i].width + sizes[j].width) / 2 + 20;
+                const minH = (sizes[i].height + sizes[j].height) / 2 + 16;
+                const dx = cB.x - cA.x;
+                const dy = cB.y - cA.y;
+                const ox = minW - Math.abs(dx);
+                const oy = minH - Math.abs(dy);
+                if (ox > 0 && oy > 0) {
+                    const signX = dx >= 0 ? 1 : -1;
+                    const signY = dy >= 0 ? 1 : -1;
+                    if (ox < oy) {
+                        const s = Math.ceil(ox / 2) + 1;
+                        if (idA !== centerId) cA.x -= signX * s;
+                        if (idB !== centerId) cB.x += signX * s;
+                    } else {
+                        const s = Math.ceil(oy / 2) + 1;
+                        if (idA !== centerId) cA.y -= signY * s;
+                        if (idB !== centerId) cB.y += signY * s;
+                    }
+                    moved = true;
+                }
+            }
+        }
+        if (!moved) break;
+    }
+
     return coords;
 }
 
 /**
  * 关系自由型（Free）确定性拓扑应力极小化布局算法（纯数学闭式解）
- * 
+ *
  * 核心原理：
- * 1. 拓扑图论距离矩阵（All-Pairs Shortest Path）：通过无向 BFS 计算节点对间拓扑测地线距离 d_ij；
+ * 1. 拓扑图论距离矩阵（All-Pairs Shortest Path）：通过 Floyd-Warshall 计算节点对间拓扑测地线距离 d_ij；
  * 2. 确定性先验相角初值（Deterministic Phase Seeding）：按度数与因果通量确定性赋初值，彻底消除 Math.random 抖动；
- * 3. 应力主化能量泛函（Stress Majorization / Kamada-Kawai）：通过 45 轮同步 Jacobi 迭代将拓扑结构映射为自由网状聚类（耗时 <5ms）；
- * 4. 刚体防重叠几何投影（Node-Box Overlap Removal）：消除长条椭圆与矩形节点交叠；
- * 5. 零异步物理仿真：纯数学同步直出坐标，完全恢复网状自由分布与多核心团簇结构。
+ * 3. 应力主化能量泛函（Stress Majorization / Kamada-Kawai）：通过 45 轮同步 Jacobi 迭代将拓扑结构映射为自由网状聚类；
+ * 4. 真实尺寸刚体防重叠几何投影（True-Size Node-Box Overlap Removal）：按每个节点的实际 (width, height) 消除交叠。
  */
 export function computeFreeLayout(
     nodes: readonly RelationNode[],
     links: readonly RelationLink[],
     width: number,
-    height: number
+    height: number,
+    fontSize = 14,
 ): Map<string, NodeCoordinate> {
     const coords = new Map<string, NodeCoordinate>();
     const n = nodes.length;
@@ -444,7 +626,7 @@ export function computeFreeLayout(
     const centerX = width / 2;
     const centerY = height / 2;
     if (n === 1) {
-        coords.set(nodes[0].id, { x: centerX, y: centerY });
+        coords.set(nodes[0].id, { x: Math.round(centerX), y: Math.round(centerY) });
         return coords;
     }
 
@@ -456,16 +638,17 @@ export function computeFreeLayout(
     for (let i = 0; i < n; i++) dist[i][i] = 0;
 
     const validLinks = links.filter(l => l.source !== l.target && l.source !== 'root' && l.target !== 'root');
+    const outDeg = new Array(n).fill(0);
     validLinks.forEach(l => {
         const u = idMap.get(l.source);
         const v = idMap.get(l.target);
         if (u !== undefined && v !== undefined) {
             dist[u][v] = 1;
             dist[v][u] = 1;
+            outDeg[u]++;
         }
     });
 
-    // Floyd-Warshall 计算全源最短拓扑步长 (n <= 50, O(n^3) 耗时 <0.1ms)
     for (let k = 0; k < n; k++) {
         for (let i = 0; i < n; i++) {
             for (let j = 0; j < n; j++) {
@@ -476,7 +659,6 @@ export function computeFreeLayout(
         }
     }
 
-    // 非连通分支兜底
     let maxFiniteDist = 1;
     for (let i = 0; i < n; i++) {
         for (let j = 0; j < n; j++) {
@@ -494,7 +676,7 @@ export function computeFreeLayout(
     }
 
     // 2. 理想几何距离 L_ij 与 权重 W_ij
-    const L0 = 180; // 基准边长 (px)
+    const L0 = 195;
     const L: number[][] = Array.from({ length: n }, (_, i) =>
         Array.from({ length: n }, (_, j) => dist[i][j] * L0)
     );
@@ -502,7 +684,7 @@ export function computeFreeLayout(
         Array.from({ length: n }, (_, j) => (i === j ? 0 : 1 / (dist[i][j] * dist[i][j])))
     );
 
-    // 3. 确定性先验初始坐标 (按度数与因果通量排序确定相角，零随机性)
+    // 3. 确定性先验初始坐标
     const deg = new Array(n).fill(0);
     validLinks.forEach(l => {
         const u = idMap.get(l.source);
@@ -557,26 +739,32 @@ export function computeFreeLayout(
         posY.set(nextY);
     }
 
-    // 5. 刚体防碰撞几何推开 (消除长条椭圆与矩形交叠)
-    const minBoxW = 160;
-    const minBoxH = 60;
-    for (let iter = 0; iter < 15; iter++) {
+    // 5. 真实节点尺寸刚体防碰撞几何推开
+    const nodeSizes = nodes.map((nd, idx) =>
+        measureRelationNodeSize(nd.label, outDeg[idx] === 0 ? 'rect' : 'ellipse', fontSize)
+    );
+    const padX = 28;
+    const padY = 22;
+
+    for (let iter = 0; iter < 30; iter++) {
         let moved = false;
         for (let i = 0; i < n; i++) {
             for (let j = i + 1; j < n; j++) {
+                const minW = (nodeSizes[i].width + nodeSizes[j].width) / 2 + padX;
+                const minH = (nodeSizes[i].height + nodeSizes[j].height) / 2 + padY;
                 const dx = posX[j] - posX[i];
                 const dy = posY[j] - posY[i];
-                const overlapX = minBoxW - Math.abs(dx);
-                const overlapY = minBoxH - Math.abs(dy);
+                const overlapX = minW - Math.abs(dx);
+                const overlapY = minH - Math.abs(dy);
 
                 if (overlapX > 0 && overlapY > 0) {
                     if (overlapX < overlapY) {
-                        const shift = overlapX / 2;
+                        const shift = overlapX / 2 + 1;
                         const sign = dx >= 0 ? 1 : -1;
                         posX[i] -= sign * shift;
                         posX[j] += sign * shift;
                     } else {
-                        const shift = overlapY / 2;
+                        const shift = overlapY / 2 + 1;
                         const sign = dy >= 0 ? 1 : -1;
                         posY[i] -= sign * shift;
                         posY[j] += sign * shift;
@@ -602,7 +790,7 @@ export function computeFreeLayout(
     for (let i = 0; i < n; i++) {
         coords.set(nodes[i].id, {
             x: Math.round(posX[i] + offsetX),
-            y: Math.round(posY[i] + offsetY)
+            y: Math.round(posY[i] + offsetY),
         });
     }
 
@@ -617,15 +805,315 @@ export function computeDeterministicRelationLayout(
     links: readonly RelationLink[],
     layoutType: string | undefined,
     width: number,
-    height: number
+    height: number,
+    fontSize = 14,
 ): Map<string, NodeCoordinate> {
     if (layoutType === 'Centralized') {
-        return computeCentralizedLayout(nodes, links, width, height);
+        return computeCentralizedLayout(nodes, links, width, height, fontSize);
     }
     if (layoutType === 'Free') {
-        return computeFreeLayout(nodes, links, width, height);
+        return computeFreeLayout(nodes, links, width, height, fontSize);
     }
-    return computeDirectionalLayout(nodes, links, width, height);
+    return computeDirectionalLayout(nodes, links, width, height, fontSize);
 }
 
+/* ────────────────────── 几何清单契约（Geometry Spec SSOT） ────────────────────── */
 
+export interface RelationGeometryNode {
+    id: string;
+    role: RelationNodeRole;
+    shape: 'rect' | 'ellipse';
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rx: number;
+    label: string;
+    fontSize: number;
+    fontWeight: 'normal' | 'bold';
+    fill: string;
+    stroke: string;
+    textColor: string;
+}
+
+export interface RelationGeometryEdge {
+    id: string;
+    source: string;
+    target: string;
+    /** 起点（源节点外框边界点） */
+    x1: number;
+    y1: number;
+    /** 终点（目标节点外框边界点，即箭头尖端） */
+    x2: number;
+    y2: number;
+    /** 若存在双向边或中间节点遮挡避让，给出二次贝塞尔控制点 */
+    controlPoint?: { cx: number; cy: number };
+    stroke: string;
+    lineWidth: number;
+}
+
+export interface RelationGeometrySpec {
+    title?: {
+        text: string;
+        x: number;
+        y: number;
+        fontSize: number;
+        color: string;
+    };
+    nodes: RelationGeometryNode[];
+    edges: RelationGeometryEdge[];
+    bbox: { x1: number; y1: number; x2: number; y2: number };
+}
+
+/**
+ * 计算从节点中心 (cx, cy) 朝目标点 (tx, ty) 射出的射线与节点外框（矩形或椭圆）的精确交点
+ */
+export function intersectNodeBoundary(
+    node: { shape: 'rect' | 'ellipse'; x: number; y: number; width: number; height: number },
+    tx: number,
+    ty: number,
+): { x: number; y: number } {
+    const dx = tx - node.x;
+    const dy = ty - node.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1e-6) return { x: node.x, y: node.y };
+
+    const ux = dx / dist;
+    const uy = dy / dist;
+    const hw = node.width / 2;
+    const hh = node.height / 2;
+
+    if (node.shape === 'ellipse') {
+        // 椭圆方程: (t*ux / hw)^2 + (t*uy / hh)^2 = 1
+        const denom = Math.hypot(ux / hw, uy / hh) || 1;
+        const t = 1 / denom;
+        return {
+            x: Number((node.x + ux * t).toFixed(2)),
+            y: Number((node.y + uy * t).toFixed(2)),
+        };
+    }
+
+    // 圆角矩形外框 AABB 射线求交
+    const txBound = Math.abs(ux) > 1e-6 ? hw / Math.abs(ux) : Infinity;
+    const tyBound = Math.abs(uy) > 1e-6 ? hh / Math.abs(uy) : Infinity;
+    const t = Math.min(txBound, tyBound);
+    return {
+        x: Number((node.x + ux * t).toFixed(2)),
+        y: Number((node.y + uy * t).toFixed(2)),
+    };
+}
+
+/**
+ * 判别线段 P1->P2 是否穿过某个非端点的节点 AABB，若穿过则返回法向推开的控制点
+ */
+function findObstacleAvoidControlPoint(
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    srcId: string,
+    tgtId: string,
+    nodes: readonly RelationGeometryNode[],
+): { cx: number; cy: number } | undefined {
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 40) return undefined;
+
+    const ux = dx / len;
+    const uy = dy / len;
+    // 法向量（向上偏优先）
+    const nx = -uy;
+    const ny = ux;
+
+    for (const nd of nodes) {
+        if (nd.id === srcId || nd.id === tgtId) continue;
+        // 投影节点中心到线段 P1->P2
+        const vx = nd.x - p1.x;
+        const vy = nd.y - p1.y;
+        const proj = vx * ux + vy * uy;
+        if (proj <= 20 || proj >= len - 20) continue;
+
+        const perpDist = vx * nx + vy * ny;
+        const safeRadius = Math.hypot(nd.width / 2, nd.height / 2) * 0.65;
+        if (Math.abs(perpDist) < safeRadius) {
+            const sign = perpDist >= 0 ? -1 : 1;
+            const offset = Math.max(48, safeRadius - Math.abs(perpDist) + 36);
+            const midX = (p1.x + p2.x) / 2;
+            const midY = (p1.y + p2.y) / 2;
+            return {
+                cx: Number((midX + nx * sign * offset).toFixed(2)),
+                cy: Number((midY + ny * sign * offset).toFixed(2)),
+            };
+        }
+    }
+    return undefined;
+}
+
+/**
+ * 生成关联图完整几何清单（Geometry Spec SSOT）
+ */
+export function computeRelationGeometry(
+    rawNodes: readonly RelationNode[],
+    rawLinks: readonly RelationLink[],
+    styles?: Partial<RelationChartStyles>,
+    viewportWidth = 1200,
+    viewportHeight = 800,
+): RelationGeometrySpec {
+    const finalStyles: RelationChartStyles = { ...DEFAULT_RELATION_STYLES, ...styles };
+    const validNodes = rawNodes.filter(n => n.id !== 'root');
+    const validLinks = rawLinks.filter(
+        l => l.source !== l.target && l.source !== 'root' && l.target !== 'root'
+    );
+
+    const analysis = analyzeRelation(validNodes, validLinks);
+    const fontSize = finalStyles.nodeFontSize || 14;
+    const coords = computeDeterministicRelationLayout(
+        validNodes,
+        validLinks,
+        finalStyles.layout,
+        viewportWidth,
+        viewportHeight,
+        fontSize,
+    );
+
+    const geoNodes: RelationGeometryNode[] = validNodes.map(node => {
+        const role = analysis.roleOf(node.id);
+        const coord = coords.get(node.id) || { x: viewportWidth / 2, y: viewportHeight / 2 };
+
+        let fill = finalStyles.middleColor;
+        let stroke = finalStyles.middleColor;
+        let textColor = finalStyles.middleTextColor;
+        let fontWeight: 'normal' | 'bold' = 'normal';
+        let shape: 'rect' | 'ellipse' = 'ellipse';
+
+        if (role === 'sink' || node.type === 'root') {
+            fill = finalStyles.rootColor;
+            stroke = finalStyles.rootColor;
+            textColor = finalStyles.rootTextColor;
+            fontWeight = 'bold';
+            shape = 'rect';
+        } else if (role === 'source' || node.type === 'end') {
+            fill = finalStyles.endColor;
+            stroke = finalStyles.endColor;
+            textColor = finalStyles.endTextColor;
+            shape = 'ellipse';
+        }
+
+        const { width, height } = measureRelationNodeSize(node.label, shape, fontSize);
+
+        return {
+            id: node.id,
+            role,
+            shape,
+            x: coord.x,
+            y: coord.y,
+            width,
+            height,
+            rx: shape === 'rect' ? 8 : Math.round(width / 2),
+            label: node.label,
+            fontSize,
+            fontWeight,
+            fill,
+            stroke,
+            textColor,
+        };
+    });
+
+    const nodeMap = new Map<string, RelationGeometryNode>(geoNodes.map(n => [n.id, n]));
+    const edgeSet = new Set<string>(validLinks.map(l => `${l.source}->${l.target}`));
+
+    const geoEdges: RelationGeometryEdge[] = [];
+    validLinks.forEach((link, idx) => {
+        const src = nodeMap.get(link.source);
+        const tgt = nodeMap.get(link.target);
+        if (!src || !tgt) return;
+
+        const hasReverse = edgeSet.has(`${link.target}->${link.source}`);
+        let controlPoint: { cx: number; cy: number } | undefined;
+
+        if (hasReverse) {
+            const dx = tgt.x - src.x;
+            const dy = tgt.y - src.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const nx = -dy / len;
+            const ny = dx / len;
+            const offset = 26;
+            controlPoint = {
+                cx: Number(((src.x + tgt.x) / 2 + nx * offset).toFixed(2)),
+                cy: Number(((src.y + tgt.y) / 2 + ny * offset).toFixed(2)),
+            };
+        } else {
+            controlPoint = findObstacleAvoidControlPoint(src, tgt, src.id, tgt.id, geoNodes);
+        }
+
+        // 若有控制点，起点朝向控制点求交，终点从控制点朝向目标节点求交
+        const aimFromSrc = controlPoint ? { x: controlPoint.cx, y: controlPoint.cy } : { x: tgt.x, y: tgt.y };
+        const aimFromTgt = controlPoint ? { x: controlPoint.cx, y: controlPoint.cy } : { x: src.x, y: src.y };
+
+        const pStart = intersectNodeBoundary(src, aimFromSrc.x, aimFromSrc.y);
+        const pEnd = intersectNodeBoundary(tgt, aimFromTgt.x, aimFromTgt.y);
+
+        geoEdges.push({
+            id: `rel_edge_${idx}_${link.source}_${link.target}`,
+            source: link.source,
+            target: link.target,
+            x1: pStart.x,
+            y1: pStart.y,
+            x2: pEnd.x,
+            y2: pEnd.y,
+            controlPoint,
+            stroke: finalStyles.lineColor || '#64748b',
+            lineWidth: 2,
+        });
+    });
+
+    // 计算全局紧致包围盒 bbox
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    for (const nd of geoNodes) {
+        x1 = Math.min(x1, nd.x - nd.width / 2);
+        y1 = Math.min(y1, nd.y - nd.height / 2);
+        x2 = Math.max(x2, nd.x + nd.width / 2);
+        y2 = Math.max(y2, nd.y + nd.height / 2);
+    }
+    for (const ed of geoEdges) {
+        if (ed.controlPoint) {
+            x1 = Math.min(x1, ed.controlPoint.cx);
+            y1 = Math.min(y1, ed.controlPoint.cy);
+            x2 = Math.max(x2, ed.controlPoint.cx);
+            y2 = Math.max(y2, ed.controlPoint.cy);
+        }
+    }
+    if (!Number.isFinite(x1)) {
+        x1 = 0; y1 = 0; x2 = 800; y2 = 600;
+    }
+
+    let titleSpec: RelationGeometrySpec['title'] | undefined;
+    const titleText = (finalStyles.title || '').trim();
+    if (titleText) {
+        const titleFs = finalStyles.titleFontSize || 24;
+        const titleW = estimateTextWidth(titleText, titleFs);
+        const centerX = Number(((x1 + x2) / 2).toFixed(2));
+        const titleY = Number((y1 - 36).toFixed(2));
+        titleSpec = {
+            text: titleText,
+            x: centerX,
+            y: titleY,
+            fontSize: titleFs,
+            color: '#1e293b',
+        };
+        x1 = Math.min(x1, centerX - titleW / 2 - 16);
+        x2 = Math.max(x2, centerX + titleW / 2 + 16);
+        y1 = Math.min(y1, titleY - titleFs);
+    }
+
+    return {
+        title: titleSpec,
+        nodes: geoNodes,
+        edges: geoEdges,
+        bbox: {
+            x1: Math.floor(x1),
+            y1: Math.floor(y1),
+            x2: Math.ceil(x2),
+            y2: Math.ceil(y2),
+        },
+    };
+}

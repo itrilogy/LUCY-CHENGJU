@@ -50,7 +50,7 @@ export const CARD_DOCS: Record<string, CardDocEntry> = {
       },
       "renderType": "affinity",
       "inferenceKey": "affinity",
-      "renderEngine": "g6",
+      "renderEngine": "canvas",
       "migrated": true
     },
     "soul": {
@@ -282,7 +282,7 @@ export const CARD_DOCS: Record<string, CardDocEntry> = {
         "Critical",
         "Shortest"
       ],
-      "renderEngine": "g6",
+      "renderEngine": "svg",
       "inferenceKey": "arrow",
       "migrated": true
     },
@@ -1032,7 +1032,7 @@ export const CARD_DOCS: Record<string, CardDocEntry> = {
         "Text",
         "End"
       ],
-      "renderEngine": "canvas",
+      "renderEngine": "svg",
       "inferenceKey": "fishbone",
       "migrated": true
     },
@@ -2863,7 +2863,7 @@ export const CARD_DOCS: Record<string, CardDocEntry> = {
         "EndText",
         "Line"
       ],
-      "renderEngine": "g6",
+      "renderEngine": "svg",
       "inferenceKey": "pdpc",
       "migrated": true
     },
@@ -3323,7 +3323,7 @@ export const CARD_DOCS: Record<string, CardDocEntry> = {
         "EndText",
         "Line"
       ],
-      "renderEngine": "g6",
+      "renderEngine": "svg",
       "inferenceKey": "relation",
       "migrated": true
     },

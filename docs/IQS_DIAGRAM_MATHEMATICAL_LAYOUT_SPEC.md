@@ -1,8 +1,8 @@
 # IQS 图形组件绘制布局数学实现规范与几何避障评审
 
-- **版本**: 1.1（第三章 R29 重写）
+- **版本**: 1.2（R30 增补 PDPC 分层正交路由与关联图边界求交规范，全仓 G6 归零）
 - **更新日期**: 2026-10-28
-- **执行门禁**: `npm run test:fishbone`（G1–G7 / 67 项断言）· 已串入 `npm run build` 与 CI
+- **执行门禁**: `npm run test:fishbone` · `npm run test:relation` · `npm run test:pdpc` · 已串入 `npm run build` 与 CI
 - **责任模块**: 图形渲染引擎 / 数学几何算法层
 - **核心定位**: 记录 LUCY-CHENGJU 全仓图形组件纯数学、确定性几何布局算法、图论推导与无碰撞避障模型的工程规范基线（SSOT）。
 
@@ -454,3 +454,39 @@ npx tsc --noEmit
 ---
 
 *本章为 LUCY-CHENGJU 图形数学布局标准资产。任何针对布局算法的重构，均须以 §3.7 的 G1–G7 为验收基准。*
+
+---
+
+## 4. 第三章：过程决策程序图（PDPC Diagram）分层正交布局数学（R30 现行口径）
+
+> **本章于 2026-10-28（R30）新增。** 随全仓剥离 `@antv/g6` 与异步 Dagre 引擎，PDPC 图改由 `utils/pdpcGraph.ts` 与 `utils/pdpcSvg.ts` 实现纯数学闭式分层与正交圆角路由，执行门禁为 `npm run test:pdpc`（G1–G6）。
+
+### 4.1 阶段凝聚拓扑分层（Group-Cohesive K-Rank Layering）
+
+设 PDPC 图 $G = (V, E, \mathcal{C})$，其中 $\mathcal{C} = \{C_1, \dots, C_m\}$ 为阶段分组（`Group`）。
+1. **组内局部最长路径分层**：对每条同组有向边 $(u, v) \in E$（满足 $\operatorname{group}(u) = \operatorname{group}(v)$），递推：
+   $$\operatorname{rank}_{\text{local}}(v) = \max_{(u,v) \in E_{\text{intra}}} \big(\operatorname{rank}_{\text{local}}(u) + 1\big)$$
+2. **阶段偏序凝聚映射**：按阶段桶 $C_1, \dots, C_m$ 顺序累加全局主轴阶数 $\operatorname{rank}(v)$，严格保证不同阶段框在主轴方向上的区间互斥（$\forall u \in C_a, v \in C_b, a < b \implies \operatorname{rank}(u) < \operatorname{rank}(v)$），从数学上杜绝阶段框交叉穿插。
+
+### 4.2 主干与异常对策支线分流（Mainline vs Contingency Offset）
+
+定义节点 $v$ 的异常支线示性函数：
+$$\chi_{\text{cont}}(v) = \mathbb{I}\big(\operatorname{type}(v) = \text{countermeasure} \;\lor\; \forall (u,v)\in E,\ \operatorname{marker}(u,v)=\text{NG}\big)$$
+同层（相同 $\operatorname{rank}$）内按 $(\chi_{\text{cont}}(v), \operatorname{barycenter}(v))$ 双关键字升序排列：
+- 正常主线步骤（$\chi_{\text{cont}} = 0$）锚定于主干基线 $Y_{\text{base}}$；
+- 异常与对策节点（$\chi_{\text{cont}} = 1$）向副轴正方向偏移 $\Delta_{\text{cont}} = 105\text{px}$，形成清晰的「主干直通 + 侧枝风险演练回流」拓扑视觉结构。
+
+### 4.3 正交圆角走线与避障走廊（Orthogonal Routing & Corridor Search）
+
+对于有向边 $e = (u, v)$：
+1. 在候选折线中垂线集合 $\{ \frac{x_u+x_v}{2}, x_u+26, x_v-26, \dots \}$ 中检索与非端点节点集合 $V \setminus \{u,v\}$ 零碰撞（`segmentHitsBox = false`）的正交路径；
+2. 若层间通道被完全阻断，自动抬升至全局包络外侧安全走廊 $Y_{\text{corridor}} = \min_{w \in V}(Y_w - H_w/2) - 36$ 绕行；
+3. 在每个正交 $90^\circ$ 拐点 $P_i$ 处，以截断半径 $r = \min(6, \ell_{i-1}/2, \ell_i/2)$ 生成二次贝塞尔圆角指令 `Q`。
+
+### 4.4 验收不变量（由 `npm run test:pdpc` 与 `npm run test:relation` 强制）
+
+| 门禁脚本 | 守护不变量 | 状态 |
+|:--|:--|:--:|
+| `scripts/assert_relation_math.ts` | G1 拓扑角色守恒 · G2 三模态零重叠（含 30 节点高压） · G3 方向型单调 · G4 中央型同心锚定 · G5 椭圆/矩形精确边界求交（误差 < 1.5px） · G6 双向边曲率分离与 SVG 确定性 | ✅ PASS |
+| `scripts/assert_pdpc_math.ts` | G1 节点零重叠 · G2 阶段框 100% 包裹且框间零交叠 · G3 主干流向单调（LR/TB） · G4 正交连线零穿刺 · G5 四类节点几何造型与 NG 虚线/链式标记完备 · G6 确定性 | ✅ PASS |
+

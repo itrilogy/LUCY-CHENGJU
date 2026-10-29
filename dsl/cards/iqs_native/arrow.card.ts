@@ -55,7 +55,7 @@ const arrow: CardSpec = {
     intents: ['矢线图', '双代号网络图', '关键路径', 'arrow diagram', '网络计划', 'CPM'],
     expertise: ['项目进度管理', '关键路径 (CPM)', 'ADM 网络图'],
     colorSlots: ['Node', 'Line', 'Critical', 'Shortest'],
-    renderEngine: 'g6',
+    renderEngine: 'svg',
     inferenceKey: 'arrow',
     migrated: true,
   },

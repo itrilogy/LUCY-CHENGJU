@@ -77,7 +77,7 @@ const relation: CardSpec = {
     intents: ['关联图', '交叉因果', 'relationship diagram', '网状因果', '多症结'],
     expertise: ['复杂矛盾关联', '出入度分析', '根源寻找'],
     colorSlots: ['Root', 'RootText', 'Middle', 'MiddleText', 'End', 'EndText', 'Line'],
-    renderEngine: 'g6',
+    renderEngine: 'svg',
     inferenceKey: 'relation',
     migrated: true,
   },

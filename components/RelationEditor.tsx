@@ -29,87 +29,11 @@ import {
     analyzeRelation,
     validateRelationLinks,
     nextRelationNodeId,
-    pickUnlinkedPair
+    pickUnlinkedPair,
+    parseRelationDSL
 } from '../utils/relationGraph';
 
-/** Color[Slot] → RelationChartStyles 字段名 */
-const COLOR_KEY_MAP: Record<string, keyof RelationChartStyles> = {
-    Root: 'rootColor',
-    RootText: 'rootTextColor',
-    Middle: 'middleColor',
-    MiddleText: 'middleTextColor',
-    End: 'endColor',
-    EndText: 'endTextColor',
-    Line: 'lineColor'
-};
-
-export const parseRelationDSL = (content: string, currentStyles: RelationChartStyles = DEFAULT_RELATION_STYLES): { nodes: RelationNode[], links: RelationLink[], styles: RelationChartStyles } => {
-    const newStyles: RelationChartStyles = { ...currentStyles };
-    const newNodes: RelationNode[] = [];
-    const newLinks: RelationLink[] = [];
-
-    content.split('\n').forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('//')) return;
-
-        if (trimmed.startsWith('Title:')) {
-            newStyles.title = trimmed.slice('Title:'.length).trim();
-            return;
-        }
-
-        if (trimmed.startsWith('Layout:')) {
-            const layoutVal = trimmed.slice('Layout:'.length).trim();
-            if (['Centralized', 'Directional', 'Free'].includes(layoutVal)) {
-                newStyles.layout = layoutVal as RelationLayoutType;
-            }
-            return;
-        }
-
-        const colorMatch = trimmed.match(/Color\[(Root|RootText|Middle|MiddleText|End|EndText|Line)\]\s*:\s*(#[0-9a-fA-F]{3,8})/i);
-        if (colorMatch) {
-            const key = COLOR_KEY_MAP[colorMatch[1]];
-            if (key) (newStyles as unknown as Record<string, unknown>)[key] = colorMatch[2];
-            return;
-        }
-
-        const fontMatch = trimmed.match(/Font\[(Title|Node)\]\s*:\s*(\d+)/i);
-        if (fontMatch) {
-            if (fontMatch[1].toLowerCase() === 'title') newStyles.titleFontSize = parseInt(fontMatch[2], 10);
-            if (fontMatch[1].toLowerCase() === 'node') newStyles.nodeFontSize = parseInt(fontMatch[2], 10);
-            return;
-        }
-
-        // Node: id, label —— label 自身可能含逗号，故**只在首个逗号处切分**
-        if (trimmed.startsWith('Node:')) {
-            const body = trimmed.slice('Node:'.length).trim();
-            const comma = body.indexOf(',');
-            if (comma > 0) {
-                newNodes.push({ id: body.slice(0, comma).trim(), label: body.slice(comma + 1).trim() });
-            }
-            return;
-        }
-
-        if (trimmed.startsWith('Rel:')) {
-            const parts = trimmed.slice('Rel:'.length).trim().split('->').map(t => t.trim());
-            if (parts.length === 2 && parts[0] && parts[1]) {
-                newLinks.push({ source: parts[0], target: parts[1] });
-            }
-        }
-    });
-
-    // 自引用 / 重复边 / 环路 —— 与手工编辑路径共用同一实现
-    const invalid = validateRelationLinks(newNodes, newLinks);
-    if (invalid) throw new Error(invalid);
-
-    // 角色判定；度数统计同样来自单一真源
-    const graph = analyzeRelation(newNodes, newLinks);
-    newNodes.forEach(n => {
-        const role = graph.roleOf(n.id);
-        n.type = role === 'sink' ? 'root' : role === 'source' ? 'end' : 'middle';
-    });
-
-    return { nodes: newNodes, links: newLinks, styles: newStyles };
-};
+export { parseRelationDSL };
 
 interface RelationEditorProps {
     nodes: RelationNode[];

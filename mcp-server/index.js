@@ -358,19 +358,30 @@ async function renderChart(type, dsl, width = 1200, height = 800, saveToFile = f
       height = fit.height;
     }
   }
-  // ── Tier-1: IQS-Flow 进程内原生 SVG 直出（零 Web 服务依赖，~60ms–150ms）──
-  if (type === "flow") {
+  // ── Tier-1: 进程内原生 SVG 直出（Flow / Fishbone / Relation / PDPC 零 Web 服务依赖，~30ms–120ms）──
+  if (type === "flow" || type === "fishbone" || type === "relation" || type === "pdpc") {
     try {
       const coreMod = await loadCoreBundle();
-      if (coreMod && typeof coreMod.renderFlowSVG === "function") {
-        const { svg, width: natW, height: natH } = coreMod.renderFlowSVG(dsl);
-        const base64Data = await rasterizeSvgString(svg, natW || width, natH || height);
-        if (base64Data) {
-          return finalizeRenderOutput(base64Data, saveToFile, baseUrlOverride);
+      if (coreMod) {
+        let rendered = null;
+        if (type === "flow" && typeof coreMod.renderFlowSVG === "function") {
+          rendered = coreMod.renderFlowSVG(dsl);
+        } else if (type === "fishbone" && typeof coreMod.renderFishboneSVG === "function") {
+          rendered = coreMod.renderFishboneSVG(dsl, width, height);
+        } else if (type === "relation" && typeof coreMod.renderRelationSVG === "function") {
+          rendered = coreMod.renderRelationSVG(dsl, width, height);
+        } else if (type === "pdpc" && typeof coreMod.renderPDPCSVG === "function") {
+          rendered = coreMod.renderPDPCSVG(dsl);
+        }
+        if (rendered && rendered.svg) {
+          const base64Data = await rasterizeSvgString(rendered.svg, rendered.width || width, rendered.height || height);
+          if (base64Data) {
+            return finalizeRenderOutput(base64Data, saveToFile, baseUrlOverride);
+          }
         }
       }
     } catch (e) {
-      console.error(`[MCP Tier-1] Native flow render fallback to Tier-2: ${e.message}`);
+      console.error(`[MCP Tier-1] Native ${type} render fallback to Tier-2: ${e.message}`);
     }
   }
 

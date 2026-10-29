@@ -34,6 +34,12 @@ jobs:
       - name: 鱼骨图几何不变量（G1–G7）
         run: npm run test:fishbone
 
+      - name: 关联图几何不变量（G1–G6）
+        run: npm run test:relation
+
+      - name: PDPC 图几何不变量（G1–G6）
+        run: npm run test:pdpc
+
       - name: IQS-Flow 断言（parser + svg + bpmn + geometry）
         run: npm run test:flow
 

@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
-import { Graph } from '@antv/g6';
-import { Workflow } from 'lucide-react';
-import { PDPCData, PDPCChartStyles, DEFAULT_PDPC_STYLES, PDPCNode, PDPCLink, PDPCGroup, BaseDiagramRef } from '../types';
+import React, { useMemo, useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { PDPCData, PDPCChartStyles, DEFAULT_PDPC_STYLES, BaseDiagramRef } from '../types';
+import { computePDPCGeometry } from '../utils/pdpcGraph';
+import { buildOrthogonalPathAndArrow, getHexagonPoints } from '../utils/pdpcSvg';
+import { svgToDataURL } from '../utils/exportUtils';
 
 export interface PDPCDiagramRef extends BaseDiagramRef {}
 
@@ -12,317 +13,303 @@ interface PDPCDiagramProps {
     className?: string;
 }
 
-const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles, onStylesChange, className }, ref) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const titleRef = useRef<HTMLDivElement>(null);
-    const graphRef = useRef<Graph | null>(null);
+const MARGIN = 32;
 
-    const finalStyles = { ...DEFAULT_PDPC_STYLES, ...styles };
+/**
+ * 过程决策程序图（PDPC Diagram）原生自绘 SVG 组件
+ *
+ * 彻底剥离 @antv/g6 与异步 Dagre 布局，直接消费 `computePDPCGeometry` 确定性分层正交几何清单，
+ * 并将主标题原生内嵌于 SVG 视口中，消灭二次 Canvas 标题拼接。
+ */
+const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles, className }, ref) => {
+    const svgRef = useRef<SVGSVGElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
+    const [isDragging, setIsDragging] = useState(false);
+    const lastMouseRef = useRef({ x: 0, y: 0 });
+
+    const finalStyles = useMemo(() => ({ ...DEFAULT_PDPC_STYLES, ...styles }), [styles]);
+
+    const scene = useMemo(() => {
+        const spec = computePDPCGeometry(data, finalStyles);
+        const { bbox } = spec;
+        const vx = bbox.x1 - MARGIN;
+        const vy = bbox.y1 - MARGIN;
+        const vw = Math.max(200, bbox.x2 - bbox.x1 + MARGIN * 2);
+        const vh = Math.max(150, bbox.y2 - bbox.y1 + MARGIN * 2);
+        return {
+            spec,
+            viewBox: `${vx} ${vy} ${vw} ${vh}`,
+        };
+    }, [data, finalStyles]);
+
+    useEffect(() => {
+        setTransform({ x: 0, y: 0, k: 1 });
+    }, [data, finalStyles.layout]);
+
+    const buildCleanSvgForExport = (): SVGSVGElement | null => {
+        if (!svgRef.current) return null;
+        const clone = svgRef.current.cloneNode(true) as SVGSVGElement;
+        const contentGroup = clone.querySelector('#pdpc-content-group');
+        if (contentGroup) {
+            contentGroup.removeAttribute('transform');
+        }
+        return clone;
+    };
 
     useImperativeHandle(ref, () => ({
         getDataURL: async (options) => {
-            if (!graphRef.current) return '';
-            const pixelRatio = options?.pixelRatio || 3;
-            const backgroundColor = options?.backgroundColor || '#FFFFFF';
-
-            if (options?.width && options?.height) {
-                graphRef.current.setSize(options.width, options.height);
-            }
-            await graphRef.current.fitView({ padding: 40, duration: 0 } as any);
-            // 确保 G6 底层 canvas 渲染管线提交完成
-            await new Promise<void>((resolve) => {
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => resolve());
-                });
-            });
-            
-            const graphCanvasData = await graphRef.current.toDataURL({ 
-                backgroundColor: backgroundColor,
-                pixelRatio: pixelRatio
-            } as any);
-            if (!data.title) return graphCanvasData;
-
-            // 如果有标题，需要合成
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    if (!ctx) { resolve(graphCanvasData); return; }
-
-                    const titleHeight = 80 * pixelRatio; // 预留标题高度
-                    canvas.width = img.width;
-                    canvas.height = img.height + titleHeight;
-
-                    // 背景
-                    if (backgroundColor !== 'transparent') {
-                        ctx.fillStyle = backgroundColor;
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    }
-
-                    // 绘制标题
-                    ctx.fillStyle = '#1A2428';
-                    ctx.font = `bold ${finalStyles.titleFontSize * pixelRatio}px sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(data.title || '', canvas.width / 2, titleHeight / 2);
-
-                    // 绘制图形
-                    ctx.drawImage(img, 0, titleHeight);
-                    resolve(canvas.toDataURL('image/png'));
-                };
-                img.src = graphCanvasData;
+            const cleanSvg = buildCleanSvgForExport();
+            if (!cleanSvg) return '';
+            return svgToDataURL(cleanSvg, {
+                width: options?.width,
+                height: options?.height,
+                pixelRatio: options?.pixelRatio ?? 3,
+                backgroundColor: options?.backgroundColor ?? '#FFFFFF',
+                padding: 0,
             });
         },
         exportPNG: async (transparent = false, scale = 3) => {
-            if (!graphRef.current || !containerRef.current) return;
-
-            const graphCanvas = await graphRef.current.toDataURL({ 
+            const cleanSvg = buildCleanSvgForExport();
+            if (!cleanSvg) return;
+            const url = await svgToDataURL(cleanSvg, {
+                pixelRatio: scale,
                 backgroundColor: transparent ? 'transparent' : '#FFFFFF',
-                pixelRatio: scale
+                padding: 0,
             });
-            const uiWidth = containerRef.current.clientWidth;
-            const uiTitleHeight = titleRef.current?.offsetHeight || 0;
-
-            // Create a temporary canvas for compositing
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            const img = new Image();
-            img.onload = () => {
-                // Calculate scale factor between G6 export and UI
-                const g6Scale = img.width / uiWidth;
-                const exportTitleHeight = uiTitleHeight * g6Scale;
-
-                canvas.width = img.width;
-                canvas.height = img.height + exportTitleHeight;
-
-                // Fill background
-                if (!transparent) {
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                }
-
-                // Draw Title with proportional scaling
-                if (data.title) {
-                    const scaledFontSize = finalStyles.titleFontSize * g6Scale;
-                    ctx.fillStyle = '#1A2428';
-                    ctx.font = `bold ${scaledFontSize}px sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    // Center vertically within the title area
-                    ctx.fillText(data.title, canvas.width / 2, exportTitleHeight / 2);
-                }
-
-                // Draw Graph
-                ctx.drawImage(img, 0, exportTitleHeight);
-
-                const link = document.createElement('a');
-                link.download = `PDPC_${new Date().getTime()}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            };
-            img.src = graphCanvas;
+            const link = document.createElement('a');
+            link.download = `PDPC_${transparent ? '透明_' : ''}${Date.now()}.png`;
+            link.href = url;
+            link.click();
         },
-        exportPDF: async (transparent = false) => {
-            if (!graphRef.current) return;
-            const dataURL = await graphRef.current.toDataURL({ backgroundColor: '#FFFFFF' });
+        exportPDF: async () => {
+            const cleanSvg = buildCleanSvgForExport();
+            if (!cleanSvg) return;
+            const dataURL = await svgToDataURL(cleanSvg, {
+                pixelRatio: 3,
+                backgroundColor: '#FFFFFF',
+                padding: 0,
+            });
             const win = window.open('', '_blank');
             if (win) {
                 win.document.write(`
-                    <div style="text-align:center; padding: 2rem; font-family: sans-serif;">
-                        <h1 style="font-size: ${finalStyles.titleFontSize}px; margin-bottom: 2rem; color: #1A2428;">${data.title || ''}</h1>
-                        <img src="${dataURL}" style="max-width:100%; border: 1px solid rgba(13,94,66,0.10);"/>
-                    </div>
+                    <html>
+                        <head><title>导出 PDF - 澄矩 · ChengJu</title></head>
+                        <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#F5F7FA;">
+                            <img src="${dataURL}" style="max-width:95%; max-height:95%; object-fit:contain; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);" />
+                        </body>
+                    </html>
                 `);
                 win.document.close();
-                win.print();
+                setTimeout(() => {
+                    win.print();
+                    win.close();
+                }, 800);
             }
         },
         tidyLayout: () => {
-            if (graphRef.current) {
-                const isHeadless = typeof window !== 'undefined' && window.location.search.includes('mode=headless');
-                const animDuration = isHeadless ? 0 : 500;
-                graphRef.current.layout().then(() => {
-                    graphRef.current?.fitView({
-                        padding: 40,
-                        duration: animDuration
-                    } as any);
-                });
-            }
-        }
+            setTransform({ x: 0, y: 0, k: 1 });
+        },
     }));
 
-    useEffect(() => {
-        if (!containerRef.current || !data.nodes.length) return;
-
-        const isHeadless = typeof window !== 'undefined' && window.location.search.includes('mode=headless');
-        const animDuration = isHeadless ? 0 : 500;
-
-        const width = containerRef.current.clientWidth || 800;
-        const height = containerRef.current.clientHeight || 600;
-
-        // 1. Transform Nodes
-        const g6Nodes = data.nodes.map(node => {
-            let fill = finalStyles.stepColor;
-            let labelFill = finalStyles.stepTextColor;
-            let shape = 'rect';
-            let radius = 4;
-
-            if (node.type === 'start') {
-                fill = finalStyles.startColor;
-                labelFill = finalStyles.startTextColor;
-            }
-            if (node.type === 'end') {
-                fill = finalStyles.endColor;
-                labelFill = finalStyles.endTextColor;
-                radius = 16;
-            }
-            if (node.type === 'countermeasure') {
-                fill = finalStyles.countermeasureColor;
-                labelFill = finalStyles.countermeasureTextColor;
-                shape = 'diamond';
-            }
-
-            return {
-                id: node.id,
-                type: shape,
-                combo: node.groupId,
-                style: {
-                    fill,
-                    stroke: fill,
-                    lineWidth: 0,
-                    radius,
-                    labelText: node.label,
-                    labelFill,
-                    labelFontSize: finalStyles.nodeFontSize,
-                    labelPlacement: 'center',
-                    size: [Math.max(100, node.label.length * 12 + 20), 40],
-                    cursor: 'pointer'
-                }
-            };
-        });
-
-        // 2. Transform Links
-        const g6Edges = data.links.map(link => {
-            const isOK = link.marker === 'OK';
-            const isNG = link.marker === 'NG';
-
-            return {
-                source: link.source,
-                target: link.target,
-                style: {
-                    stroke: isNG ? '#E74C3C' : (isOK ? '#00D2FF' : finalStyles.lineColor),
-                    lineWidth: finalStyles.lineWidth,
-                    endArrow: true,
-                    labelText: link.marker !== 'None' ? link.marker : '',
-                    labelFill: isNG ? '#E74C3C' : (isOK ? '#00D2FF' : '#64748b'),
-                    labelFontSize: 10,
-                    labelFontWeight: 'bold',
-                    labelBackground: true,
-                    labelBackgroundFill: '#FFFFFF',
-                    labelBackgroundRadius: 4,
-                    labelPadding: [2, 4]
-                }
-            };
-        });
-
-        // 3. Transform Groups (Combos)
-        const g6Combos = data.groups.map(group => ({
-            id: group.id,
-            type: 'rect',
-            style: {
-                labelText: group.label,
-                labelFill: '#64748b',
-                labelFontSize: 12,
-                labelFontWeight: 'bold',
-                labelPlacement: 'top',
-                fill: '#F5F7FA',
-                fillOpacity: 0.5,
-                stroke: 'rgba(13,94,66,0.10)',
-                lineWidth: 1,
-                lineDash: [4, 4],
-                radius: 8,
-                padding: [40, 20, 20, 20]
-            }
+    const handleWheel = (e: React.WheelEvent) => {
+        e.preventDefault();
+        const factor = e.deltaY > 0 ? 0.92 : 1.08;
+        setTransform(prev => ({
+            ...prev,
+            k: Math.min(Math.max(0.25, prev.k * factor), 4),
         }));
+    };
 
-        const layoutConfig = {
-            type: 'dagre',
-            rankdir: finalStyles.layout === 'Directional' ? 'LR' : 'TB',
-            nodesep: 50,
-            ranksep: finalStyles.layout === 'Standard' ? 100 : 80,
-            comboPadding: 40
-        };
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (e.button !== 0) return;
+        setIsDragging(true);
+        lastMouseRef.current = { x: e.clientX, y: e.clientY };
+    };
 
-        if (!graphRef.current) {
-            const graph = new Graph({
-                container: containerRef.current,
-                width,
-                height,
-                data: { nodes: g6Nodes, edges: g6Edges, combos: g6Combos },
-                layout: layoutConfig,
-                behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element', 'drag-combo'],
-                animation: !isHeadless,
-                autoFit: {
-                    type: 'view',
-                    options: {
-                        padding: 40
-                    }
-                } as any,
-            });
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastMouseRef.current.x;
+        const dy = e.clientY - lastMouseRef.current.y;
+        lastMouseRef.current = { x: e.clientX, y: e.clientY };
+        setTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+    };
 
-            graphRef.current = graph;
-            graph.render().then(() => {
-                graph.fitView({
-                    padding: 40,
-                    duration: animDuration
-                } as any);
-            });
-        } else {
-            graphRef.current.setData({ nodes: g6Nodes, edges: g6Edges, combos: g6Combos });
-            graphRef.current.setLayout(layoutConfig);
-            graphRef.current.render().then(() => {
-                graphRef.current?.fitView({
-                    padding: 40,
-                    duration: animDuration
-                } as any);
-            });
-        }
+    const handleMouseUp = () => setIsDragging(false);
 
-        const resizeObserver = new ResizeObserver((entries) => {
-            if (!containerRef.current || !graphRef.current) return;
-            const { width, height } = entries[0].contentRect;
-            if (width > 0 && height > 0) {
-                graphRef.current.setSize(width, height);
-                graphRef.current.fitView({ padding: 40 } as any);
-            }
-        });
-        resizeObserver.observe(containerRef.current);
-
-        return () => resizeObserver.disconnect();
-    }, [data, styles]);
+    const { spec, viewBox } = scene;
+    const hasTransform = transform.x !== 0 || transform.y !== 0 || transform.k !== 1;
 
     return (
-        <div className={`flex flex-col h-full bg-white ${className}`}>
-            {data.title && (
-                <div
-                    ref={titleRef}
-                    className="p-8 text-center shrink-0"
-                    style={{
-                        fontSize: finalStyles.titleFontSize,
-                        fontWeight: 'bold',
-                        color: '#1A2428'
-                    }}
+        <div
+            ref={containerRef}
+            className={`w-full h-full bg-[var(--card-bg)] transition-background-color 0.5s ease relative overflow-hidden ${className || ''}`}
+            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+        >
+            <svg
+                ref={svgRef}
+                width="100%"
+                height="100%"
+                viewBox={viewBox}
+                xmlns="http://www.w3.org/2000/svg"
+            >
+                <g
+                    id="pdpc-content-group"
+                    transform={hasTransform ? `translate(${transform.x}, ${transform.y}) scale(${transform.k})` : undefined}
                 >
-                    {data.title}
-                </div>
-            )}
-            <div
-                ref={containerRef}
-                className="flex-1 min-h-0 w-full relative"
-            />
+                    {spec.title && spec.title.text && (
+                        <text
+                            x={spec.title.x}
+                            y={spec.title.y}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fontSize={spec.title.fontSize}
+                            fontWeight="bold"
+                            fill={spec.title.color}
+                        >
+                            {spec.title.text}
+                        </text>
+                    )}
+
+                    {/* 1. 阶段分组框（Combos/Groups） */}
+                    {spec.groups.map(grp => (
+                        <g key={grp.id}>
+                            <rect
+                                x={grp.x}
+                                y={grp.y}
+                                width={grp.width}
+                                height={grp.height}
+                                rx={10}
+                                fill={grp.fill}
+                                fillOpacity={0.7}
+                                stroke={grp.stroke}
+                                strokeWidth={1.5}
+                                strokeDasharray="6,4"
+                            />
+                            <text
+                                x={grp.x + grp.width / 2}
+                                y={grp.y + 18}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fontSize={12}
+                                fontWeight="bold"
+                                fill={grp.labelColor}
+                            >
+                                {grp.label}
+                            </text>
+                        </g>
+                    ))}
+
+                    {/* 2. 正交连线与 [OK]/[NG] 标签 */}
+                    {spec.edges.map(edge => {
+                        const { pathD, arrowPoints } = buildOrthogonalPathAndArrow(edge);
+                        if (!pathD) return null;
+                        return (
+                            <g key={edge.id}>
+                                <path
+                                    d={pathD}
+                                    fill="none"
+                                    stroke={edge.stroke}
+                                    strokeWidth={edge.lineWidth}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeDasharray={edge.dashed ? '6,4' : undefined}
+                                />
+                                <polygon points={arrowPoints} fill={edge.stroke} />
+                                {edge.label && (
+                                    <g>
+                                        <rect
+                                            x={edge.label.x - edge.label.width / 2}
+                                            y={edge.label.y - edge.label.height / 2}
+                                            width={edge.label.width}
+                                            height={edge.label.height}
+                                            rx={4}
+                                            fill={edge.label.bgColor}
+                                            stroke={edge.label.borderColor}
+                                            strokeWidth={1}
+                                        />
+                                        <text
+                                            x={edge.label.x}
+                                            y={edge.label.y}
+                                            textAnchor="middle"
+                                            dominantBaseline="central"
+                                            fontSize={10}
+                                            fontWeight="bold"
+                                            fill={edge.label.color}
+                                        >
+                                            {edge.label.text}
+                                        </text>
+                                    </g>
+                                )}
+                            </g>
+                        );
+                    })}
+
+                    {/* 3. 四类语义节点 */}
+                    {spec.nodes.map(nd => (
+                        <g key={nd.id}>
+                            {nd.shape === 'hexagon' ? (
+                                <polygon
+                                    points={getHexagonPoints(nd)}
+                                    fill={nd.fill}
+                                    stroke={nd.stroke}
+                                    strokeWidth={1.5}
+                                />
+                            ) : nd.shape === 'double-rect' ? (
+                                <>
+                                    <rect
+                                        x={nd.x - nd.width / 2}
+                                        y={nd.y - nd.height / 2}
+                                        width={nd.width}
+                                        height={nd.height}
+                                        rx={nd.rx}
+                                        fill={nd.fill}
+                                        stroke={nd.stroke}
+                                        strokeWidth={2}
+                                    />
+                                    <rect
+                                        x={nd.x - nd.width / 2 + 3.5}
+                                        y={nd.y - nd.height / 2 + 3.5}
+                                        width={nd.width - 7}
+                                        height={nd.height - 7}
+                                        rx={Math.max(4, nd.rx - 3)}
+                                        fill="none"
+                                        stroke={nd.stroke}
+                                        strokeWidth={1}
+                                    />
+                                </>
+                            ) : (
+                                <rect
+                                    x={nd.x - nd.width / 2}
+                                    y={nd.y - nd.height / 2}
+                                    width={nd.width}
+                                    height={nd.height}
+                                    rx={nd.rx}
+                                    fill={nd.fill}
+                                    stroke={nd.stroke}
+                                    strokeWidth={1.5}
+                                />
+                            )}
+                            <text
+                                x={nd.x}
+                                y={nd.y}
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fontSize={nd.fontSize}
+                                fontWeight={600}
+                                fill={nd.textColor}
+                            >
+                                {nd.label}
+                            </text>
+                        </g>
+                    ))}
+                </g>
+            </svg>
         </div>
     );
 });

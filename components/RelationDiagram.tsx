@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
-import { Graph } from '@antv/g6';
+import React, { useMemo, useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { RelationNode, RelationLink, RelationChartStyles, DEFAULT_RELATION_STYLES, BaseDiagramRef } from '../types';
-import { estimateTextWidth } from '../utils/textMetrics';
-import { computeDeterministicRelationLayout } from '../utils/relationGraph';
+import { computeRelationGeometry } from '../utils/relationGraph';
+import { computeEdgeArrowGeometry } from '../utils/relationSvg';
+import { svgToDataURL } from '../utils/exportUtils';
 
 export interface RelationDiagramRef extends BaseDiagramRef {}
 
@@ -13,77 +13,111 @@ interface RelationDiagramProps {
     className?: string;
 }
 
-const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ nodes, links, styles, className }, ref) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const graphRef = useRef<Graph | null>(null);
-    const rafRef = useRef<number | null>(null);
+const MARGIN = 32;
 
-    const finalStyles = { ...DEFAULT_RELATION_STYLES, ...styles };
+/**
+ * 关联图（Relation Diagram）原生自绘 SVG 组件
+ *
+ * 彻底剥离 @antv/g6，直接消费 `computeRelationGeometry` 产出的几何清单（Geometry Spec SSOT），
+ * 实现与 MCP Tier-1 进程内直出 100% 像素级一致。
+ */
+const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ nodes, links, styles, className }, ref) => {
+    const svgRef = useRef<SVGSVGElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [viewport, setViewport] = useState({ w: 0, h: 0 });
+    const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
+    const [isDragging, setIsDragging] = useState(false);
+    const lastMouseRef = useRef({ x: 0, y: 0 });
+
+    const finalStyles = useMemo(() => ({ ...DEFAULT_RELATION_STYLES, ...styles }), [styles]);
+
+    const scene = useMemo(() => {
+        const spec = computeRelationGeometry(
+            nodes,
+            links,
+            finalStyles,
+            viewport.w || 1200,
+            viewport.h || 800
+        );
+        const { bbox } = spec;
+        const vx = bbox.x1 - MARGIN;
+        const vy = bbox.y1 - MARGIN;
+        const vw = Math.max(200, bbox.x2 - bbox.x1 + MARGIN * 2);
+        const vh = Math.max(150, bbox.y2 - bbox.y1 + MARGIN * 2);
+        return {
+            spec,
+            viewBox: `${vx} ${vy} ${vw} ${vh}`,
+        };
+    }, [nodes, links, finalStyles, viewport]);
+
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        const apply = () => setViewport({ w: el.clientWidth, h: el.clientHeight });
+        apply();
+        const observer = new ResizeObserver(apply);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+
+    // 数据或布局切换时自动归位视口
+    useEffect(() => {
+        setTransform({ x: 0, y: 0, k: 1 });
+    }, [nodes, links, finalStyles.layout]);
+
+    const buildCleanSvgForExport = (): SVGSVGElement | null => {
+        if (!svgRef.current) return null;
+        const clone = svgRef.current.cloneNode(true) as SVGSVGElement;
+        const contentGroup = clone.querySelector('#relation-content-group');
+        if (contentGroup) {
+            contentGroup.removeAttribute('transform');
+        }
+        return clone;
+    };
 
     useImperativeHandle(ref, () => ({
         getDataURL: async (options) => {
-            if (!graphRef.current) return '';
-            if (options?.width && options?.height) {
-                graphRef.current.setSize(options.width, options.height);
-            }
-            await graphRef.current.fitView({ padding: 60, duration: 0 } as any);
-            // 等待至少一帧 Canvas 重绘提交
-            await new Promise<void>((resolve) => {
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => resolve());
-                });
+            const cleanSvg = buildCleanSvgForExport();
+            if (!cleanSvg) return '';
+            return svgToDataURL(cleanSvg, {
+                width: options?.width,
+                height: options?.height,
+                pixelRatio: options?.pixelRatio ?? 3,
+                backgroundColor: options?.backgroundColor ?? '#FFFFFF',
+                padding: 0,
             });
-            return await graphRef.current.toDataURL({
-                pixelRatio: options?.pixelRatio || 3,
-                backgroundColor: options?.backgroundColor || '#FFFFFF'
-            } as any);
         },
         exportPNG: async (transparent = false, scale = 3) => {
-            if (!graphRef.current) return;
-            const rawDataURL = await graphRef.current.toDataURL({ pixelRatio: scale });
-
-            if (transparent) {
-                const link = document.createElement('a');
-                link.download = `关联图_透明_${new Date().getTime()}.png`;
-                link.href = rawDataURL;
-                link.click();
-                return;
-            }
-
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                    ctx.fillStyle = '#FFFFFF'; // Default white background
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(img, 0, 0);
-                    const link = document.createElement('a');
-                    link.download = `关联图_${new Date().getTime()}.png`;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                }
-            };
-            img.src = rawDataURL;
+            const cleanSvg = buildCleanSvgForExport();
+            if (!cleanSvg) return;
+            const url = await svgToDataURL(cleanSvg, {
+                pixelRatio: scale,
+                backgroundColor: transparent ? 'transparent' : '#FFFFFF',
+                padding: 0,
+            });
+            const link = document.createElement('a');
+            link.download = `关联图_${transparent ? '透明_' : ''}${Date.now()}.png`;
+            link.href = url;
+            link.click();
         },
-        exportPDF: async (transparent = false) => {
-            if (!graphRef.current) return;
-            const dataURL = await graphRef.current.toDataURL({
-                backgroundColor: '#FFFFFF'
-            } as any);
-
+        exportPDF: async () => {
+            const cleanSvg = buildCleanSvgForExport();
+            if (!cleanSvg) return;
+            const dataURL = await svgToDataURL(cleanSvg, {
+                pixelRatio: 3,
+                backgroundColor: '#FFFFFF',
+                padding: 0,
+            });
             const win = window.open('', '_blank');
             if (win) {
                 win.document.write(`
-             <html>
-                 <head><title>导出 PDF - 澄矩 · ChengJu</title></head>
-                 <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#F5F7FA;">
-                     <img src="${dataURL}" style="max-width:95%; max-height:95%; object-fit:contain; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);" />
-                 </body>
-             </html>
-         `);
+                    <html>
+                        <head><title>导出 PDF - 澄矩 · ChengJu</title></head>
+                        <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#F5F7FA;">
+                            <img src="${dataURL}" style="max-width:95%; max-height:95%; object-fit:contain; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);" />
+                        </body>
+                    </html>
+                `);
                 win.document.close();
                 setTimeout(() => {
                     win.print();
@@ -92,162 +126,141 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
             }
         },
         tidyLayout: () => {
-            if (graphRef.current) {
-                const isHeadless = typeof window !== 'undefined' && window.location.search.includes('mode=headless');
-                graphRef.current.fitView({ padding: 60, duration: isHeadless ? 0 : 300 } as any);
-            }
-        }
+            setTransform({ x: 0, y: 0, k: 1 });
+        },
     }));
 
-    useEffect(() => {
-        if (!containerRef.current || !nodes.length) return;
+    const handleWheel = (e: React.WheelEvent) => {
+        e.preventDefault();
+        const factor = e.deltaY > 0 ? 0.92 : 1.08;
+        setTransform(prev => ({
+            ...prev,
+            k: Math.min(Math.max(0.25, prev.k * factor), 4),
+        }));
+    };
 
-        const isHeadless = typeof window !== 'undefined' && window.location.search.includes('mode=headless');
-        const animDuration = isHeadless ? 0 : 300;
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (e.button !== 0) return;
+        setIsDragging(true);
+        lastMouseRef.current = { x: e.clientX, y: e.clientY };
+    };
 
-        const width = containerRef.current.clientWidth || 800;
-        const height = containerRef.current.clientHeight || 600;
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastMouseRef.current.x;
+        const dy = e.clientY - lastMouseRef.current.y;
+        lastMouseRef.current = { x: e.clientX, y: e.clientY };
+        setTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+    };
 
-        // Transform data for G6
-        // --- MULTI-ROOT LOGIC ---
-        // 1. Calculate Out-Degree to identify Symptoms (Sinks: Out-Degree = 0)
-        // Filter out 'root' which is now reserved for title only
-        const validNodes = nodes.filter(n => n.id !== 'root');
-        const outDegree = new Map<string, number>();
-        validNodes.forEach(n => outDegree.set(n.id, 0));
-        
-        links.forEach(l => {
-            if (l.source !== l.target && l.source !== 'root' && l.target !== 'root') {
-                outDegree.set(l.source, (outDegree.get(l.source) || 0) + 1);
-            }
-        });
+    const handleMouseUp = () => setIsDragging(false);
 
-        // 2. 纯数学确定性因果拓扑坐标计算（<2ms 闭式解，无异步力导向迭代）
-        const layoutCoords = computeDeterministicRelationLayout(
-            validNodes,
-            links,
-            finalStyles.layout,
-            width,
-            height
-        );
-
-        // 3. Create G6 Nodes
-        const g6Nodes = validNodes.map(node => {
-            const isSymptom = (outDegree.get(node.id) || 0) === 0;
-            const coord = layoutCoords.get(node.id) || { x: width / 2, y: height / 2 };
-            
-            let fill = finalStyles.middleColor;
-            let stroke = finalStyles.middleColor;
-            let labelFill = finalStyles.middleTextColor;
-            let fontWeight = 'normal' as any;
-            let shape = 'rect';
-            let fontSize = finalStyles.nodeFontSize;
-
-            if (node.type === 'end') {
-                fill = finalStyles.endColor;
-                stroke = finalStyles.endColor;
-                labelFill = finalStyles.endTextColor;
-                shape = 'ellipse';
-            } else if (isSymptom) {
-                // Style as Root/Symptom (Rectangle)
-                fill = finalStyles.rootColor;
-                stroke = finalStyles.rootColor;
-                labelFill = finalStyles.rootTextColor;
-                fontWeight = 'bold';
-                shape = 'rect';
-            } else {
-                // Middle nodes (Ellipse)
-                shape = 'ellipse';
-            }
-
-            // 按**实际字宽**估算（汉字 1em / 拉丁 0.56em）
-            const textW = estimateTextWidth(node.label, fontSize);
-            const size: number | [number, number] = shape === 'rect'
-                ? [Math.max(120, textW + 40), 50]
-                : [Math.max(100, textW + 20), 40];
-
-            return {
-                id: node.id,
-                type: shape,
-                data: { ...node },
-                x: coord.x,
-                y: coord.y,
-                style: {
-                    x: coord.x,
-                    y: coord.y,
-                    fill,
-                    stroke,
-                    lineWidth: 1,
-                    radius: 8,
-                    labelText: node.label,
-                    labelFill,
-                    labelFontSize: fontSize,
-                    labelFontWeight: fontWeight,
-                    labelPlacement: 'center',
-                    size,
-                    cursor: 'pointer'
-                }
-            };
-        });
-
-        // 4. Transform User Links (Filter out self-references and title nodes)
-        const g6Edges = links
-            .filter(link => link.source !== link.target && link.source !== 'root' && link.target !== 'root')
-            .map(link => ({
-                source: link.source,
-                target: link.target,
-                style: {
-                    stroke: finalStyles.lineColor,
-                    lineWidth: 2,
-                    endArrow: true
-                }
-            }));
-
-        if (!graphRef.current) {
-            const graph = new Graph({
-                container: containerRef.current,
-                width,
-                height,
-                data: { nodes: g6Nodes, edges: g6Edges },
-                behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
-                autoFit: 'view',
-                padding: [60, 60, 60, 60],
-                animation: !isHeadless,
-            });
-
-            graphRef.current = graph;
-            graph.render().then(() => {
-                graph.fitView({ padding: 60, duration: animDuration } as any);
-            });
-        } else {
-            graphRef.current.setData({ nodes: g6Nodes, edges: g6Edges });
-            graphRef.current.render().then(() => {
-                graphRef.current?.fitView({ padding: 60, duration: animDuration } as any);
-            });
-        }
-
-        const resizeObserver = new ResizeObserver((entries) => {
-            if (!containerRef.current || !graphRef.current) return;
-            const { width, height } = entries[0].contentRect;
-            if (width > 0 && height > 0) {
-                graphRef.current.setSize(width, height);
-                graphRef.current.fitView({ padding: 60, duration: 0 } as any);
-            }
-        });
-        resizeObserver.observe(containerRef.current);
-
-        return () => {
-            resizeObserver.disconnect();
-        };
-
-    }, [nodes, links, styles]);
+    const { spec, viewBox } = scene;
+    const hasTransform = transform.x !== 0 || transform.y !== 0 || transform.k !== 1;
 
     return (
-        <div className={`w-full h-full bg-[var(--card-bg)] transition-background-color 0.5s ease ${className}`}>
-            {/* Drawing Area */}
-            <div className="w-full h-full relative overflow-hidden">
-                <div ref={containerRef} className="w-full h-full" />
-            </div>
+        <div
+            ref={containerRef}
+            className={`w-full h-full bg-[var(--card-bg)] transition-background-color 0.5s ease relative overflow-hidden ${className || ''}`}
+            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+        >
+            <svg
+                ref={svgRef}
+                width="100%"
+                height="100%"
+                viewBox={viewBox}
+                xmlns="http://www.w3.org/2000/svg"
+            >
+                <g
+                    id="relation-content-group"
+                    transform={hasTransform ? `translate(${transform.x}, ${transform.y}) scale(${transform.k})` : undefined}
+                >
+                    {spec.title && spec.title.text && (
+                        <text
+                            x={spec.title.x}
+                            y={spec.title.y}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fontSize={spec.title.fontSize}
+                            fontWeight="bold"
+                            fill={spec.title.color}
+                        >
+                            {spec.title.text}
+                        </text>
+                    )}
+
+                    {spec.edges.map(edge => {
+                        const { lineEndX, lineEndY, arrowPoints } = computeEdgeArrowGeometry(edge);
+                        return (
+                            <g key={edge.id}>
+                                {edge.controlPoint ? (
+                                    <path
+                                        d={`M ${edge.x1} ${edge.y1} Q ${edge.controlPoint.cx} ${edge.controlPoint.cy} ${lineEndX} ${lineEndY}`}
+                                        fill="none"
+                                        stroke={edge.stroke}
+                                        strokeWidth={edge.lineWidth}
+                                        strokeLinecap="round"
+                                    />
+                                ) : (
+                                    <line
+                                        x1={edge.x1}
+                                        y1={edge.y1}
+                                        x2={lineEndX}
+                                        y2={lineEndY}
+                                        stroke={edge.stroke}
+                                        strokeWidth={edge.lineWidth}
+                                        strokeLinecap="round"
+                                    />
+                                )}
+                                <polygon points={arrowPoints} fill={edge.stroke} />
+                            </g>
+                        );
+                    })}
+
+                    {spec.nodes.map(nd => (
+                        <g key={nd.id}>
+                            {nd.shape === 'rect' ? (
+                                <rect
+                                    x={nd.x - nd.width / 2}
+                                    y={nd.y - nd.height / 2}
+                                    width={nd.width}
+                                    height={nd.height}
+                                    rx={nd.rx}
+                                    fill={nd.fill}
+                                    stroke={nd.stroke}
+                                    strokeWidth={1.5}
+                                />
+                            ) : (
+                                <ellipse
+                                    cx={nd.x}
+                                    cy={nd.y}
+                                    rx={nd.width / 2}
+                                    ry={nd.height / 2}
+                                    fill={nd.fill}
+                                    stroke={nd.stroke}
+                                    strokeWidth={1.5}
+                                />
+                            )}
+                            <text
+                                x={nd.x}
+                                y={nd.y}
+                                textAnchor="middle"
+                                dominantBaseline="central"
+                                fontSize={nd.fontSize}
+                                fontWeight={nd.fontWeight}
+                                fill={nd.textColor}
+                            >
+                                {nd.label}
+                            </text>
+                        </g>
+                    ))}
+                </g>
+            </svg>
         </div>
     );
 });

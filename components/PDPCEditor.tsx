@@ -40,6 +40,9 @@ import { QCToolType } from '../types';
 import { CardDocModal } from './CardDocModal';
 import { useAIEngine } from '../hooks/useAIEngine';
 import { ConfirmInline } from '../components/ui/ConfirmInline';
+import { parsePDPCDSL } from '../utils/pdpcGraph';
+
+export { parsePDPCDSL };
 
 interface PDPCEditorProps {
     data: PDPCData;
@@ -47,126 +50,6 @@ interface PDPCEditorProps {
     onDataChange: (data: PDPCData) => void;
     onStylesChange: (styles: PDPCChartStyles) => void;
 }
-
-export const parsePDPCDSL = (content: string): { data: PDPCData, styles: PDPCChartStyles } => {
-    const lines = content.split('\n');
-    const styles: any = { ...DEFAULT_PDPC_STYLES };
-    const nodes: PDPCNode[] = [];
-    const links: PDPCLink[] = [];
-    const groups: PDPCGroup[] = [];
-
-    let currentGroupId: string | undefined = undefined;
-
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('//')) return;
-
-        // Styles
-        if (trimmed.startsWith('Title:')) {
-            styles.title = trimmed.replace('Title:', '').trim();
-            return;
-        }
-        if (trimmed.startsWith('Layout:')) {
-            const layoutVal = trimmed.replace('Layout:', '').trim();
-            if (['Directional', 'Standard'].includes(layoutVal)) {
-                styles.layout = layoutVal as any;
-            }
-            return;
-        }
-
-        const colorMatch = trimmed.match(/Color\[(Start|StartText|End|EndText|Step|StepText|Countermeasure|CountermeasureText|Line)\]:\s*(#[0-9a-fA-F]+)/i);
-        if (colorMatch) {
-            const keyMap: any = {
-                'Start': 'startColor',
-                'StartText': 'startTextColor',
-                'End': 'endColor',
-                'EndText': 'endTextColor',
-                'Step': 'stepColor',
-                'StepText': 'stepTextColor',
-                'Countermeasure': 'countermeasureColor',
-                'CountermeasureText': 'countermeasureTextColor',
-                'Line': 'lineColor'
-            };
-            styles[keyMap[colorMatch[1]]] = colorMatch[2];
-            return;
-        }
-
-        const fontMatch = trimmed.match(/Font\[(Title|Node)\]:\s*(\d+)/i);
-        if (fontMatch) {
-            if (fontMatch[1] === 'Title') styles.titleFontSize = parseInt(fontMatch[2]);
-            if (fontMatch[1] === 'Node') styles.nodeFontSize = parseInt(fontMatch[2]);
-            return;
-        }
-
-        const lineWidthMatch = trimmed.match(/Line\[Width\]:\s*(\d+)/i);
-        if (lineWidthMatch) {
-            styles.lineWidth = parseInt(lineWidthMatch[1]);
-            return;
-        }
-
-        // Groups
-        if (trimmed.startsWith('Group:')) {
-            const parts = trimmed.replace('Group:', '').split(',').map(s => s.trim());
-            if (parts.length >= 2) {
-                currentGroupId = parts[0];
-                groups.push({
-                    id: parts[0],
-                    label: parts[1],
-                    parentId: parts[2] || null
-                });
-            }
-            return;
-        }
-        if (trimmed.startsWith('EndGroup')) {
-            currentGroupId = undefined;
-            return;
-        }
-
-        // Items
-        if (trimmed.startsWith('Item:')) {
-            const parts = trimmed.replace('Item:', '').split(',').map(s => s.trim());
-            if (parts.length >= 2) {
-                const id = parts[0];
-                const label = parts[1];
-                let type: PDPCNodeType = 'step';
-
-                if (parts[2]) {
-                    const typeStr = parts[2].toLowerCase();
-                    if (typeStr.includes('start')) type = 'start';
-                    else if (typeStr.includes('end')) type = 'end';
-                    else if (typeStr.includes('countermeasure')) type = 'countermeasure';
-                }
-
-                nodes.push({ id, label, type, groupId: currentGroupId });
-            }
-            return;
-        }
-
-        // Chains: id1--id2 [OK/NG]
-        if (trimmed.includes('--')) {
-            const markerMatch = trimmed.match(/\[(OK|NG)\]/i);
-            const marker: PDPCMarkerType = markerMatch ? (markerMatch[1].toUpperCase() as PDPCMarkerType) : 'None';
-            const cleanLine = trimmed.replace(/\[(OK|NG)\]/i, '').trim();
-            const sequence = cleanLine.split('--').map(s => s.trim());
-
-            for (let i = 0; i < sequence.length - 1; i++) {
-                links.push({
-                    source: sequence[i],
-                    target: sequence[i + 1],
-                    marker: i === sequence.length - 2 ? marker : 'None' // Only apply marker to the last segment if multiple? 
-                    // Actually, usually it's just id1--id2. If id1--id2--id3 [OK], we might need better logic.
-                    // For now, simplify to pair-wise or end-of-chain marker.
-                });
-            }
-            return;
-        }
-    });
-
-    return {
-        data: { title: styles.title, nodes, links, groups },
-        styles
-    };
-};
 
 const PDPCEditor: React.FC<PDPCEditorProps> = ({
     data,

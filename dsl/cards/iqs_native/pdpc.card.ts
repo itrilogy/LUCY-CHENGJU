@@ -72,7 +72,7 @@ const pdpc: CardSpec = {
     intents: ['PDPC', '过程决策', '风险对策', '应急预案', '风险预演'],
     expertise: ['过程决策程序图 (PDPC)', '风险防范', '应急预案预演'],
     colorSlots: ['Start', 'StartText', 'Step', 'StepText', 'Countermeasure', 'CountermeasureText', 'End', 'EndText', 'Line'],
-    renderEngine: 'g6',
+    renderEngine: 'svg',
     inferenceKey: 'pdpc',
     migrated: true,
   },

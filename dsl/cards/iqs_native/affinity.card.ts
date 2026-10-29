@@ -66,7 +66,7 @@ const affinity: CardSpec = {
     typeDirective: { name: 'Type', values: ['Card', 'Label'], meaning: 'renderMode' },
     renderType: 'affinity',
     inferenceKey: 'affinity',
-    renderEngine: 'g6',
+    renderEngine: 'canvas',
     migrated: true,
   },
 

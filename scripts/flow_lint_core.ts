@@ -12,6 +12,13 @@
 import { parseFlowDSL } from '../components/flow/FlowParser.ts';
 import { flowToSVG, getSvgSize } from '../components/flow/flowToSVG.ts';
 import { lintDsl } from '../dsl/index.ts';
+import { computeDeterministicFishboneLayout } from '../utils/fishboneGraph.ts';
+import { renderFishboneSVG as renderFishboneNodesToSVG } from '../utils/fishboneSvg.ts';
+import { parseRelationDSL } from '../utils/relationGraph.ts';
+import { renderRelationSVG as renderRelationDataToSVG } from '../utils/relationSvg.ts';
+import { parsePDPCDSL } from '../utils/pdpcGraph.ts';
+import { renderPDPCSVG as renderPDPCDataToSVG } from '../utils/pdpcSvg.ts';
+import type { FishboneNode, FishboneChartStyles } from '../types.ts';
 
 export interface AnnotatedError {
   line?: number;
@@ -330,6 +337,13 @@ export function lintCoreKind(kindRaw: string, dslRaw: string): CoreLintResult | 
       if (nodes.length === 0 || rels.length === 0) {
         errors.push('关联图必须同时包含 `Node: id, 标签` 与 `Rel: src -> tgt`');
         fixHints.push('【关联图语法】使用 `Node: n1, 原因描述` 定义节点，`Rel: n1 -> n2` 定义因果指向。');
+      } else {
+        try {
+          parseRelationDSL(text);
+        } catch (err: any) {
+          errors.push(err?.message || '关联图连线拓扑不合法');
+          fixHints.push('【关联图拓扑约束】每个 `Rel: a -> b` 的两端 ID 必须已由 `Node:` 定义，且严禁自环、重复连线与逻辑循环回路。');
+        }
       }
       break;
     }
@@ -350,6 +364,16 @@ export function lintCoreKind(kindRaw: string, dslRaw: string): CoreLintResult | 
       if (itemsCount === 0 || linksCount === 0) {
         errors.push('PDPC 图必须包含 `Item: id, 描述, [类型]` 节点与 `a--b [OK|NG]` 连线');
         fixHints.push('【PDPC 语法】使用 `Group:` / `Item:` / `EndGroup` 声明节点，并用 `s1--c1 [OK]` 连接。');
+      } else {
+        const parsedPdpc = parsePDPCDSL(text);
+        const knownIds = new Set(parsedPdpc.data.nodes.map((n) => n.id));
+        for (const lk of parsedPdpc.data.links) {
+          if (!knownIds.has(lk.source) || !knownIds.has(lk.target)) {
+            errors.push(`PDPC 连线引用了未定义的节点 ID：${lk.source}--${lk.target}`);
+            fixHints.push('【PDPC 连通约束】所有 `--` 连线两端的节点 ID 必须先通过 `Item: id, 描述` 定义。');
+            break;
+          }
+        }
       }
       break;
     }
@@ -422,4 +446,132 @@ export function renderFlowSVG(dsl: string): {
   lastFlowSvgKey = key;
   lastFlowSvgVal = out;
   return out;
+}
+
+/**
+ * 纯函数解析鱼骨图 DSL（无 React 依赖）
+ */
+function parseFishboneDSLCore(content: string): { data: FishboneNode; styles: Required<FishboneChartStyles> } {
+  const lines = String(content ?? '').split('\n');
+  const newStyles: Required<FishboneChartStyles> = {
+    boneLine: '#334155',
+    caseLine: '#64748b',
+    caseColor: '#1e293b',
+    endColor: '#94a3b8',
+    rootColor: '#2563eb',
+    rootTextColor: '#ffffff',
+    mainColor: '#3b82f6',
+    mainTextColor: '#ffffff',
+  };
+  let title = '鱼骨图分析';
+  const nodes: FishboneNode[] = [];
+  const stack: { node: FishboneNode; level: number }[] = [];
+  let seq = 0;
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('//')) return;
+
+    const colorMatch = trimmed.match(/Color\[(Root|RootText|Main|MainText|Bone|Line|Text|End)\]:\s*(#[0-9a-fA-F]+)/i);
+    if (colorMatch) {
+      let key = colorMatch[1].toLowerCase();
+      if (key === 'root') key = 'rootColor';
+      if (key === 'roottext') key = 'rootTextColor';
+      if (key === 'main') key = 'mainColor';
+      if (key === 'maintext') key = 'mainTextColor';
+      if (key === 'bone') key = 'boneLine';
+      if (key === 'line') key = 'caseLine';
+      if (key === 'text') key = 'caseColor';
+      (newStyles as any)[key] = colorMatch[2];
+      return;
+    }
+
+    if (trimmed.startsWith('Title:')) {
+      title = trimmed.replace('Title:', '').trim();
+      return;
+    }
+
+    const headerMatch = trimmed.match(/^(#+)\s+(.+)$/);
+    if (headerMatch) {
+      const level = headerMatch[1].length;
+      const label = headerMatch[2].trim();
+      seq++;
+      const newNode: FishboneNode = {
+        id: `fb_node_${seq}`,
+        label,
+        type: level === 1 ? 'main' : 'sub',
+        children: [],
+      };
+      if (level === 1) {
+        nodes.push(newNode);
+        stack.length = 0;
+        stack.push({ node: newNode, level });
+      } else {
+        while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+          stack.pop();
+        }
+        if (stack.length > 0) {
+          const parent = stack[stack.length - 1].node;
+          if (!parent.children) parent.children = [];
+          parent.children.push(newNode);
+          stack.push({ node: newNode, level });
+        }
+      }
+    }
+  });
+
+  return {
+    data: { id: 'root', label: title, type: 'root', children: nodes },
+    styles: newStyles,
+  };
+}
+
+/**
+ * Tier-1 极速进程内直出：将鱼骨图 DSL 直接编译为确定性 SVG 字符串与几何尺寸
+ */
+export function renderFishboneSVG(
+  dsl: string,
+  width = 1600,
+  height = 1000
+): { svg: string; width: number; height: number } {
+  const { data, styles } = parseFishboneDSLCore(dsl);
+  const { nodes, edges } = computeDeterministicFishboneLayout(data, styles, width, height);
+  const rendered = renderFishboneNodesToSVG(nodes, edges, width, height, '#ffffff');
+  return {
+    svg: rendered.svg,
+    width: rendered.width,
+    height: rendered.height,
+  };
+}
+
+/**
+ * Tier-1 极速进程内直出：将关联图 DSL 直接编译为确定性 SVG 字符串与几何尺寸
+ */
+export function renderRelationSVG(
+  dsl: string,
+  width = 1200,
+  height = 800
+): { svg: string; width: number; height: number } {
+  const { nodes, links, styles } = parseRelationDSL(dsl);
+  const rendered = renderRelationDataToSVG(nodes, links, styles, width, height);
+  return {
+    svg: rendered.svg,
+    width: rendered.width,
+    height: rendered.height,
+  };
+}
+
+/**
+ * Tier-1 极速进程内直出：将 PDPC DSL 直接编译为确定性 SVG 字符串与几何尺寸
+ */
+export function renderPDPCSVG(
+  dsl: string
+): { svg: string; width: number; height: number } {
+  const { data, styles } = parsePDPCDSL(dsl);
+  const rendered = renderPDPCDataToSVG(data, styles);
+  return {
+    svg: rendered.svg,
+    width: rendered.width,
+    height: rendered.height,
+  };
 }

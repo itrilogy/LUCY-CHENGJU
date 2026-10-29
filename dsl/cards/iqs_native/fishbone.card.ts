@@ -58,7 +58,7 @@ const fishbone: CardSpec = {
     intents: ['鱼骨图', '因果图', '石川图', 'fishbone', '根因分析', 'ishikawa', '5M1E', '4P', '5Why'],
     expertise: ['根因分析 (RCA)', '5M1E / 4P 因果模型', '工业质量改进'],
     colorSlots: ['Root', 'RootText', 'Main', 'MainText', 'Bone', 'Line', 'Text', 'End'],
-    renderEngine: 'canvas',
+    renderEngine: 'svg',
     inferenceKey: 'fishbone',
     migrated: true,
   },

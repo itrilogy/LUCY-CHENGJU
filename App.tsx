@@ -593,7 +593,7 @@ const App: React.FC = () => {
         const tool = applyHeadlessPayload(payload.type, payload.dsl);
         // Wait two animation frames for React state commit + DOM layout
         await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
-        // Fast SVG/Canvas tools need minimal settle; G6/Mermaid/VChart async layout gets 180ms settle
+        // Fast SVG/Canvas tools need minimal settle; Mermaid/VChart async layout gets 220ms settle
         const isFastSync = [
           QCToolType.FLOW,
           QCToolType.MATRIX,
@@ -602,7 +602,9 @@ const App: React.FC = () => {
           QCToolType.ARROW,
           QCToolType.CONTROL,
           QCToolType.AFFINITY,
-          QCToolType.FISHBONE
+          QCToolType.FISHBONE,
+          QCToolType.RELATION,
+          QCToolType.PDPC
         ].includes(tool);
         const settleMs = isFastSync ? 40 : 220;
         window.dispatchEvent(new Event('resize'));

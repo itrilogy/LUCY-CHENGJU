@@ -59,6 +59,7 @@ related:
 | **P6** | **2026-10-27** | **R28：G6 渲染缺陷诊断 + 关联图因果代数重构 + 全组件确定性布局** | `docs/IQS_MCP_DETERMINISTIC_LAYOUT_DESIGN_R28.md` · 台账 `AUD-170..174` · `utils/relationGraph.ts`（469 行纯数学布局）· `PDPCDiagram` / `RelationDiagram` 帧同步 |
 | **P6** | **2026-10-28** | **R29：鱼骨图布局数学评估 + 算法重构实施 + 全仓审计**（已落地，工程记录见 `IQS_FISHBONE_ENGINEERING_LOG_R29.md`） | `docs/IQS_FISHBONE_LAYOUT_MATH_AUDIT_R29.md` · 台账 `AUD-175..183` 全部修复 · `utils/fishboneGraph.ts` 五遍闭式解重写 · `scripts/assert_fishbone_math.ts`（G1–G7 / 44 断言）· `npm run test:fishbone` 入 build+CI · `docs/IQS_DIAGRAM_MATHEMATICAL_LAYOUT_SPEC.md` 第三章重写 |
 | **P7** | **2026-10-28** | **规划：全量自研 SVG 迁移与 G6 归零技术规划** | `docs/IQS_MIGRATION_PLAN_SVG_DE_G6.md` · 规划关联图与 PDPC 自研闭式解与原生 SVG 替代 · 剥离 `@antv/g6` 与 MCP Tier-1 毫秒级直出下沉 |
+| **P7** | **2026-10-28** | **R30：全仓 G6 归零与关联图/PDPC 原生 SVG 迁移实施落地** | `utils/{relationSvg,pdpcGraph,pdpcSvg,fishboneSvg}.ts` · `components/{RelationDiagram,PDPCDiagram}.tsx` · `scripts/assert_{relation,pdpc}_math.ts` · `mcp-server` Tier-1 覆盖 `flow/fishbone/relation/pdpc` 四大拓扑图 · 彻底卸载 `@antv/g6` |
 
 ### 时间线读法（三条主线）
 
