@@ -26,6 +26,29 @@ export interface AIConfigState {
     profiles: Record<string, AIProfile>;
 }
 
+/**
+ * 客户端本地浏览器（Cookie）存储的大模型配置结构
+ * 核心连接字段写入 `document.cookie`（~300B，严格控制在 4KB 限制以内），
+ * 候选模型列表 `models[]` 分流缓存在 localStorage 以避免 Cookie 膨胀溢出。
+ */
+export interface ClientCookieLLMConfig {
+    enabled: boolean;
+    id: string;
+    name: string;
+    protocol: AIProtocolType;
+    endpoint: string;
+    apiKey: string;
+    model: string;
+    max_tokens: number;
+    models?: string[];
+}
+
+export const CLIENT_COOKIE_PROFILE_ID = "client_cookie";
+const CLIENT_COOKIE_NAME = "iqs_client_llm_v1";
+const CLIENT_MODELS_CACHE_KEY = "iqs_client_llm_models_v1";
+const STORAGE_KEY = "iqs_ai_providers_v1";
+export const AI_CONFIG_CHANGED_EVENT = "iqs:ai-config-changed";
+
 export type AICompletionMeta = {
     finishReason: string | null;
     chars: number;
@@ -40,9 +63,6 @@ export function getLastAICompletion(): AICompletionMeta | null {
 interface ChartSpec {
     ai_config: AIConfigState;
 }
-
-const STORAGE_KEY = "iqs_ai_providers_v1";
-export const AI_CONFIG_CHANGED_EVENT = "iqs:ai-config-changed";
 
 let cachedSpec: ChartSpec | null = null;
 
@@ -79,6 +99,131 @@ export function verifyAdminPassword(input: string): boolean {
     return String(input ?? "").trim() === getAdminPassword();
 }
 
+/* ────────────────────── 客户端 Cookie 模型配置读写与管理 ────────────────────── */
+
+export function getDefaultClientCookieConfig(): ClientCookieLLMConfig {
+    return {
+        enabled: false,
+        id: "local_client",
+        name: "客户端本地模型",
+        protocol: "openai",
+        endpoint: "http://127.0.0.1:1234/v1/chat/completions",
+        apiKey: "",
+        model: "qwen/qwen3.6-35b-a3b",
+        max_tokens: 8192,
+        models: [],
+    };
+}
+
+/**
+ * 从浏览器 `document.cookie` 读取客户端本地模型配置
+ */
+export function loadClientCookieConfig(): ClientCookieLLMConfig {
+    const fallback = getDefaultClientCookieConfig();
+    if (typeof document === "undefined") return fallback;
+
+    try {
+        const prefix = `${CLIENT_COOKIE_NAME}=`;
+        const cookieRow = document.cookie
+            .split("; ")
+            .find(row => row.startsWith(prefix));
+        if (!cookieRow) return fallback;
+
+        const rawVal = decodeURIComponent(cookieRow.slice(prefix.length));
+        const parsed = JSON.parse(rawVal);
+        let cachedModels: string[] = [];
+        if (typeof window !== "undefined" && window.localStorage) {
+            try {
+                const mRaw = window.localStorage.getItem(CLIENT_MODELS_CACHE_KEY);
+                if (mRaw) cachedModels = JSON.parse(mRaw);
+            } catch { }
+        }
+        return {
+            ...fallback,
+            ...parsed,
+            models: Array.isArray(cachedModels) && cachedModels.length > 0
+                ? cachedModels
+                : (Array.isArray(parsed?.models) ? parsed.models : []),
+        };
+    } catch (e) {
+        console.warn("[Client Cookie LLM] Failed to parse cookie:", e);
+        return fallback;
+    }
+}
+
+/**
+ * 判断客户端是否已在浏览器 Cookie 中配置了有效的模型端点
+ */
+export function hasConfiguredClientCookie(): boolean {
+    if (typeof document === "undefined") return false;
+    const prefix = `${CLIENT_COOKIE_NAME}=`;
+    const exists = document.cookie.split("; ").some(row => row.startsWith(prefix));
+    if (!exists) return false;
+    const cfg = loadClientCookieConfig();
+    return Boolean(cfg.endpoint && cfg.endpoint.trim().length > 0);
+}
+
+/**
+ * 将客户端本地模型配置写入浏览器 `document.cookie`（有效期 365 天，SameSite=Lax）
+ */
+export function saveClientCookieConfig(config: ClientCookieLLMConfig): void {
+    if (typeof document === "undefined") return;
+
+    // 仅将核心连接配置写入 Cookie（约 250 Bytes，规避 4KB 上限）
+    const cookiePayload = {
+        enabled: Boolean(config.enabled),
+        id: String(config.id || "local_client").trim(),
+        name: String(config.name || "客户端本地模型").trim(),
+        protocol: config.protocol || "openai",
+        endpoint: String(config.endpoint || "").trim(),
+        apiKey: String(config.apiKey || "").trim(),
+        model: String(config.model || "").trim(),
+        max_tokens: Number(config.max_tokens) || 8192,
+    };
+
+    const encoded = encodeURIComponent(JSON.stringify(cookiePayload));
+    document.cookie = `${CLIENT_COOKIE_NAME}=${encoded}; path=/; max-age=31536000; SameSite=Lax`;
+
+    if (typeof window !== "undefined" && window.localStorage && Array.isArray(config.models)) {
+        try {
+            window.localStorage.setItem(CLIENT_MODELS_CACHE_KEY, JSON.stringify(config.models));
+        } catch { }
+    }
+
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(AI_CONFIG_CHANGED_EVENT, { detail: { clientCookie: cookiePayload } }));
+    }
+}
+
+/**
+ * 清除浏览器中的客户端模型 Cookie 配置
+ */
+export function clearClientCookieConfig(): ClientCookieLLMConfig {
+    if (typeof document !== "undefined") {
+        document.cookie = `${CLIENT_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+    }
+    if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.removeItem(CLIENT_MODELS_CACHE_KEY);
+    }
+    const fresh = getDefaultClientCookieConfig();
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(AI_CONFIG_CHANGED_EVENT, { detail: { clientCookie: null } }));
+    }
+    return fresh;
+}
+
+/* ────────────────────── 管理端全局配置读写与 ID 重命名 ────────────────────── */
+
+const BUILTIN_CLIENT_PROFILE: AIProfile = {
+    id: CLIENT_COOKIE_PROFILE_ID,
+    name: "本地客户端模型 (Browser Cookie)",
+    protocol: "openai",
+    endpoint: "http://127.0.0.1:1234/v1/chat/completions",
+    model: "client-cookie-model",
+    models: [],
+    max_tokens: 8192,
+};
+
 async function getChartSpec(): Promise<ChartSpec> {
     if (cachedSpec) return cachedSpec;
     try {
@@ -100,6 +245,7 @@ async function getChartSpec(): Promise<ChartSpec> {
                         models: ["deepseek-chat", "deepseek-reasoner"],
                         max_tokens: 8192,
                     },
+                    [CLIENT_COOKIE_PROFILE_ID]: BUILTIN_CLIENT_PROFILE,
                 },
             },
         };
@@ -122,7 +268,7 @@ function readStoredConfig(): AIConfigState | null {
 }
 
 /**
- * 获取合并后的完整大模型配置状态（localStorage 持久化覆盖 > public/config.json 默认预设）
+ * 获取合并后的完整大模型配置状态（确保始终包含 `client_cookie` 客户端模型选项）
  */
 export async function loadAIConfigState(): Promise<AIConfigState> {
     const spec = await getChartSpec();
@@ -140,9 +286,11 @@ export async function loadAIConfigState(): Promise<AIConfigState> {
             id: k,
         };
     }
+    if (!mergedProfiles[CLIENT_COOKIE_PROFILE_ID]) {
+        mergedProfiles[CLIENT_COOKIE_PROFILE_ID] = { ...BUILTIN_CLIENT_PROFILE };
+    }
 
     if (stored && stored.profiles) {
-        // 若用户已保存自定义配置表，以用户保存的列表为准
         const userProfiles: Record<string, AIProfile> = {};
         for (const [k, v] of Object.entries(stored.profiles)) {
             userProfiles[k] = {
@@ -151,6 +299,10 @@ export async function loadAIConfigState(): Promise<AIConfigState> {
                 ...v,
                 id: k,
             };
+        }
+        // 确保「本地客户端模型 (Browser Cookie)」选项始终存在于管理列表中
+        if (!userProfiles[CLIENT_COOKIE_PROFILE_ID]) {
+            userProfiles[CLIENT_COOKIE_PROFILE_ID] = { ...BUILTIN_CLIENT_PROFILE };
         }
         const activeKey =
             stored.active_profile && userProfiles[stored.active_profile]
@@ -174,12 +326,54 @@ export async function loadAIConfigState(): Promise<AIConfigState> {
 }
 
 /**
- * 保存大模型配置状态并广播全局变更事件（使所有编辑器的引擎徽章实时刷新）
+ * 保存大模型配置状态并广播全局变更事件
  */
 export function saveAIConfigState(state: AIConfigState): void {
     if (typeof window === "undefined" || !window.localStorage) return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     window.dispatchEvent(new CustomEvent(AI_CONFIG_CHANGED_EVENT, { detail: state }));
+}
+
+/**
+ * 重命名提供商 ID（保持字典顺序与 active_profile 引用同步，校验格式与唯一性）
+ */
+export function renameAIProfileId(
+    state: AIConfigState,
+    oldId: string,
+    rawNewId: string
+): { ok: true; nextState: AIConfigState; newId: string } | { ok: false; error: string } {
+    if (oldId === CLIENT_COOKIE_PROFILE_ID) {
+        return { ok: false, error: `内置策略项「${CLIENT_COOKIE_PROFILE_ID}」为客户端 Cookie 绑定槽位，不支持修改 ID。` };
+    }
+    const newId = String(rawNewId ?? "").trim();
+    if (!newId) {
+        return { ok: false, error: "提供商 ID 不能为空。" };
+    }
+    if (!/^[a-zA-Z0-9_-]{2,40}$/.test(newId)) {
+        return { ok: false, error: "ID 仅支持字母、数字、下划线(_)与短横线(-)，长度 2–40 位。" };
+    }
+    if (newId === oldId) {
+        return { ok: true, nextState: state, newId };
+    }
+    if (state.profiles[newId]) {
+        return { ok: false, error: `提供商 ID「${newId}」已存在，请使用其他唯一标识。` };
+    }
+
+    const nextProfiles: Record<string, AIProfile> = {};
+    for (const [k, v] of Object.entries(state.profiles)) {
+        if (k === oldId) {
+            nextProfiles[newId] = { ...v, id: newId };
+        } else {
+            nextProfiles[k] = v;
+        }
+    }
+
+    const nextState: AIConfigState = {
+        active_profile: state.active_profile === oldId ? newId : state.active_profile,
+        profiles: nextProfiles,
+    };
+    saveAIConfigState(nextState);
+    return { ok: true, nextState, newId };
 }
 
 /**
@@ -197,9 +391,73 @@ export async function resetAIConfigState(): Promise<AIConfigState> {
 }
 
 /**
- * 解析当前生效的 API Key（提供商专属 Key > .env API_KEY > window.APP_CONFIG.API_KEY）
+ * 解析当前最终生效的推理 Profile（处理管理端 `client_cookie` 指派或客户端本地优先覆盖）
  */
-function resolveApiKey(profile: AIProfile): string {
+export async function resolveEffectiveAIProfile(): Promise<{
+    source: "admin" | "client_cookie";
+    profile: AIProfile;
+}> {
+    const configState = await loadAIConfigState();
+    const clientCfg = loadClientCookieConfig();
+
+    // 情况 1：管理员将全局激活项设为 `client_cookie`（强制解耦内部服务，走客户端各自的 Cookie）
+    if (configState.active_profile === CLIENT_COOKIE_PROFILE_ID) {
+        if (!hasConfiguredClientCookie()) {
+            throw new Error(
+                "当前系统已设置为「使用本地客户端模型」，请先点击主页面右上角的「本地模型配置」按钮配置您的浏览器模型接入参数（写入 Cookie）。"
+            );
+        }
+        return {
+            source: "client_cookie",
+            profile: {
+                id: clientCfg.id || CLIENT_COOKIE_PROFILE_ID,
+                name: clientCfg.name || "本地客户端模型",
+                protocol: clientCfg.protocol || "openai",
+                endpoint: clientCfg.endpoint,
+                apiKey: clientCfg.apiKey,
+                model: clientCfg.model,
+                models: clientCfg.models || [],
+                max_tokens: clientCfg.max_tokens || 8192,
+            },
+        };
+    }
+
+    // 情况 2：客户端在「本地模型配置」中主动勾选了 `enabled: true`（本地浏览器覆盖优先）
+    if (clientCfg.enabled && hasConfiguredClientCookie()) {
+        return {
+            source: "client_cookie",
+            profile: {
+                id: clientCfg.id || CLIENT_COOKIE_PROFILE_ID,
+                name: clientCfg.name || "本地客户端模型",
+                protocol: clientCfg.protocol || "openai",
+                endpoint: clientCfg.endpoint,
+                apiKey: clientCfg.apiKey,
+                model: clientCfg.model,
+                models: clientCfg.models || [],
+                max_tokens: clientCfg.max_tokens || 8192,
+            },
+        };
+    }
+
+    // 情况 3：走管理端当前激活的服务商配置
+    const activeProfile = configState.profiles[configState.active_profile];
+    if (!activeProfile) {
+        throw new Error(`未找到激活的大模型配置方案: ${configState.active_profile}`);
+    }
+    return {
+        source: "admin",
+        profile: activeProfile,
+    };
+}
+
+/**
+ * 解析当前生效的 API Key
+ */
+function resolveApiKey(profile: AIProfile, source: "admin" | "client_cookie" = "admin"): string {
+    if (source === "client_cookie") {
+        // 客户端 Cookie 模式严格使用客户端自己填写的 Key，不混用服务端内部 Key
+        return String(profile.apiKey || "").trim();
+    }
     const candidates = [
         profile.apiKey,
         process.env.API_KEY,
@@ -232,7 +490,6 @@ export function resolveProtocolEndpoints(
     }
 
     if (protocol === "gemini") {
-        // 支持原生 Gemini v1beta 或 OpenAI 兼容端点
         if (trimmed.includes("/chat/completions")) {
             return {
                 chatUrl: trimmed,
@@ -257,7 +514,6 @@ export function resolveProtocolEndpoints(
         };
     }
 
-    // 默认 openai 兼容协议
     if (trimmed.endsWith("/chat/completions")) {
         return {
             chatUrl: trimmed,
@@ -277,11 +533,14 @@ export function resolveProtocolEndpoints(
 }
 
 /**
- * 从远端提供商拉取可用模型列表（支持 OpenAI `/v1/models`、Anthropic `/v1/models`、Gemini `/v1beta/models`）
+ * 从远端提供商拉取可用模型列表
  */
-export async function fetchProviderModels(profile: Pick<AIProfile, "endpoint" | "protocol" | "apiKey" | "model">): Promise<string[]> {
+export async function fetchProviderModels(
+    profile: Pick<AIProfile, "endpoint" | "protocol" | "apiKey" | "model">,
+    isClientMode = false
+): Promise<string[]> {
     const protocol = profile.protocol || "openai";
-    const apiKey = resolveApiKey(profile as AIProfile);
+    const apiKey = resolveApiKey(profile as AIProfile, isClientMode ? "client_cookie" : "admin");
     const { modelsUrl } = resolveProtocolEndpoints(profile.endpoint, protocol, profile.model);
     if (!modelsUrl) {
         throw new Error("请先填写有效的接入地址 (Endpoint)");
@@ -317,13 +576,11 @@ export async function fetchProviderModels(profile: Pick<AIProfile, "endpoint" | 
     const list: string[] = [];
 
     if (Array.isArray(data?.data)) {
-        // OpenAI / Anthropic / NewAPI / LiteLLM / LMStudio 标准格式: { data: [{ id: "..." }] }
         for (const item of data.data) {
             const id = item?.id || item?.name;
             if (typeof id === "string" && id.trim()) list.push(id.trim());
         }
     } else if (Array.isArray(data?.models)) {
-        // Gemini / Ollama 格式: { models: [{ name: "models/gemini-..." }] }
         for (const item of data.models) {
             const rawName = typeof item === "string" ? item : item?.id || item?.name;
             if (typeof rawName === "string" && rawName.trim()) {
@@ -372,9 +629,6 @@ async function getMCPTools(): Promise<ToolDefinition[]> {
     }
 }
 
-/**
- * Build a prompt to help the AI select the best tool sub_type from the catalog.
- */
 function buildIntentDiscoveryPrompt(parentType: string, allTools: ToolDefinition[]): string {
     const sameCategoryTools = allTools.filter(t => t.parent_type === parentType && t.sub_type !== 'master');
     let prompt = `You are a chart expert analyzer. Analyze the user's requirement and select the MOST MATCHING tool sub_type from the list below.\n\n`;
@@ -387,9 +641,6 @@ function buildIntentDiscoveryPrompt(parentType: string, allTools: ToolDefinition
     return prompt;
 }
 
-/**
- * Dynamic Prompt Builder using ILDR 2.0 Architecture (Intent + Spliced Protocol)
- */
 function buildSmartPrompt(parentType: string, subType: string | undefined, allTools: ToolDefinition[]): string {
     const master = allTools.find(t => t.parent_type === parentType && t.sub_type === 'master');
     const specific = subType ? allTools.find(t => t.parent_type === parentType && t.sub_type === subType) : null;
@@ -429,13 +680,10 @@ ${getConstraint5()}`;
 }
 
 async function callAI(systemPrompt: string, userPrompt: string, maxTokens?: number) {
-    const configState = await loadAIConfigState();
-    const activeProfileName = configState.active_profile;
-    const profile = configState.profiles[activeProfileName];
-    if (!profile) throw new Error(`未找到激活的大模型配置方案: ${activeProfileName}`);
+    const { source, profile } = await resolveEffectiveAIProfile();
 
     const protocol: AIProtocolType = profile.protocol || "openai";
-    const apiKey = resolveApiKey(profile);
+    const apiKey = resolveApiKey(profile, source);
     const { chatUrl } = resolveProtocolEndpoints(profile.endpoint, protocol, profile.model);
     const cap = profile.max_tokens ?? maxTokens ?? 8192;
 
@@ -504,7 +752,6 @@ async function callAI(systemPrompt: string, userPrompt: string, maxTokens?: numb
             return text;
         }
 
-        // OpenAI 兼容协议 & Custom 自定义协议
         const body: Record<string, unknown> = {
             model: profile.model,
             messages: [
@@ -552,9 +799,6 @@ async function callAI(systemPrompt: string, userPrompt: string, maxTokens?: numb
     }
 }
 
-/**
- * Generates DSL for Logic Tools (Fishbone/Affinity/VChart/Mermaid/etc.)
- */
 export const generateLogicDSL = async (prompt: string, toolType: QCToolType, subType?: string) => {
     try {
         const tools = await getMCPTools();
@@ -610,6 +854,13 @@ export const generateBasicDSL = async (prompt: string) => {
 export const getAIStatus = async (): Promise<string> => {
     try {
         const state = await loadAIConfigState();
+        const clientCfg = loadClientCookieConfig();
+        if (state.active_profile === CLIENT_COOKIE_PROFILE_ID || (clientCfg.enabled && hasConfiguredClientCookie())) {
+            if (!hasConfiguredClientCookie()) {
+                return "客户端模型 (待配置 Cookie)";
+            }
+            return `[Cookie] ${clientCfg.name || "本地客户端"} · ${clientCfg.model || "默认"}`;
+        }
         const profile = state.profiles[state.active_profile];
         if (!profile) return "未激活服务";
         return profile.model ? `${profile.name} · ${profile.model}` : profile.name;

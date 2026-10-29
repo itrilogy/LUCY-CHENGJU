@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { TOOL_CONFIGS } from '../constants';
 import { QCToolType } from '../types';
-import { ArrowUpRight, Cpu, ShieldCheck, LayoutGrid, Sun, Moon, Info, X, ChevronRight, Settings2 } from 'lucide-react';
+import { ArrowUpRight, Cpu, ShieldCheck, LayoutGrid, Sun, Moon, Info, X, ChevronRight, Settings2, Laptop } from 'lucide-react';
 import { parseProjectIndexReleases } from '../utils/projectIndexParser';
 import { AIModelManagerModal } from './AIModelManagerModal';
+import { hasConfiguredClientCookie, AI_CONFIG_CHANGED_EVENT } from '../services/aiService';
 
 interface Props {
   onSelectTool: (type: QCToolType) => void;
@@ -15,7 +16,15 @@ interface Props {
 
 export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, theme, setTheme }) => {
   const [showInfo, setShowInfo] = useState(false);
-  const [showModelManager, setShowModelManager] = useState(false);
+  const [modelModalMode, setModelModalMode] = useState<'admin' | 'client' | null>(null);
+  const [clientCookieReady, setClientCookieReady] = useState<boolean>(() => hasConfiguredClientCookie());
+
+  useEffect(() => {
+    const syncCookieBadge = () => setClientCookieReady(hasConfiguredClientCookie());
+    syncCookieBadge();
+    window.addEventListener(AI_CONFIG_CHANGED_EVENT, syncCookieBadge);
+    return () => window.removeEventListener(AI_CONFIG_CHANGED_EVENT, syncCookieBadge);
+  }, []);
 
   // 直接从 docs/PROJECT_INDEX.md 单一真源解析版本与工程历程表
   const releaseMeta = useMemo(() => parseProjectIndexReleases(), []);
@@ -63,11 +72,11 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
             </div>
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className={`${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/40 border-white/50'} backdrop-blur-xl px-8 py-4 rounded-[2rem] border shadow-xl flex items-center gap-6 transition-all border-b-2 border-b-blue-500/10`}>
-              <LayoutGrid size={24} className="text-blue-500" />
-              <div className="flex flex-col min-w-[140px]">
-                <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-4">
+            <div className={`${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/40 border-white/50'} backdrop-blur-xl px-6 py-3.5 rounded-xl border shadow-lg flex items-center gap-5 transition-all border-b-2 border-b-blue-500/10`}>
+              <LayoutGrid size={22} className="text-blue-500" />
+              <div className="flex flex-col min-w-[130px]">
+                <div className="flex items-center justify-between mb-1.5">
                   <span className={`text-[11px] font-black ${isDark ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-[0.2em] leading-none`}>网格跨度</span>
                   <span className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-blue-600'} tracking-tighter`}>{cols} COLUMNS</span>
                 </div>
@@ -83,12 +92,12 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
 
             <button
               onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              className={`relative flex items-center ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/40 border-white/50'} backdrop-blur-xl p-1.5 rounded-[2rem] border shadow-xl transition-all w-48 h-12 overflow-hidden cursor-pointer`}
+              className={`relative flex items-center ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/40 border-white/50'} backdrop-blur-xl p-1.5 rounded-xl border shadow-lg transition-all w-44 h-12 overflow-hidden cursor-pointer`}
               title={isDark ? '切换到亮色模式' : '切换到暗色模式'}
             >
               {/* Sliding Background Indicator */}
               <div 
-                className={`absolute inset-y-1.5 w-[calc(50%-6px)] rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-0`}
+                className={`absolute inset-y-1.5 w-[calc(50%-6px)] rounded-lg shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-0`}
                 style={{
                   transform: isDark ? 'translateX(calc(100% + 6px))' : 'translateX(0)',
                   backgroundColor: isDark ? '#42525C' : '#FFFFFF'
@@ -106,41 +115,57 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
               </div>
             </button>
 
+            {/* 新增：本地客户端模型配置弹窗按钮（免管理密码，直接读写浏览器 Cookie） */}
+            <button
+              onClick={() => setModelModalMode('client')}
+              className={`relative ${isDark ? 'bg-slate-800/40 border-slate-700/50 text-slate-300 hover:border-blue-500/50' : 'bg-white/40 border-white/50 text-slate-600 hover:border-blue-500/50'} backdrop-blur-xl px-4 h-12 rounded-xl border shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer`}
+              title="本地客户端模型配置（通过浏览器 Cookie 配置个人模型，与服务端解耦）"
+            >
+              <Laptop size={20} className="text-primary" />
+              <span className="text-[11px] font-black uppercase tracking-wider hidden sm:inline">本地模型</span>
+              {clientCookieReady && (
+                <span
+                  className="w-2 h-2 rounded-full bg-[var(--state-up)] animate-pulse"
+                  title="当前浏览器已配置客户端模型 Cookie"
+                />
+              )}
+            </button>
+
             <button
               onClick={() => setShowInfo(true)}
-              className={`${isDark ? 'bg-slate-800/40 border-slate-700/50 text-slate-300' : 'bg-white/40 border-white/50 text-slate-600'} backdrop-blur-xl p-4 rounded-full border shadow-xl hover:scale-110 active:scale-95 transition-all group flex items-center justify-center min-w-[56px] min-h-[56px] cursor-pointer`}
+              className={`${isDark ? 'bg-slate-800/40 border-slate-700/50 text-slate-300 hover:border-blue-500/50' : 'bg-white/40 border-white/50 text-slate-600 hover:border-blue-500/50'} backdrop-blur-xl w-12 h-12 rounded-xl border shadow-lg hover:scale-105 active:scale-95 transition-all group flex items-center justify-center cursor-pointer`}
               title="版权与说明"
             >
-              <Info size={24} />
+              <Info size={22} />
             </button>
           </div>
         </header>
 
-        <section className={`grid grid-cols-1 ${gridColsClass} gap-8`}>
+        <section className={`grid grid-cols-1 ${gridColsClass} gap-6`}>
           {TOOL_CONFIGS.map((tool) => (
             <button
               key={tool.type}
               onClick={() => onSelectTool(tool.type)}
-              className={`group ${isDark ? 'bg-slate-900 text-slate-200 border-slate-800 hover:border-blue-500/50' : 'bg-white text-slate-800 border-slate-200 hover:border-blue-500/50'} rounded-[2.5rem] p-10 border shadow-xl hover:shadow-[0_20px_50px_-10px_rgba(37,99,235,0.2)] transition-all duration-700 relative overflow-hidden flex flex-col h-[320px] text-left active:scale-[0.98] cursor-pointer`}
+              className={`group ${isDark ? 'bg-slate-900 text-slate-200 border-slate-800 hover:border-blue-500/50' : 'bg-white text-slate-800 border-slate-200 hover:border-blue-500/50'} rounded-2xl p-8 border shadow-md hover:shadow-[0_16px_40px_-10px_rgba(13,94,66,0.18)] transition-all duration-500 relative overflow-hidden flex flex-col h-[300px] text-left active:scale-[0.98] cursor-pointer`}
             >
               <div className="relative z-10 flex flex-col h-full justify-between">
                 <div>
-                  <div className={`w-14 h-14 rounded-lg ${tool.bg} flex items-center justify-center mb-6 transition-all duration-700 group-hover:scale-110 group-hover:rotate-[6deg] ring-1 ${isDark ? 'ring-white/10' : 'ring-slate-200/50'} shadow-lg`}>
-                    {React.cloneElement(tool.icon as React.ReactElement<any>, { size: 26, className: tool.color })}
+                  <div className={`w-13 h-13 rounded-lg ${tool.bg} flex items-center justify-center mb-5 transition-all duration-500 group-hover:scale-105 ring-1 ${isDark ? 'ring-white/10' : 'ring-slate-200/50'} shadow-sm`}>
+                    {React.cloneElement(tool.icon as React.ReactElement<any>, { size: 24, className: tool.color })}
                   </div>
-                  <h3 className={`text-2xl font-[900] ${isDark ? 'text-white group-hover:text-blue-400' : 'text-slate-900 group-hover:text-blue-600'} tracking-tight transition-colors uppercase leading-none`}>
+                  <h3 className={`text-xl font-[900] ${isDark ? 'text-white group-hover:text-blue-400' : 'text-slate-900 group-hover:text-blue-600'} tracking-tight transition-colors uppercase leading-none`}>
                     {tool.name}
                   </h3>
-                  <div className={`mt-2 text-[11px] font-black ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-[0.2em]`}>{tool.enName}</div>
-                  <p className={`text-[12px] ${isDark ? 'text-slate-400 opacity-80' : 'text-slate-500 opacity-90'} mt-6 font-medium leading-relaxed line-clamp-3`}>{tool.desc ? (tool.desc.length > 50 ? tool.desc.substring(0, 47) + '...' : tool.desc) : ''}</p>
+                  <div className={`mt-2 text-[11px] font-black ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-[0.18em]`}>{tool.enName}</div>
+                  <p className={`text-[12px] ${isDark ? 'text-slate-400 opacity-80' : 'text-slate-500 opacity-90'} mt-5 font-medium leading-relaxed line-clamp-3`}>{tool.desc ? (tool.desc.length > 50 ? tool.desc.substring(0, 47) + '...' : tool.desc) : ''}</p>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <div className={`text-[20px] font-black ${isDark ? 'text-slate-700 group-hover:text-slate-600' : 'text-slate-300 group-hover:text-slate-400'} transition-colors duration-700 select-none`}>
-                    0{TOOL_CONFIGS.indexOf(tool) + 1}
+                  <div className={`text-[18px] font-black ${isDark ? 'text-slate-700 group-hover:text-slate-600' : 'text-slate-300 group-hover:text-slate-400'} transition-colors duration-500 select-none font-mono`}>
+                    {String(TOOL_CONFIGS.indexOf(tool) + 1).padStart(2, '0')}
                   </div>
-                  <div className={`w-11 h-11 rounded-lg ${isDark ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'} border flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all duration-500 shadow-sm`}>
-                    <ArrowUpRight size={22} />
+                  <div className={`w-10 h-10 rounded-lg ${isDark ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'} border flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all duration-300 shadow-sm`}>
+                    <ArrowUpRight size={20} />
                   </div>
                 </div>
               </div>
@@ -173,7 +198,7 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
 
       {showInfo && (
         <div className="fixed inset-0 z-[900] flex items-center justify-center p-8 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-[2.5rem] shadow-lg overflow-hidden border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'} animate-in zoom-in-95 duration-300`}>
+          <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl shadow-lg overflow-hidden border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'} animate-in zoom-in-95 duration-300`}>
             {/* Modal Header */}
             <div className={`p-8 border-b ${isDark ? 'border-slate-800' : 'border-slate-100'} flex items-center justify-between shrink-0 bg-transparent`}>
               <div className="flex items-center gap-4">
@@ -192,7 +217,7 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
               </div>
               <button 
                 onClick={() => setShowInfo(false)}
-                className={`p-3 rounded-full transition-all cursor-pointer ${isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'}`}
+                className={`p-2.5 rounded-lg transition-all cursor-pointer ${isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'}`}
               >
                 <X size={24} />
               </button>
@@ -229,7 +254,7 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
                     <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> 图表引擎：全量自研确定性 SVG 拓扑引擎 + ECharts 5</li>
                     <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> 交互设计：LUXI Design System v1.0 视觉套件</li>
                     <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> 内核解析：IQS-DSL v1 强类型词法与卡片单一真源（SSOT）</li>
-                    <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> AI 集成：支持 OpenAI / DeepSeek / Claude / Gemini 多协议管理</li>
+                    <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> AI 集成：支持服务端预设与客户端 Cookie 双模解耦接入</li>
                   </ul>
                 </div>
               </div>
@@ -278,22 +303,27 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
               </section>
             </div>
 
-            {/* Modal Footer：左侧版权标识，右侧新增「模型管理」按钮 + 原有「进入工位」确认按钮 */}
-            <div className={`p-6 border-t ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-slate-50'} flex justify-between items-center shrink-0`}>
-              <p className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                <span className="inline-flex items-center gap-2">
-                  <img src={isDark ? '/brand/luxi-lab-inverse.svg' : '/brand/luxi-lab.svg'} alt="" className="w-5 h-5 object-contain" />
-                  © 2026 澄矩 · ChengJu ({releaseMeta.softwareVersion}) · 鹿溪联合创新实验室 LUXI LAB
-                </span>
-              </p>
+            {/* Modal Footer：左侧两行版权标识，右侧「模型」按钮 + 「确定」按钮 */}
+            <div className={`p-6 border-t ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-slate-50'} flex justify-between items-center gap-4 shrink-0`}>
               <div className="flex items-center gap-3">
+                <img src={isDark ? '/brand/luxi-lab-inverse.svg' : '/brand/luxi-lab.svg'} alt="LUXI LAB" className="w-7 h-7 object-contain shrink-0" />
+                <div className="flex flex-col space-y-0.5">
+                  <span className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                    © 2026 澄矩 · ChengJu ({releaseMeta.softwareVersion})
+                  </span>
+                  <span className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                    鹿溪联合创新实验室 LUXI LAB
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     setShowInfo(false);
-                    setShowModelManager(true);
+                    setModelModalMode('admin');
                   }}
-                  className={`px-5 py-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all border flex items-center gap-2 cursor-pointer ${
+                  className={`px-6 py-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all border flex items-center gap-2 cursor-pointer ${
                     isDark
                       ? 'bg-slate-800 border-slate-700 text-slate-200 hover:border-blue-500/60 hover:text-white'
                       : 'bg-white border-slate-200 text-slate-700 hover:border-blue-500/60 hover:text-slate-900'
@@ -301,14 +331,14 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
                   title="管理大模型提供商、API 密钥与激活模型（需 ENV 管理密码）"
                 >
                   <Settings2 size={15} className="text-primary" />
-                  <span>模型管理</span>
+                  <span>模型</span>
                 </button>
                 <button 
                   type="button"
                   onClick={() => setShowInfo(false)}
                   className={`px-8 py-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-lg cursor-pointer ${isDark ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
                 >
-                  进入工位
+                  确定
                 </button>
               </div>
             </div>
@@ -316,11 +346,13 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
         </div>
       )}
 
-      {/* 大模型配置与接入管理弹窗（ENV 密码鉴权 + 多提供商 CRUD + 模型拉取与激活） */}
+      {/* 大模型配置与接入管理弹窗（复用同一组件：mode='admin' 管理全局配置 / mode='client' 管理本地浏览器 Cookie 配置） */}
       <AIModelManagerModal
-        open={showModelManager}
-        onClose={() => setShowModelManager(false)}
+        open={modelModalMode !== null}
+        mode={modelModalMode || 'admin'}
+        onClose={() => setModelModalMode(null)}
         isDark={isDark}
+        onOpenClientModal={() => setModelModalMode('client')}
       />
     </div>
   );
