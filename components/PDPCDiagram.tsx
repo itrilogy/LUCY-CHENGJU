@@ -27,8 +27,14 @@ const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles
 
             if (options?.width && options?.height) {
                 graphRef.current.setSize(options.width, options.height);
-                graphRef.current.fitView({ padding: 40 } as any);
             }
+            await graphRef.current.fitView({ padding: 40, duration: 0 } as any);
+            // 确保 G6 底层 canvas 渲染管线提交完成
+            await new Promise<void>((resolve) => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => resolve());
+                });
+            });
             
             const graphCanvasData = await graphRef.current.toDataURL({ 
                 backgroundColor: backgroundColor,
@@ -136,17 +142,23 @@ const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles
         },
         tidyLayout: () => {
             if (graphRef.current) {
-                graphRef.current.layout();
-                graphRef.current.fitView({
-                    padding: 40,
-                    duration: 500
-                } as any);
+                const isHeadless = typeof window !== 'undefined' && window.location.search.includes('mode=headless');
+                const animDuration = isHeadless ? 0 : 500;
+                graphRef.current.layout().then(() => {
+                    graphRef.current?.fitView({
+                        padding: 40,
+                        duration: animDuration
+                    } as any);
+                });
             }
         }
     }));
 
     useEffect(() => {
         if (!containerRef.current || !data.nodes.length) return;
+
+        const isHeadless = typeof window !== 'undefined' && window.location.search.includes('mode=headless');
+        const animDuration = isHeadless ? 0 : 500;
 
         const width = containerRef.current.clientWidth || 800;
         const height = containerRef.current.clientHeight || 600;
@@ -252,6 +264,7 @@ const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles
                 data: { nodes: g6Nodes, edges: g6Edges, combos: g6Combos },
                 layout: layoutConfig,
                 behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element', 'drag-combo'],
+                animation: !isHeadless,
                 autoFit: {
                     type: 'view',
                     options: {
@@ -261,15 +274,21 @@ const PDPCDiagram = forwardRef<PDPCDiagramRef, PDPCDiagramProps>(({ data, styles
             });
 
             graphRef.current = graph;
-            graph.render();
+            graph.render().then(() => {
+                graph.fitView({
+                    padding: 40,
+                    duration: animDuration
+                } as any);
+            });
         } else {
             graphRef.current.setData({ nodes: g6Nodes, edges: g6Edges, combos: g6Combos });
             graphRef.current.setLayout(layoutConfig);
-            graphRef.current.render();
-            graphRef.current.fitView({
-                padding: 40,
-                duration: 500
-            } as any);
+            graphRef.current.render().then(() => {
+                graphRef.current?.fitView({
+                    padding: 40,
+                    duration: animDuration
+                } as any);
+            });
         }
 
         const resizeObserver = new ResizeObserver((entries) => {

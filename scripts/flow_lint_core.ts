@@ -1,12 +1,17 @@
 /**
- * IQS-Flow DSL 诊断核心（纯函数，无 I/O）。
+ * IQS MCP 共享核心包（纯函数，无 I/O，零 React/DOM 依赖）。
  *
  * 两处使用：
  *  1. scripts/lint_flow.ts —— 命令行包装（stdin → JSON）
  *  2. mcp-server/lib/flow_lint.mjs —— 由 `npm run build:mcp-lint` 经 esbuild 打包，
- *     MCP 服务进程内直接 import，不再依赖仓库中的 scripts/ 与 components/ 源码目录。
+ *     提供：
+ *       • lintFlow(dsl)           —— IQS-Flow 深度拓扑与语法诊断
+ *       • lintCoreKind(kind, dsl) —— 全部 14 个 CORE 图表的统一前置语法与必填项诊断
+ *       • renderFlowSVG(dsl)      —— Tier-1 极速进程内 SVG 矢量直出（无需无头浏览器）
  */
 import { parseFlowDSL } from '../components/flow/FlowParser.ts';
+import { flowToSVG, getSvgSize } from '../components/flow/flowToSVG.ts';
+import { lintDsl } from '../dsl/index.ts';
 
 export interface AnnotatedError {
   line?: number;
@@ -24,6 +29,15 @@ export interface FlowLintResult {
   subprocesses: number;
   annotatedErrors: AnnotatedError[];
   fixHints: string[];
+}
+
+export interface CoreLintResult {
+  kind: string;
+  errors: string[];
+  warnings: string[];
+  annotatedErrors: AnnotatedError[];
+  fixHints: string[];
+  items?: number;
 }
 
 export function looksLikeMermaid(dsl: string): boolean {
@@ -45,8 +59,8 @@ function annotateErrors(lines: string[], errors: string[]): AnnotatedError[] {
       const foundIdx = lines.findIndex((l) => {
         const trimmed = l.trim();
         return trimmed.startsWith(`W: ${nodeId}:`) ||
-               trimmed.startsWith(`W:${nodeId}:`) ||
-               new RegExp(`\\b${nodeId}\\b`).test(trimmed);
+          trimmed.startsWith(`W:${nodeId}:`) ||
+          new RegExp(`\\b${nodeId}\\b`).test(trimmed);
       });
       if (foundIdx >= 0) {
         return { line: foundIdx + 1, snippet: lines[foundIdx].trim(), message: msg };
@@ -60,8 +74,8 @@ function annotateErrors(lines: string[], errors: string[]): AnnotatedError[] {
       const foundIdx = lines.findIndex((l) => {
         const trimmed = l.trim();
         return trimmed.startsWith(`Dict: ${dictName}[`) ||
-               trimmed.startsWith(`Dict:${dictName}[`) ||
-               trimmed.includes(`Lane from ${dictName}`);
+          trimmed.startsWith(`Dict:${dictName}[`) ||
+          trimmed.includes(`Lane from ${dictName}`);
       });
       if (foundIdx >= 0) {
         return { line: foundIdx + 1, snippet: lines[foundIdx].trim(), message: msg };
@@ -171,4 +185,241 @@ export function lintFlow(dsl: string): FlowLintResult {
     annotatedErrors: annotateErrors(lines, errors),
     fixHints: deriveFixHints(errors, warnings, text)
   };
+}
+
+/**
+ * 14 个 CORE 图表的通用前置语法与结构必填项校验
+ */
+export function lintCoreKind(kindRaw: string, dslRaw: string): CoreLintResult | FlowLintResult {
+  const kind = kindRaw === 'matrix_plot' ? 'matrixPlot' : kindRaw;
+  if (kind === 'flow') {
+    return lintFlow(dslRaw);
+  }
+
+  const text = String(dslRaw ?? '');
+  const lines = text.split(/\r?\n/);
+  const base = lintDsl(kind, text);
+  const errors = [...base.errors];
+  const warnings = base.warnings.map((w) => `Line ${w.line}: ${w.message}`);
+  const fixHints: string[] = [];
+  let items = 0;
+
+  const nonCommentLines = lines.map((l) => l.trim()).filter((l) => l && !l.startsWith('//'));
+
+  switch (kind) {
+    case 'fishbone': {
+      const headers = nonCommentLines.filter((l) => /^#+\s+\S+/.test(l));
+      items = headers.length;
+      if (headers.length === 0) {
+        errors.push('鱼骨图缺少层级骨行（必须使用 # 一级大骨、## 二级中骨、### 三级小骨）');
+        fixHints.push('【鱼骨图语法】请使用 `# 人 (Man)`、`## 具体原因`、`### 根本原因` 声明层级，禁止使用 `-` 列表或 `Item:`。');
+        break;
+      }
+
+      /* ── 语义门禁：执行 dsl/cards/iqs_native/fishbone.card.ts 已声明的建模约束 ──
+         大骨 4–6（软 1–8）、每族中骨 2–8、层级 ≤ 4、Title 必填、单标签 ≤ 16 字 */
+      const hasTitle = lines.some((l) => /^\s*Title\s*[:：]\s*\S+/.test(l));
+      const baseAlreadyFlagsTitle = errors.some((e) => /title/i.test(e));
+      if (!hasTitle && !baseAlreadyFlagsTitle) {
+        errors.push('鱼骨图缺少 `Title:` 问题陈述（鱼头）');
+        fixHints.push('【鱼骨图语法】`Title: 待分析的问题` 承载鱼头；`#` 只能写原因分类，不要把原因提到大骨层。');
+      }
+
+      const bones: { level: number; label: string; line: number }[] = [];
+      lines.forEach((raw, i) => {
+        const m = raw.trim().match(/^(#+)\s+(.+)$/);
+        if (m) bones.push({ level: m[1].length, label: m[2].trim(), line: i + 1 });
+      });
+
+      const mains = bones.filter((b) => b.level === 1);
+      if (mains.length > 8) {
+        warnings.push(`大骨 ${mains.length} 个，超出建议上限 8：族数越多整图缩放比越低，` +
+          `实测 6 大骨 + 三层深钻在 1200×800 下有效字号仅 ~6px，建议合并同类或增大画布`);
+      } else if (mains.length > 6) {
+        warnings.push(`大骨 ${mains.length} 个，略多于推荐的 4–6 个（5M1E 标准为 6）：注意输出画布宽度需随之增大`);
+      }
+
+      const maxDepth = bones.reduce((a, b) => Math.max(a, b.level), 0);
+      if (maxDepth > 4) {
+        warnings.push(`层级深度 ${maxDepth} 超过 4 级：引擎支持多级嵌套，但超过四级会显著压缩可读性，建议用 5 Whys 归并到 3–4 级`);
+      }
+
+      /* 每族中骨数量：按最近一次 level-1 归组 */
+      let currentMain = '';
+      const perMain = new Map<string, number>();
+      for (const b of bones) {
+        if (b.level === 1) {
+          currentMain = b.label;
+          perMain.set(currentMain, 0);
+        } else if (b.level === 2 && currentMain) {
+          perMain.set(currentMain, (perMain.get(currentMain) || 0) + 1);
+        }
+      }
+      for (const [main, count] of perMain) {
+        if (count > 8) {
+          warnings.push(`大骨「${main}」下 ${count} 个中骨，超过推荐上限 8：该族垂直需求会顶高整图，建议归并同类原因`);
+        }
+      }
+
+      const longMains = mains.filter((b) => b.label.length > 16);
+      if (longMains.length) {
+        warnings.push(`大骨标签过长：${longMains.map((b) => `「${b.label}」(${b.label.length} 字)`).join('、')}，` +
+          `标题框会横向撑宽族群，建议 ≤ 16 字`);
+      }
+      break;
+    }
+    case 'affinity': {
+      const itemLines = nonCommentLines.filter((l) => /^Item\s*:/i.test(l));
+      items = itemLines.length;
+      if (itemLines.length === 0) {
+        errors.push('亲和图缺少 `Item: id, 标签, 父ID` 数据行');
+        fixHints.push('【亲和图语法】请使用 `Item: root, 核心主题, null` 与 `Item: g1, 分组名, root` 声明节点，禁止使用 `#` 建树。');
+      }
+      break;
+    }
+    case 'pareto': {
+      const pairLines = nonCommentLines.filter((l) => /^-\s*.+:\s*[\d.]+/.test(l));
+      items = pairLines.length;
+      if (pairLines.length === 0) {
+        errors.push('排列图缺少 `- 缺陷名称: 频数` 数据行（注意不要写 `Data:` 块外壳）');
+        fixHints.push('【排列图语法】数据行格式为 `- 物流破损: 420`，直接逐行列出，不要包裹在 `Data:` 下。');
+      }
+      break;
+    }
+    case 'histogram': {
+      const numLines = nonCommentLines.filter((l) => /^-\s*[\d.-]+/.test(l));
+      items = numLines.length;
+      if (numLines.length === 0) {
+        errors.push('直方图缺少 `- 测量数值` 数据行');
+        fixHints.push('【直方图语法】每行一个样本值，格式为 `- 10.02`。');
+      }
+      break;
+    }
+    case 'control': {
+      const hasSeries = /\[series\]\s*:/i.test(text) && /\[\/series\]/i.test(text);
+      items = hasSeries ? 1 : 0;
+      if (!hasSeries) {
+        errors.push('控制图缺少 `[series]: 系列名 ... [/series]` 数据块（严禁使用 `Data:`）');
+        fixHints.push('【控制图语法】必须使用 `[series]: 测量值` 开始数据行，并以 `[/series]` 闭合。');
+      }
+      break;
+    }
+    case 'scatter': {
+      const tupleLines = nonCommentLines.filter((l) => /^-\s*[\d.-]+\s*,\s*[\d.-]+/.test(l));
+      items = tupleLines.length;
+      if (tupleLines.length < 2) {
+        errors.push('散点图至少需要 2 行 `- x, y` 坐标数据');
+        fixHints.push('【散点图语法】每行一个坐标点，格式为 `- 195.5, 85.2`（3D 模式为 `- x, y, z`）。');
+      }
+      break;
+    }
+    case 'radar': {
+      const axes = nonCommentLines.filter((l) => /^Axis\s*:/i.test(l));
+      const series = nonCommentLines.filter((l) => /^Series\s*:/i.test(l));
+      items = series.length;
+      if (axes.length < 3 || series.length < 1) {
+        errors.push(`雷达图至少需要 3 条 \`Axis: 维度名, 满分\`（当前 ${axes.length} 条）与 1 条 \`Series: 名称, [v1, v2, ...]\`（当前 ${series.length} 条）`);
+        fixHints.push('【雷达图语法】先写多行 `Axis: 维度, 100`，再写 `Series: 改善前, [70, 80, 65]`。');
+      }
+      break;
+    }
+    case 'relation': {
+      const nodes = nonCommentLines.filter((l) => /^Node\s*:/i.test(l));
+      const rels = nonCommentLines.filter((l) => /^Rel\s*:/i.test(l));
+      items = nodes.length;
+      if (nodes.length === 0 || rels.length === 0) {
+        errors.push('关联图必须同时包含 `Node: id, 标签` 与 `Rel: src -> tgt`');
+        fixHints.push('【关联图语法】使用 `Node: n1, 原因描述` 定义节点，`Rel: n1 -> n2` 定义因果指向。');
+      }
+      break;
+    }
+    case 'arrow': {
+      const events = nonCommentLines.filter((l) => /^Event\s*:/i.test(l));
+      const tasks = nonCommentLines.filter((l) => /^\w+\s*(?:->|\.\.>)\s*\w+/.test(l));
+      items = events.length;
+      if (events.length === 0 || tasks.length === 0) {
+        errors.push('矢线图必须同时包含 `Event: id, 名称` 节点与 `1 -> 2: 作业名, 工期` 边');
+        fixHints.push('【矢线图语法】先写 `Event: 1, 开始`，再写 `1 -> 2: 基础施工, 5`（虚工作用 `..>`）。');
+      }
+      break;
+    }
+    case 'pdpc': {
+      const itemsCount = nonCommentLines.filter((l) => /^Item\s*:/i.test(l)).length;
+      const linksCount = nonCommentLines.filter((l) => /--/.test(l)).length;
+      items = itemsCount;
+      if (itemsCount === 0 || linksCount === 0) {
+        errors.push('PDPC 图必须包含 `Item: id, 描述, [类型]` 节点与 `a--b [OK|NG]` 连线');
+        fixHints.push('【PDPC 语法】使用 `Group:` / `Item:` / `EndGroup` 声明节点，并用 `s1--c1 [OK]` 连接。');
+      }
+      break;
+    }
+    case 'matrix': {
+      const axes = nonCommentLines.filter((l) => /^Axis\s+/i.test(l) || /^Axis\s*:/i.test(l));
+      items = axes.length;
+      if (axes.length < 2) {
+        errors.push('矩阵图至少需要定义 2 个 `Axis` 维度块');
+        fixHints.push('【矩阵图语法】请调用 read_protocol("matrix") 查阅标准 `Axis` 与 `Matrix` 块定义。');
+      }
+      break;
+    }
+    case 'matrixPlot': {
+      const hasData = nonCommentLines.some((l) => /^Data\s*:/i.test(l));
+      items = hasData ? 1 : 0;
+      if (!hasData) {
+        errors.push('矩阵散点图缺少 `Data:` 表头与数据块');
+        fixHints.push('【图矩阵语法】必须包含 `Dimensions: ...` 与 `Data:` CSV 数据行。');
+      }
+      break;
+    }
+    case 'basic': {
+      const datasets = nonCommentLines.filter((l) => /^Dataset\s*:/i.test(l));
+      items = datasets.length;
+      if (datasets.length === 0) {
+        errors.push('基础图表缺少 `Dataset: 系列名, [数值...]` 行');
+        fixHints.push('【基础图语法】必须包含 `Categories: [A, B, C]` 与 `Dataset: 系列1, [10, 20, 30]`。');
+      }
+      break;
+    }
+  }
+
+  if (errors.length > 0 && fixHints.length === 0) {
+    fixHints.push(`【语法指南】请调用 read_protocol("${kindRaw}") 获取该图表的标准 DSL 规范与官方示例。`);
+  }
+
+  return {
+    kind,
+    errors,
+    warnings,
+    annotatedErrors: errors.map((message) => ({ message })),
+    fixHints,
+    items,
+  };
+}
+
+let lastFlowSvgKey = "";
+let lastFlowSvgVal: { svg: string; width: number; height: number } | null = null;
+
+/**
+ * Tier-1 极速进程内直出：将 IQS-Flow DSL 直接编译为确定性 SVG 字符串与几何尺寸
+ */
+export function renderFlowSVG(dsl: string): {
+  svg: string;
+  width: number;
+  height: number;
+} {
+  const key = String(dsl ?? "");
+  if (key === lastFlowSvgKey && lastFlowSvgVal) {
+    return lastFlowSvgVal;
+  }
+  const parsed = parseFlowDSL(key);
+  const svg = flowToSVG(parsed.data, parsed.styles);
+  const size = getSvgSize(parsed.data, parsed.styles);
+  const out = {
+    svg,
+    width: size.width,
+    height: size.height,
+  };
+  lastFlowSvgKey = key;
+  lastFlowSvgVal = out;
+  return out;
 }

@@ -163,9 +163,12 @@ export const ScatterDiagram = forwardRef<ScatterDiagramRef, Props>(({ data, styl
             }
         }
 
+        const isHeadless = typeof window !== 'undefined' && window.location.search.includes('mode=headless');
+
         // 3D Mode Logic
         if (finalStyles.is3D) {
             return {
+                animation: !isHeadless,
                 title: {
                     text: finalStyles.title,
                     left: 'center',
@@ -244,6 +247,7 @@ export const ScatterDiagram = forwardRef<ScatterDiagramRef, Props>(({ data, styl
 
         // 2D Mode (Existing Logic)
         return {
+            animation: !isHeadless,
             title: {
                 text: finalStyles.title,
                 left: 'center',

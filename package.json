@@ -17,10 +17,12 @@
     "check:cards-fresh": "node --experimental-strip-types scripts/check_cards_fresh.ts",
     "snapshot:cards": "node --experimental-strip-types scripts/validate_cards.ts --update-snapshots",
     "scaffold:cards": "node --experimental-strip-types scripts/scaffold_cards.ts",
+    "test:fishbone": "node --experimental-strip-types scripts/assert_fishbone_math.ts",
     "test:flow": "node --experimental-strip-types scripts/assert_flow_parser.ts && node --experimental-strip-types scripts/assert_flow_svg.ts && node --experimental-strip-types scripts/assert_flow_bpmn.ts && node --experimental-strip-types scripts/assert_mainline.ts && node --experimental-strip-types scripts/assert_cell_order.ts && node --experimental-strip-types scripts/assert_flow_alignment.ts && node --experimental-strip-types scripts/assert_flow_geometry.ts",
     "dev": "npm run sync-tools && vite --port 12000 --host 0.0.0.0 --strictPort",
     "build:mcp-lint": "esbuild scripts/flow_lint_core.ts --bundle --platform=node --format=esm --target=node22 --outfile=mcp-server/lib/flow_lint.mjs --log-level=warning",
-    "build": "npm run validate:dsl && npm run test:flow && npm run sync-tools && npm run build:mcp-lint && vite build",
+    "check:mcp-lint-fresh": "node --experimental-strip-types scripts/check_mcp_lint_fresh.ts",
+    "build": "npm run validate:dsl && npm run test:fishbone && npm run test:flow && npm run sync-tools && npm run build:mcp-lint && npm run check:mcp-lint-fresh && vite build",
     "preview": "vite preview --port 12000 --host 0.0.0.0 --strictPort",
     "mcp:stdio": "IQS_BASE_URL=${IQS_BASE_URL:-http://localhost:12000} node mcp-server/index.js",
     "mcp:sse": "IQS_BASE_URL=${IQS_BASE_URL:-http://localhost:12000} PORT=${PORT:-12001} node mcp-server/index.js --transport=sse"
@@ -29,7 +31,6 @@
     "@antv/g6": "^5.0.51",
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
-    "@google/genai": "1.38.0",
     "@modelcontextprotocol/sdk": "^1.6.0",
     "@visactor/react-vchart": "^2.0.19",
     "@visactor/vchart": "^2.0.19",
@@ -38,7 +39,6 @@
     "echarts": "5.5.1",
     "echarts-for-react": "3.0.6",
     "echarts-gl": "2.0.9",
-    "eslint": "^9.39.2",
     "express": "^4.19.2",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.0",
@@ -46,17 +46,20 @@
     "mermaid": "^11.12.3",
     "puppeteer": "^24.3.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "recharts": "3.7.0"
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.24",
+    "eslint": "^9.39.2",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
+  },
+  "optionalDependencies": {
+    "@resvg/resvg-js": "^2.6.2"
   }
 }

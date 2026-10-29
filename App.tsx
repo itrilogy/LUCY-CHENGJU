@@ -68,17 +68,16 @@ import {
 } from './types';
 import { Workspace } from './components/layout/Workspace';
 import { DashboardView } from './components/DashboardView';
-import { EditorPanel } from './components/EditorPanel';
 import FishboneDiagram, { FishboneDiagramRef } from './components/FishboneDiagram';
 import { ParetoDiagram, ParetoDiagramRef } from './components/ParetoDiagram';
 import { HistogramDiagram } from './components/HistogramDiagram';
 import { ScatterDiagram } from './components/ScatterDiagram';
 import { AffinityDiagram } from './components/AffinityDiagram';
-import { ParetoEditor } from './components/ParetoEditor';
-import { HistogramEditor } from './components/HistogramEditor';
-import FishboneEditor from './components/FishboneEditor';
-import ScatterEditor from './components/ScatterEditor';
-import AffinityEditor from './components/AffinityEditor';
+import { ParetoEditor, parseParetoDSL } from './components/ParetoEditor';
+import { HistogramEditor, parseHistogramDSL } from './components/HistogramEditor';
+import FishboneEditor, { parseFishboneDSL } from './components/FishboneEditor';
+import ScatterEditor, { parseScatterDSL } from './components/ScatterEditor';
+import AffinityEditor, { parseAffinityDSL } from './components/AffinityEditor';
 import RelationEditor, { parseRelationDSL } from './components/RelationEditor';
 import RelationDiagram from './components/RelationDiagram';
 import ControlChartEditor, { parseControlDSL } from './components/ControlChartEditor';
@@ -108,241 +107,51 @@ import VChartDiagram from './components/VChartDiagram';
 
 import { Zap, Settings, Globe, LayoutGrid, Download, FileText, Image, Cpu, Loader2, LineChart, BarChart3, X, Sliders } from 'lucide-react';
 
-// --- DSL Parsing Functions (Move outside to support Lazy Initialization) ---
+// --- Unified DSL Initializers (100% delegating to canonical Editor parsers) ---
 
 const parseInitialFishbone = (customDsl?: string) => {
   try {
-    const lines = (customDsl || INITIAL_FISHBONE_DSL).split('\n');
-    let title = '生产线停产原因分析';
-    const mainBranches: FishboneNode[] = [];
-    const newStyles = { ...DEFAULT_FISHBONE_STYLES };
-
-    let currentMain: FishboneNode | null = null;
-    let currentSub: FishboneNode | null = null;
-
-    lines.forEach(line => {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('//')) return;
-
-      if (trimmed.startsWith('Title:')) {
-        title = trimmed.split(':')[1].trim();
-        return;
-      }
-
-      const colorMatch = trimmed.match(/Color\[(\w+)\]:\s*(#[0-9a-fA-F]{6})/);
-      if (colorMatch) {
-        const keyMap: any = {
-          'Bone': 'boneLine',
-          'Line': 'boneLine',
-          'Root': 'rootColor',
-          'RootText': 'rootTextColor',
-          'Main': 'mainColor',
-          'MainText': 'mainTextColor',
-          'Text': 'caseColor',
-          'End': 'endColor'
-        };
-        const key = keyMap[colorMatch[1]];
-        if (key) newStyles[key] = colorMatch[2];
-        return;
-      }
-
-      if (trimmed.startsWith('###')) {
-        if (currentSub) {
-          currentSub.children.push({
-            id: Math.random().toString(36).substr(2, 9),
-            label: trimmed.substring(3).trim(),
-            type: 'sub',
-            children: []
-          });
-        }
-      } else if (trimmed.startsWith('##')) {
-        if (currentMain) {
-          currentSub = {
-            id: Math.random().toString(36).substr(2, 9),
-            label: trimmed.substring(2).trim(),
-            type: 'sub',
-            children: []
-          };
-          currentMain.children.push(currentSub);
-        }
-      } else if (trimmed.startsWith('#')) {
-        currentMain = {
-          id: Math.random().toString(36).substr(2, 9),
-          label: trimmed.substring(1).trim(),
-          type: 'main',
-          children: []
-        };
-        mainBranches.push(currentMain);
-        currentSub = null;
-      }
-    });
-
-    return { data: { id: 'root', label: title, type: 'root', children: mainBranches }, styles: newStyles };
+    return parseFishboneDSL(customDsl || INITIAL_FISHBONE_DSL);
   } catch (e) {
     console.error('Fishbone Init Error:', e);
-    return { data: { id: 'root', label: '核心问题', type: 'root', children: [] }, styles: DEFAULT_FISHBONE_STYLES };
+    return { data: { id: 'root', label: '核心问题', type: 'root' as const, children: [] }, styles: DEFAULT_FISHBONE_STYLES };
   }
 };
 
 const parseInitialPareto = (customDsl?: string) => {
-  const lines = (customDsl || INITIAL_PARETO_DSL).split('\n');
-  const newItems: any[] = [];
-  const newStyles: any = { ...DEFAULT_PARETO_STYLES };
-  lines.forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    const titleMatch = trimmed.match(/^Title:\s*(.+)/);
-    if (titleMatch) { newStyles.title = titleMatch[1]; return; }
-    const colorMatch = trimmed.match(/Color\[(Bar|Line|MarkLine|Title)\]:\s*(#[0-9a-fA-F]+)/);
-    if (colorMatch) {
-      const key = colorMatch[1].charAt(0).toLowerCase() + colorMatch[1].slice(1) + 'Color';
-      newStyles[key] = colorMatch[2]; return;
-    }
-    const decimalMatch = trimmed.match(/^Decimals:\s*(\d+)/);
-    if (decimalMatch) { newStyles.decimals = parseInt(decimalMatch[1]); return; }
-    const itemMatch = trimmed.match(/^-\s*(.+):\s*(\d+)/);
-    if (itemMatch) {
-      newItems.push({ id: Math.random().toString(36).substr(2, 9), name: itemMatch[1].trim(), value: parseInt(itemMatch[2]) });
-    }
-  });
-  return { items: newItems.length > 0 ? newItems : INITIAL_PARETO_DATA, styles: newStyles };
+  try {
+    const { items, styles } = parseParetoDSL(customDsl || INITIAL_PARETO_DSL);
+    return { items: items.length > 0 ? items : INITIAL_PARETO_DATA, styles };
+  } catch {
+    return { items: INITIAL_PARETO_DATA, styles: DEFAULT_PARETO_STYLES };
+  }
 };
 
 const parseInitialHistogram = (customDsl?: string) => {
-  const lines = (customDsl || INITIAL_HISTOGRAM_DSL).split('\n');
-  const newData: number[] = [];
-  const newStyles: any = { ...DEFAULT_HISTOGRAM_STYLES };
-
-  lines.forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) return;
-    const titleMatch = trimmed.match(/^Title:\s*(.+)/);
-    if (titleMatch) { newStyles.title = titleMatch[1].trim(); return; }
-    const colorMatch = trimmed.match(/Color\[(Bar|Curve|USL|LSL|Target)\]:\s*(#[0-9a-fA-F]+)/i);
-    if (colorMatch) { newStyles[colorMatch[1].toLowerCase() + 'Color'] = colorMatch[2]; return; }
-    const specMatch = trimmed.match(/^(USL|LSL|Target):\s*([\d\.-]+)/);
-    if (specMatch) { newStyles[specMatch[1].toLowerCase()] = parseFloat(specMatch[2]); return; }
-    const curveMatch = trimmed.match(/^ShowCurve:\s*(true|false)/i);
-    if (curveMatch) { newStyles.showCurve = curveMatch[1].toLowerCase() === 'true'; return; }
-    const binsMatch = trimmed.match(/^Bins:\s*(auto|\d+)/i);
-    if (binsMatch) { newStyles.bins = binsMatch[1].toLowerCase() === 'auto' ? 'auto' : parseInt(binsMatch[1]); return; }
-    const dataMatch = trimmed.match(/^-\s*([\d\.-]+)/);
-    if (dataMatch) newData.push(parseFloat(dataMatch[1]));
-  });
-  return { data: newData, styles: newStyles };
+  try {
+    return parseHistogramDSL(customDsl || INITIAL_HISTOGRAM_DSL);
+  } catch {
+    return { data: [], styles: DEFAULT_HISTOGRAM_STYLES };
+  }
 };
 
 const parseInitialScatter = (customDsl?: string) => {
-  const lines = (customDsl || INITIAL_SCATTER_DSL).split('\n');
-  const newStyles: any = { ...DEFAULT_SCATTER_STYLES };
-  const newPoints: any[] = [];
-
-  lines.forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) return;
-    if (trimmed.includes(':') && !trimmed.startsWith('-')) {
-      const [key, ...vals] = trimmed.split(':');
-      const val = vals.join(':').trim();
-      switch (key.trim()) {
-        case 'Title': newStyles.title = val; break;
-        case 'XAxis': newStyles.xAxisLabel = val; break;
-        case 'YAxis': newStyles.yAxisLabel = val; break;
-        case 'Color[Point]': newStyles.pointColor = val; break;
-        case 'Color[Trend]': newStyles.trendColor = val; break;
-        case 'ShowTrend': newStyles.showTrend = val.toLowerCase() === 'true'; break;
-        case 'ZAxis': newStyles.zAxisLabel = val; break;
-        case '3D': newStyles.is3D = val.toLowerCase() === 'true'; break;
-        case 'Size[Base]': newStyles.baseSize = parseFloat(val); break;
-        case 'Opacity': newStyles.opacity = parseFloat(val); break;
-      }
-      return;
-    }
-    if (trimmed.startsWith('-')) {
-      const parts = trimmed.substring(1).split(',').map(s => parseFloat(s.trim()));
-      if (parts.length >= 2) newPoints.push({ id: Math.random().toString(36).substr(2, 9), x: parts[0], y: parts[1], z: parts[2] });
-    }
-  });
-  const finalData = newPoints.length > 0 ? newPoints : INITIAL_SCATTER_DATA;
-  return { data: finalData, styles: newStyles };
+  try {
+    const { data, styles } = parseScatterDSL(customDsl || INITIAL_SCATTER_DSL);
+    return { data: data.length > 0 ? data : INITIAL_SCATTER_DATA, styles };
+  } catch {
+    return { data: INITIAL_SCATTER_DATA, styles: DEFAULT_SCATTER_STYLES };
+  }
 };
 
 const parseInitialAffinity = (customDsl?: string) => {
-  const lines = (customDsl || INITIAL_AFFINITY_DSL).split('\n');
-  const newStyles: any = { ...DEFAULT_AFFINITY_STYLES };
-  const items: AffinityItem[] = [];
-
-  lines.forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) return;
-
-    if (trimmed.startsWith('Title:')) {
-      newStyles.title = trimmed.split(':')[1].trim();
-    } else if (trimmed.startsWith('Type:')) {
-      newStyles.type = trimmed.split(':')[1].trim() as any;
-    } else if (trimmed.startsWith('Layout:')) {
-      newStyles.layout = trimmed.split(':')[1].trim() as any;
-    } else if (trimmed.startsWith('Color[')) {
-      const match = trimmed.match(/Color\[(TitleBg|TitleText|GroupHeaderBg|GroupHeaderText|ItemBg|ItemText|Line|Border)\]:\s*(#[0-9a-fA-F]+)/i);
-      if (match) {
-        const keyMap: any = {
-          'TitleBg': 'titleBackgroundColor',
-          'TitleText': 'titleTextColor',
-          'GroupHeaderBg': 'groupHeaderBackgroundColor',
-          'GroupHeaderText': 'groupHeaderTextColor',
-          'ItemBg': 'itemBackgroundColor',
-          'ItemText': 'itemTextColor',
-          'Line': 'lineColor',
-          'Border': 'borderColor'
-        };
-        newStyles[keyMap[match[1]]] = match[2];
-      }
-    } else if (trimmed.startsWith('Font[')) {
-      const match = trimmed.match(/Font\[(Title|GroupHeader|Item)\]:\s*(\d+)/i);
-      if (match) {
-        const keyMap: any = {
-          'Title': 'titleFontSize',
-          'GroupHeader': 'groupHeaderFontSize',
-          'Item': 'itemFontSize'
-        };
-        newStyles[keyMap[match[1]]] = parseInt(match[2]);
-      }
-    } else if (trimmed.startsWith('Item:')) {
-      const parts = trimmed.replace('Item:', '').split(',').map(s => s.trim());
-      if (parts.length >= 2) {
-        items.push({
-          id: parts[0],
-          label: parts[1],
-          parentId: parts[2] || undefined,
-          children: []
-        });
-      }
-    }
-  });
-
-  // Reconstruct Tree
-  const rootItems: AffinityItem[] = [];
-  const itemMap = new Map<string, AffinityItem>();
-  items.forEach(i => itemMap.set(i.id, i));
-
-  items.forEach(item => {
-    if (item.parentId && itemMap.has(item.parentId)) {
-      const parent = itemMap.get(item.parentId)!;
-      parent.children = parent.children || [];
-      parent.children.push(item);
-    } else {
-      rootItems.push(item);
-    }
-  });
-
-  // Find the explicit 'root' node and use its children as the data provider
-  // for AffinityDiagram (which adds its own virtual root from styles.title).
-  const realRootNode = items.find(i => i.id === 'root');
-  const finalData = realRootNode && realRootNode.children ? realRootNode.children : rootItems.filter(i => i.id !== 'root');
-
-  return { data: finalData.length > 0 ? finalData : INITIAL_AFFINITY_DATA, styles: newStyles };
+  try {
+    const { data, styles } = parseAffinityDSL(customDsl || INITIAL_AFFINITY_DSL);
+    return { data: data.length > 0 ? data : INITIAL_AFFINITY_DATA, styles };
+  } catch {
+    return { data: INITIAL_AFFINITY_DATA, styles: DEFAULT_AFFINITY_STYLES };
+  }
 };
-
-
 
 const parseInitialRelation = (customDsl?: string) => {
   try {
@@ -410,6 +219,7 @@ const App: React.FC = () => {
       relation: QCToolType.RELATION,
       matrix: QCToolType.MATRIX,
       matrix_plot: QCToolType.MATRIX_PLOT,
+      matrixplot: QCToolType.MATRIX_PLOT,
       pdpc: QCToolType.PDPC,
       arrow: QCToolType.ARROW,
       basic: QCToolType.BASIC,
@@ -421,7 +231,7 @@ const App: React.FC = () => {
 
     return {
       isHeadless: params.get('mode') === 'headless',
-      headlessType: TYPE_MAP[typeStr] || null,
+      headlessType: TYPE_MAP[typeStr] || QCToolType.FLOW,
       headlessDsl: params.get('dsl')
     };
   }, []);
@@ -616,7 +426,140 @@ const App: React.FC = () => {
     }
   };
 
-  // --- ILDR Headless Bridge ---
+  // --- ILDR Headless Bridge (Warm-Page IPC + URL Fallback) ---
+  const applyHeadlessPayload = React.useCallback((typeRaw: string, dsl: string) => {
+    const t = String(typeRaw || '').toLowerCase();
+    const TYPE_MAP: Record<string, QCToolType> = {
+      fishbone: QCToolType.FISHBONE,
+      pareto: QCToolType.PARETO,
+      control: QCToolType.CONTROL,
+      spc: QCToolType.CONTROL,
+      affinity: QCToolType.AFFINITY,
+      histogram: QCToolType.HISTOGRAM,
+      scatter: QCToolType.SCATTER,
+      relation: QCToolType.RELATION,
+      matrix: QCToolType.MATRIX,
+      matrix_plot: QCToolType.MATRIX_PLOT,
+      matrixplot: QCToolType.MATRIX_PLOT,
+      pdpc: QCToolType.PDPC,
+      arrow: QCToolType.ARROW,
+      basic: QCToolType.BASIC,
+      radar: QCToolType.RADAR,
+      flow: QCToolType.FLOW,
+      mermaid: QCToolType.MERMAID,
+      vchart: QCToolType.VCHART
+    };
+    const tool = TYPE_MAP[t] || QCToolType.FLOW;
+    setSelectedTool(tool);
+    switch (tool) {
+      case QCToolType.FISHBONE: {
+        const r = parseInitialFishbone(dsl);
+        setFishboneData(r.data);
+        setFishboneStyles(r.styles);
+        break;
+      }
+      case QCToolType.PARETO: {
+        const r = parseInitialPareto(dsl);
+        setParetoData(r.items);
+        setParetoStyles(r.styles);
+        break;
+      }
+      case QCToolType.CONTROL:
+        setControlDsl(dsl);
+        break;
+      case QCToolType.HISTOGRAM: {
+        const r = parseInitialHistogram(dsl);
+        setHistogramData(r.data);
+        setHistogramStyles(r.styles);
+        break;
+      }
+      case QCToolType.SCATTER: {
+        const r = parseInitialScatter(dsl);
+        setScatterData(r.data as ScatterPoint[]);
+        setScatterStyles(r.styles);
+        break;
+      }
+      case QCToolType.AFFINITY: {
+        const r = parseInitialAffinity(dsl);
+        setAffinityData(r.data);
+        setAffinityStyles(r.styles);
+        break;
+      }
+      case QCToolType.RELATION: {
+        const r = parseInitialRelation(dsl);
+        setRelationNodes(r.nodes);
+        setRelationLinks(r.links);
+        setRelationStyles(r.styles);
+        break;
+      }
+      case QCToolType.MATRIX: {
+        setMatrixDsl(dsl);
+        const r = parseMatrixDSL(dsl);
+        setMatrixData(r.data);
+        setMatrixStyles(r.styles);
+        break;
+      }
+      case QCToolType.MATRIX_PLOT: {
+        setMatrixPlotDsl(dsl);
+        const r = parseMatrixPlotDSL(dsl);
+        setMatrixPlotData(r.data);
+        setMatrixPlotStyles(r.styles);
+        break;
+      }
+      case QCToolType.PDPC: {
+        setPdpcDsl(dsl);
+        try {
+          const r = parsePDPCDSL(dsl);
+          setPdpcData(r.data);
+          setPdpcStyles(r.styles);
+        } catch { }
+        break;
+      }
+      case QCToolType.ARROW: {
+        try {
+          const r = parseArrowDSL(dsl);
+          setArrowData(r.data);
+          setArrowStyles(r.styles);
+        } catch { }
+        break;
+      }
+      case QCToolType.BASIC: {
+        try {
+          const r = parseBasicDSL(dsl);
+          setBasicData(r.data);
+          setBasicStyles(r.styles);
+        } catch { }
+        break;
+      }
+      case QCToolType.FLOW: {
+        try {
+          const r = parseFlowDSL(dsl);
+          setFlowData(r.data);
+          setFlowStyles(r.styles);
+        } catch { }
+        break;
+      }
+      case QCToolType.RADAR: {
+        try {
+          const r = parseRadarDSL(dsl);
+          setRadarData(r.data);
+          setRadarStyles(r.styles);
+        } catch { }
+        break;
+      }
+      case QCToolType.MERMAID:
+        setMermaidData(dsl);
+        break;
+      case QCToolType.VCHART: {
+        const r = parseInitialVChart(dsl);
+        setVchartData(r.data);
+        setVchartStyles(r.styles);
+        break;
+      }
+    }
+    return tool;
+  }, []);
+
   React.useEffect(() => {
     if (isHeadless) {
       // 1. Expose the capture function
@@ -626,7 +569,6 @@ const App: React.FC = () => {
           return '';
         }
         try {
-          console.log('[IQS Bridge] Calling getDataURL with options:', options);
           return await diagramRef.current.getDataURL({
             pixelRatio: options?.pixelRatio || 3,
             backgroundColor: options?.backgroundColor || '#FFFFFF',
@@ -639,25 +581,59 @@ const App: React.FC = () => {
         }
       };
 
-      // 2. Signal readiness after a safe settling time
+      // 2. Expose Warm-Page In-Memory Render Bridge (eliminates URL length limits & page reload overhead)
+      (window as any).renderIQSChart = async (payload: {
+        type: string;
+        dsl: string;
+        width?: number;
+        height?: number;
+        pixelRatio?: number;
+        backgroundColor?: string;
+      }) => {
+        const tool = applyHeadlessPayload(payload.type, payload.dsl);
+        // Wait two animation frames for React state commit + DOM layout
+        await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+        // Fast SVG/Canvas tools need minimal settle; G6/Mermaid/VChart async layout gets 180ms settle
+        const isFastSync = [
+          QCToolType.FLOW,
+          QCToolType.MATRIX,
+          QCToolType.MATRIX_PLOT,
+          QCToolType.RADAR,
+          QCToolType.ARROW,
+          QCToolType.CONTROL,
+          QCToolType.AFFINITY,
+          QCToolType.FISHBONE
+        ].includes(tool);
+        const settleMs = isFastSync ? 40 : 220;
+        window.dispatchEvent(new Event('resize'));
+        await new Promise(r => setTimeout(r, settleMs));
+        return await (window as any).captureIQSChart({
+          pixelRatio: payload.pixelRatio || 3,
+          backgroundColor: payload.backgroundColor || '#FFFFFF',
+          width: payload.width,
+          height: payload.height
+        });
+      };
+
+      // 3. Signal readiness after initial mount
       const timer = setTimeout(() => {
-        console.log('[IQS Bridge] Setting IQS_READY = true');
         (window as any).IQS_READY = true;
-      }, 500); // Give charts (ECharts/G6) some time to finish initial animations
+      }, 150);
 
       return () => {
         clearTimeout(timer);
         delete (window as any).captureIQSChart;
+        delete (window as any).renderIQSChart;
         delete (window as any).IQS_READY;
       };
     }
-  }, [isHeadless, selectedTool, diagramRef]);
+  }, [isHeadless, selectedTool, diagramRef, applyHeadlessPayload]);
 
-  if (isHeadless && headlessType) {
+  if (isHeadless) {
     return (
       <div className="w-full h-full min-h-screen bg-white">
         {(() => {
-          switch (headlessType) {
+          switch (selectedTool) {
             case QCToolType.FISHBONE: return <FishboneDiagram ref={diagramRef} data={fishboneData} styles={fishboneStyles} />;
             case QCToolType.PARETO: return <ParetoDiagram ref={diagramRef} data={paretoData} styles={paretoStyles} showLine={showParetoLine} />;
             case QCToolType.CONTROL: return <ControlChart ref={diagramRef} series={controlSeries} styles={controlStyles} />;
@@ -700,11 +676,11 @@ const App: React.FC = () => {
                 <img
                   src="/brand/iqs-mark.svg"
                   alt="澄矩 · ChengJu"
-                  className="w-10 h-10 rounded-2xl shadow-lg ring-1 ring-black/5 group-hover:shadow-xl group-hover:scale-105 transition-all"
+                  className="w-10 h-10 rounded-md shadow-md ring-1 ring-black/5 group-hover:scale-105 transition-all"
                 />
                 <div className="text-left">
                   <h1 className="font-black text-[var(--sidebar-text)] text-lg tracking-tighter leading-none">澄矩 · ChengJu</h1>
-                  <p className="text-[8px] text-[#0D5E42] dark:text-[#00D2FF] font-black tracking-[0.12em] mt-1 opacity-80">源清流澈，行止应矩</p>
+                  <p className="text-[11px] text-primary font-black tracking-[0.12em] mt-1 opacity-85">源清流澈，行止应矩</p>
                 </div>
               </button>
             </div>
@@ -833,13 +809,7 @@ const App: React.FC = () => {
                   onDataChange={setVchartData}
                   onStylesChange={setVchartStyles}
                 />
-              ) : (
-                <EditorPanel
-                  toolType={selectedTool}
-                  onDataUpdate={() => { }} // TODO: 针对 fallback 工具实现具体的更新逻辑
-                  currentData={null}
-                />
-              )}
+              ) : null}
             </div>
 
           </div>
@@ -848,49 +818,49 @@ const App: React.FC = () => {
           <div className="w-full h-full flex flex-col relative bg-[var(--bg-page)]">
             <header className="h-24 bg-[var(--header-bg)] backdrop-blur-2xl border-b border-[var(--border-light)] flex items-center justify-between px-12 shrink-0 z-40 transition-colors">
               <div className="flex items-center gap-6">
-                <div className="w-1.5 h-12 bg-blue-600 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.4)]" />
+                <div className="w-1.5 h-12 bg-primary rounded-full" />
                 <div>
                   <h2 className="font-black text-[var(--text-main)] text-2xl tracking-tighter uppercase">{currentTool?.name}</h2>
-                  <div className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black tracking-widest border border-blue-100 dark:border-blue-800 uppercase mt-1">Live Engine</div>
+                  <div className="px-3 py-1 bg-primary/10 text-primary rounded-md text-[11px] font-black tracking-widest border border-primary/20 uppercase mt-1 inline-block">Live Engine</div>
                 </div>
               </div>
 
               <div className="flex items-center gap-6">
-                <div className="flex gap-2 bg-[var(--input-bg)] p-1.5 rounded-2xl border border-[var(--input-border)] items-center">
-                  <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest ml-3 mr-1">画布操作</span>
+                <div className="flex gap-2 bg-[var(--input-bg)] p-1.5 rounded-md border border-[var(--input-border)] items-center">
+                  <span className="text-[11px] font-black text-[var(--text-muted)] uppercase tracking-widest ml-3 mr-1">画布操作</span>
                   <button
                     onClick={() => diagramRef.current?.tidyLayout?.()}
-                    className="p-3 bg-[var(--card-bg)] shadow-sm rounded-xl text-[var(--text-main)] hover:text-blue-600 hover:shadow-md transition-all flex items-center gap-2 group border border-[var(--border-light)]"
+                    className="p-2.5 bg-[var(--card-bg)] shadow-sm rounded-md text-[var(--text-main)] hover:text-primary hover:shadow-md transition-all flex items-center gap-2 group border border-[var(--border-light)]"
                   >
                     <LayoutGrid size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">整理布局</span>
+                    <span className="text-[11px] font-black uppercase tracking-widest">整理布局</span>
                   </button>
                   <div className="w-px h-6 bg-[var(--border-light)] mx-1" />
-                  <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest ml-1 mr-1">导出</span>
+                  <span className="text-[11px] font-black text-[var(--text-muted)] uppercase tracking-widest ml-1 mr-1">导出</span>
                   <button
                     onClick={() => setShowExportModal(true)}
-                    className="p-3 bg-[var(--card-bg)] shadow-sm rounded-xl text-[var(--text-main)] hover:text-blue-600 hover:shadow-md transition-all flex items-center gap-2 group border border-[var(--border-light)]"
+                    className="p-2.5 bg-[var(--card-bg)] shadow-sm rounded-md text-[var(--text-main)] hover:text-primary hover:shadow-md transition-all flex items-center gap-2 group border border-[var(--border-light)]"
                   >
                     <Image size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">导出 PNG</span>
+                    <span className="text-[11px] font-black uppercase tracking-widest">导出 PNG</span>
                   </button>
                   <button
                     onClick={() => diagramRef.current?.exportPDF?.(false)}
-                    className="p-3 bg-[var(--card-bg)] shadow-sm rounded-xl text-[var(--text-main)] hover:text-red-600 hover:shadow-md transition-all flex items-center gap-2 border border-[var(--border-light)]"
+                    className="p-2.5 bg-[var(--card-bg)] shadow-sm rounded-md text-[var(--text-main)] hover:text-primary hover:shadow-md transition-all flex items-center gap-2 border border-[var(--border-light)]"
                   >
                     <FileText size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">有底 PDF</span>
+                    <span className="text-[11px] font-black uppercase tracking-widest">有底 PDF</span>
                   </button>
                   <button
                     onClick={() => diagramRef.current?.exportPDF?.(true)}
-                    className="p-3 bg-[var(--card-bg)] shadow-sm rounded-xl text-[var(--text-main)] hover:text-indigo-600 hover:shadow-md transition-all flex items-center gap-2 border border-[var(--border-light)]"
+                    className="p-2.5 bg-[var(--card-bg)] shadow-sm rounded-md text-[var(--text-main)] hover:text-primary hover:shadow-md transition-all flex items-center gap-2 border border-[var(--border-light)]"
                   >
                     <Download size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">透明 PDF</span>
+                    <span className="text-[11px] font-black uppercase tracking-widest">透明 PDF</span>
                   </button>
                 </div>
-                <div className="w-12 h-12 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl overflow-hidden shadow-2xl border-2 border-[var(--card-bg)] ring-8 ring-[var(--border-light)]">
-                  <img src={`https://api.dicebear.com/7.x/pixel-art/svg?seed=${selectedTool}`} alt="avatar" />
+                <div className="w-11 h-11 bg-[var(--card-bg)] rounded-md overflow-hidden shadow-md border border-[var(--border-light)] flex items-center justify-center p-1.5" title="鹿溪联合创新实验室 · LUXI LAB">
+                  <img src={theme === 'dark' ? '/brand/luxi-lab-inverse.svg' : '/brand/luxi-lab.svg'} alt="LUXI LAB" className="w-full h-full object-contain" />
                 </div>
               </div>
             </header>
@@ -949,19 +919,24 @@ const App: React.FC = () => {
             <footer className="h-20 border-t border-[var(--border-light)] px-12 flex items-center justify-between shrink-0 bg-[var(--header-bg)] backdrop-blur-xl transition-colors">
               <div className="flex items-center gap-10">
                 <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-[0.25em] flex items-center gap-4">
-                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_12px_#00D2FF]" />
+                  <span className="w-2.5 h-2.5 bg-[var(--state-up)] rounded-full" />
                   Precision Computing Active
                 </p>
                 <div className="h-5 w-px bg-[var(--border-light)]" />
                 <p className="text-[11px] text-[var(--text-muted)] font-bold uppercase tracking-[0.2em]">Sample Rate: 60Hz</p>
               </div>
               <div className="flex gap-6">
-                <button className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest hover:text-[var(--text-main)] transition-all">导出原始数据 (CSV)</button>
+                <button
+                  onClick={() => diagramRef.current?.exportPDF?.(false)}
+                  className="text-[11px] font-black text-[var(--text-muted)] uppercase tracking-widest hover:text-[var(--text-main)] transition-all"
+                >
+                  导出分析报告 (PDF)
+                </button>
                 <button
                   onClick={() => setShowExportModal(true)}
-                  className="text-[12px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest hover:text-blue-700 transition-all"
+                  className="text-[11px] font-black text-primary uppercase tracking-widest hover:opacity-80 transition-all"
                 >
-                  导出分析报告
+                  配置高清导出 (PNG)
                 </button>
               </div>
             </footer>
@@ -972,15 +947,15 @@ const App: React.FC = () => {
       {/* Export Settings Modal */}
       {showExportModal && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm transition-all duration-300">
-          <div className="bg-[var(--card-bg)] border border-[var(--border-light)] rounded-2xl shadow-2xl w-[400px] overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-5 border-b border-[var(--border-light)] bg-[var(--bg-main)]">
+          <div className="bg-[var(--card-bg)] border border-[var(--border-line-r)] rounded-md shadow-md w-[400px] overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border-line-r)] bg-[var(--bg-main)]">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-500/10 rounded-lg">
-                  <Sliders size={18} className="text-blue-600" />
+                <div className="p-2 bg-primary/10 rounded-md">
+                  <Sliders size={18} className="text-primary" />
                 </div>
                 <h3 className="text-sm font-black text-[var(--text-main)] tracking-widest uppercase">配置导出参数</h3>
               </div>
-              <button onClick={() => setShowExportModal(false)} className="p-2 hover:bg-[var(--border-light)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">
+              <button onClick={() => setShowExportModal(false)} className="p-2 hover:bg-[var(--border-light)] rounded-md text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">
                 <X size={16} />
               </button>
             </div>
@@ -988,8 +963,8 @@ const App: React.FC = () => {
             <div className="p-6 space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-[var(--text-main)]">渲染倍率 (Resolution Scale)</label>
-                  <span className="text-xs font-black text-blue-600">{exportScale} 倍画幅</span>
+                  <label className="text-[11px] font-bold text-[var(--text-main)]">渲染倍率 (Resolution Scale)</label>
+                  <span className="text-[11px] font-black text-primary">{exportScale} 倍画幅</span>
                 </div>
                 <input
                   type="range"
@@ -998,28 +973,28 @@ const App: React.FC = () => {
                   step="1"
                   value={exportScale}
                   onChange={(e) => setExportScale(parseInt(e.target.value))}
-                  className="w-full h-2 bg-[var(--border-light)] rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  className="w-full h-2 bg-[var(--border-light)] rounded-md appearance-none cursor-pointer"
                 />
-                <p className="text-[10px] text-[var(--text-muted)] font-medium">较高的倍率可以生成更清晰的图片用于印刷或大屏展示，但文件体积也会相应增加。建议日常使用维持在默认 3 倍。</p>
+                <p className="text-[11px] text-[var(--text-muted)] font-medium leading-relaxed">较高的倍率可以生成更清晰的图片用于印刷或大屏展示，但文件体积也会相应增加。建议日常使用维持在默认 3 倍。</p>
               </div>
 
-              <div className="p-4 bg-[var(--bg-main)] rounded-xl border border-[var(--border-light)]">
+              <div className="p-4 bg-[var(--bg-main)] rounded-md border border-[var(--border-line-r)]">
                 <label className="flex items-center justify-between cursor-pointer group">
-                  <span className="text-xs font-bold text-[var(--text-main)] group-hover:text-blue-600 transition-colors">透明背景 (Transparent Background)</span>
+                  <span className="text-[11px] font-bold text-[var(--text-main)] group-hover:text-primary transition-colors">透明背景 (Transparent Background)</span>
                   <input
                     type="checkbox"
                     checked={exportTransparent}
                     onChange={(e) => setExportTransparent(e.target.checked)}
-                    className="w-4 h-4 rounded border-[var(--border-light)] text-blue-600 focus:ring-blue-500 bg-[var(--card-bg)] cursor-pointer"
+                    className="w-4 h-4 rounded border-[var(--border-light)] bg-[var(--card-bg)] cursor-pointer"
                   />
                 </label>
               </div>
             </div>
 
-            <div className="p-5 border-t border-[var(--border-light)] bg-[var(--bg-main)] flex justify-end gap-3">
+            <div className="p-5 border-t border-[var(--border-line-r)] bg-[var(--bg-main)] flex justify-end gap-3">
               <button
                 onClick={() => setShowExportModal(false)}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold text-[var(--text-muted)] hover:bg-[var(--border-light)] transition-all"
+                className="px-5 py-2.5 rounded-md text-[11px] font-bold text-[var(--text-muted)] hover:bg-[var(--border-light)] transition-all"
               >
                 取消
               </button>
@@ -1028,7 +1003,7 @@ const App: React.FC = () => {
                   diagramRef.current?.exportPNG?.(exportTransparent, exportScale);
                   setShowExportModal(false);
                 }}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black tracking-widest uppercase shadow-lg shadow-blue-500/30 transition-all flex items-center gap-2"
+                className="px-5 py-2.5 bg-primary hover:opacity-90 text-white rounded-md text-[11px] font-black tracking-widest uppercase shadow-md transition-all flex items-center gap-2"
               >
                 <Download size={14} />
                 确认生成

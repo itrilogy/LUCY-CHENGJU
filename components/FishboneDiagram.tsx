@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
-import { Graph } from '@antv/g6';
+import React, { useMemo, useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { FishboneNode, FishboneChartStyles, DEFAULT_FISHBONE_STYLES, BaseDiagramRef } from '../types';
+import { computeDeterministicFishboneLayout, textBoxOfNode } from '../utils/fishboneGraph';
+import { svgToDataURL } from '../utils/exportUtils';
 
 export interface FishboneDiagramRef extends BaseDiagramRef {}
 
@@ -10,352 +11,128 @@ interface FishboneDiagramProps {
   className?: string;
 }
 
-const FishboneDiagram = forwardRef<FishboneDiagramRef, FishboneDiagramProps>(({ data, styles, className }, ref) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const graphRef = useRef<Graph | null>(null);
+const MARGIN = 24;
 
+function esc(s: string): string {
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+}
+
+/**
+ * 鱼骨图自绘 SVG。
+ * 文字位置取 textBoxOfNode 的盒子中心，不经过任何图库的 label placement，
+ * 因此与布局断言使用的坐标完全一致。
+ */
+const FishboneDiagram = forwardRef<FishboneDiagramRef, FishboneDiagramProps>(({ data, styles, className }, ref) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [viewport, setViewport] = useState({ w: 0, h: 0 });
   const finalStyles = { ...DEFAULT_FISHBONE_STYLES, ...styles };
+
+  const scene = useMemo(() => {
+    const { nodes, edges, meta } = computeDeterministicFishboneLayout(
+      data, finalStyles, viewport.w || 1600, viewport.h || 1000,
+    );
+    if (meta.warnings.length) console.warn('[Fishbone]', meta.warnings.join(' | '));
+
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    for (const n of nodes) {
+      const b = textBoxOfNode(n.style);
+      if (b) { x1 = Math.min(x1, b.x1); y1 = Math.min(y1, b.y1); x2 = Math.max(x2, b.x2); y2 = Math.max(y2, b.y2); }
+      x1 = Math.min(x1, n.style.x); y1 = Math.min(y1, n.style.y);
+      x2 = Math.max(x2, n.style.x); y2 = Math.max(y2, n.style.y);
+    }
+    if (!Number.isFinite(x1)) { x1 = 0; y1 = 0; x2 = 800; y2 = 600; }
+    return { nodes, edges, viewBox: `${x1 - MARGIN} ${y1 - MARGIN} ${x2 - x1 + MARGIN * 2} ${y2 - y1 + MARGIN * 2}` };
+  }, [data, styles, viewport]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const apply = () => setViewport({ w: el.clientWidth, h: el.clientHeight });
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useImperativeHandle(ref, () => ({
     getDataURL: async (options) => {
-      if (!graphRef.current) return '';
-      
-      if (options?.width && options?.height) {
-        graphRef.current.setSize(options.width, options.height);
-        graphRef.current.fitView({ padding: 120 } as any);
-      }
-
-      return await graphRef.current.toDataURL({
-        backgroundColor: options?.backgroundColor || '#FFFFFF',
-        pixelRatio: options?.pixelRatio || 3
-      } as any);
+      if (!svgRef.current) return '';
+      return svgToDataURL(svgRef.current, {
+        width: options?.width,
+        height: options?.height,
+        pixelRatio: options?.pixelRatio ?? 3,
+        backgroundColor: options?.backgroundColor ?? '#FFFFFF',
+        padding: 0,
+      });
     },
     exportPNG: async (transparent = false, scale = 3) => {
-      if (!graphRef.current) return;
-      const rawDataURL = await graphRef.current.toDataURL({ pixelRatio: scale });
-
-      if (transparent) {
-        const link = document.createElement('a');
-        link.download = `鱼骨图_透明_${new Date().getTime()}.png`;
-        link.href = rawDataURL;
-        link.click();
-        return;
-      }
-
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.fillStyle = finalStyles.background || '#FFFFFF';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0);
-          const link = document.createElement('a');
-          link.download = `鱼骨图_${new Date().getTime()}.png`;
-          link.href = canvas.toDataURL('image/png');
-          link.click();
-        }
-      };
-      img.src = rawDataURL;
+      if (!svgRef.current) return;
+      const url = await svgToDataURL(svgRef.current, {
+        pixelRatio: scale,
+        backgroundColor: transparent ? 'transparent' : (finalStyles.background || '#FFFFFF'),
+        padding: 0,
+      });
+      const link = document.createElement('a');
+      link.download = `鱼骨图_${Date.now()}.png`;
+      link.href = url;
+      link.click();
     },
-    exportPDF: async (transparent = false) => {
-      if (!graphRef.current) return;
-      const dataURL = await graphRef.current.toDataURL({
-        backgroundColor: finalStyles.background || '#FFFFFF'
-      } as any);
-
+    exportPDF: async () => {
+      if (!svgRef.current) return;
+      const url = await svgToDataURL(svgRef.current, { pixelRatio: 3, backgroundColor: finalStyles.background || '#FFFFFF', padding: 0 });
       const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(`
-                    <html>
-                        <head><title>导出 PDF - 澄矩 · ChengJu</title></head>
-                        <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#F5F7FA;">
-                            <img src="${dataURL}" style="max-width:95%; max-height:95%; object-fit:contain; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);" />
-                        </body>
-                    </html>
-                `);
-        win.document.close();
-        setTimeout(() => {
-          win.print();
-          win.close();
-        }, 800);
-      }
+      if (!win) return;
+      win.document.write(`<html><head><title>导出 PDF - 澄矩 · ChengJu</title></head><body style="margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#F5F7FA;"><img src="${url}" style="max-width:95%;max-height:95%;object-fit:contain;"/></body></html>`);
+      win.document.close();
+      setTimeout(() => { win.print(); win.close(); }, 800);
     },
     tidyLayout: () => {
-      if (graphRef.current) {
-        graphRef.current.fitView({ duration: 500 } as any);
-      }
-    }
+      /* 布局是确定性闭式解，没有可整理的残留状态；视口由 viewBox 固定。 */
+    },
   }));
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const {
-      boneLine: boneLineColor = DEFAULT_FISHBONE_STYLES.boneLine,
-      caseLine: caseLineColor = DEFAULT_FISHBONE_STYLES.caseLine,
-      caseColor: caseTextColor = DEFAULT_FISHBONE_STYLES.caseColor, // General text color for sub-items
-      endColor = DEFAULT_FISHBONE_STYLES.endColor,
-      rootColor = DEFAULT_FISHBONE_STYLES.rootColor,
-      rootTextColor = DEFAULT_FISHBONE_STYLES.rootTextColor,
-      mainColor = DEFAULT_FISHBONE_STYLES.mainColor,
-      mainTextColor = DEFAULT_FISHBONE_STYLES.mainTextColor
-    } = finalStyles;
-
-    const width = containerRef.current.clientWidth || 800;
-    const height = containerRef.current.clientHeight || 600;
-    const cy = height / 2;
-
-    const nodes: any[] = [];
-    const edges: any[] = [];
-
-    // --- 鱼头 (Root) ---
-    const rootX = width - 150;
-    const rootY = cy;
-    nodes.push({
-      id: 'root',
-      type: 'rect',
-      data: { label: data.label, type: 'root' },
-      style: {
-        x: rootX,
-        y: rootY,
-        labelText: data.label,
-        fill: rootColor,
-        labelFill: rootTextColor,
-        labelFontSize: 16,
-        labelFontWeight: 'bold',
-        labelPlacement: 'center',
-        size: [140, 50],
-        radius: 4,
-        stroke: 'none',
-      }
-    });
-
-    // --- 鱼尾 (Tail) ---
-    const tailX = 50;
-    nodes.push({
-      id: 'tail',
-      type: 'rect',
-      data: { type: 'tail' },
-      style: {
-        x: tailX,
-        y: cy,
-        size: [20, 60],
-        fill: endColor,
-        stroke: 'none',
-      }
-    });
-
-    // --- 脊椎 (Spine) ---
-    edges.push({
-      id: 'edge-spine',
-      source: 'tail',
-      target: 'root',
-      style: {
-        stroke: boneLineColor,
-        lineWidth: 4,
-        endArrow: {
-          path: 'M 0,0 L 10,5 L 10,-5 Z',
-          fill: boneLineColor
-        }
-      }
-    });
-
-    const calcWeight = (node: FishboneNode): number => {
-      if (!node.children || node.children.length === 0) return 1;
-      return node.children.reduce((acc, child) => acc + calcWeight(child), 0) + 0.4;
-    };
-
-    if (data.children) {
-      const mainWeights = data.children.map(calcWeight);
-      const totalMainWeight = mainWeights.reduce((a, b) => a + b, 0);
-      const availableSpine = rootX - tailX - 100;
-
-      data.children.forEach((mainNode, i) => {
-        const isTop = i % 2 === 0;
-        const prevWeights = mainWeights.slice(0, i).reduce((a, b) => a + b, 0);
-
-        // Safety guard for totalMainWeight to avoid division by zero
-        const weightFactor = totalMainWeight > 0 ? (prevWeights + mainWeights[i] / 2) / totalMainWeight : 0.5;
-        const baseX = tailX + 60 + weightFactor * availableSpine;
-
-        const dynamicLen = 140 + mainWeights[i] * 65;
-        const dx = dynamicLen * Math.cos(60 * Math.PI / 180);
-        const dy = dynamicLen * Math.sin(60 * Math.PI / 180);
-        const mainX = baseX - dx;
-        const mainY = isTop ? cy - dy : cy + dy;
-
-        nodes.push({
-          id: mainNode.id,
-          type: 'rect',
-          data: { label: mainNode.label, type: 'main' },
-          style: {
-            x: mainX, y: mainY,
-            labelText: mainNode.label,
-            fill: mainColor,
-            stroke: boneLineColor,
-            lineWidth: 2,
-            labelFill: mainTextColor,
-            labelFontWeight: 'bold',
-            labelPlacement: 'center',
-            size: [Math.max(100, mainNode.label.length * 15), 30],
-            radius: 4,
-          }
-        });
-
-        const anchorId = `anchor-${mainNode.id}`;
-        nodes.push({
-          id: anchorId,
-          type: 'circle',
-          data: { type: 'anchor' },
-          style: { x: baseX, y: cy, size: 4, fill: boneLineColor, stroke: 'none' }
-        });
-
-        edges.push({
-          id: `edge-${anchorId}`,
-          source: mainNode.id,
-          target: anchorId,
-          style: {
-            stroke: boneLineColor,
-            lineWidth: 3,
-            endArrow: {
-              path: 'M 0,0 L 8,4 L 8,-4 Z',
-              fill: boneLineColor
-            }
-          }
-        });
-
-        const renderBranches = (
-          pNodeId: string, pEndX: number, pEndY: number, pStartX: number, pStartY: number,
-          children: FishboneNode[], level: number, isUpBase: boolean
-        ) => {
-          if (!children || children.length === 0) return;
-          const childWeights = children.map(calcWeight);
-          const totalChildWeight = childWeights.reduce((a, b) => a + b, 0);
-          const pDirX = pEndX - pStartX;
-
-          children.forEach((child, idx) => {
-            const prevWeights = childWeights.slice(0, idx).reduce((a, b) => a + b, 0);
-            const weightRatio = totalChildWeight > 0 ? (prevWeights + childWeights[idx] / 2) / totalChildWeight : 0.5;
-            const startX = pStartX + (pEndX - pStartX) * weightRatio;
-            const startY = pStartY + (pEndY - pStartY) * weightRatio;
-            const side = (idx % 2 === 0) ? 1 : -1;
-
-            const branchLen = (50 + childWeights[idx] * 35) * Math.pow(0.88, level - 1);
-
-            let endX, endY;
-            if (level % 2 !== 0) {
-              endX = startX + side * branchLen;
-              endY = startY;
-            } else {
-              const angle = 60;
-              const dx = branchLen * Math.cos(angle * Math.PI / 180);
-              const dy = branchLen * Math.sin(angle * Math.PI / 180);
-              const dirFactor = pDirX >= 0 ? 1 : -1;
-              endX = startX + dirFactor * dx;
-              endY = startY + side * dy;
-            }
-
-            nodes.push({
-              id: child.id,
-              type: 'circle',
-              data: { label: child.label, type: child.type },
-              style: {
-                x: endX, y: endY,
-                labelText: child.label,
-                labelFill: caseTextColor,
-                labelFontSize: Math.max(10, 14 - (level - 1) * 1.2),
-                labelFontWeight: level === 1 ? 'bold' : 'normal',
-                labelPlacement: side === 1 ? 'right' : 'left',
-                size: level === 1 ? 4 : 2,
-                fill: caseLineColor,
-                stroke: 'none',
-              } // Correctly using caseLineColor for the point and caseTextColor for the label
-            });
-
-            const branchAnchorId = `ba-${child.id}`;
-            nodes.push({
-              id: branchAnchorId,
-              type: 'circle',
-              style: { x: startX, y: startY, size: 2, fill: caseLineColor, stroke: 'none' } // Correctly using caseLineColor for anchors
-            });
-
-            edges.push({
-              id: `edge-${child.id}`,
-              source: child.id,
-              target: branchAnchorId,
-              style: {
-                stroke: caseLineColor,
-                lineWidth: Math.max(0.5, 1.5 / Math.pow(1.2, level - 1)),
-                endArrow: {
-                  path: 'M 0,0 L 6,3 L 6,-3 Z',
-                  fill: caseLineColor
-                }
-              }
-            });
-
-            if (child.children) {
-              renderBranches(child.id, endX, endY, startX, startY, child.children, level + 1, isUpBase);
-            }
-          });
-        };
-
-        renderBranches(mainNode.id, mainX, mainY, baseX, cy, mainNode.children || [], 1, isTop);
-      });
-    }
-
-    if (!graphRef.current) {
-      graphRef.current = new Graph({
-        container: containerRef.current,
-        width,
-        height,
-        autoFit: 'view',
-        data: { nodes, edges },
-        behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
-        background: '#FFFFFF',
-      });
-      graphRef.current.render().then(() => {
-        graphRef.current?.fitView({ duration: 500, padding: 120 } as any);
-      });
-    } else {
-      graphRef.current.setOptions({ background: '#FFFFFF' });
-      graphRef.current.setData({ nodes, edges });
-      graphRef.current.render().then(() => {
-        graphRef.current?.fitView({ duration: 500, padding: 120 } as any);
-      });
-    }
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (!containerRef.current || !graphRef.current) return;
-      const { width, height } = entries[0].contentRect;
-      if (width > 0 && height > 0) {
-        graphRef.current.setSize(width, height);
-        graphRef.current.fitView({ duration: 300, padding: 120 } as any);
-      }
-    });
-
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [data, styles]);
+  const byId = new Map<string, { id: string; type?: string; style: any }>(scene.nodes.map(n => [n.id, n]));
 
   return (
-    <div
-      ref={containerRef}
-      className={className}
-      style={{
-        width: '100%',
-        height: '100%',
-        backgroundColor: 'var(--card-bg)',
-        transition: 'background-color 0.5s ease'
-      }}
-    >
+    <div ref={containerRef} className={className} style={{ width: '100%', height: '100%', backgroundColor: 'var(--card-bg)' }}>
+      <svg ref={svgRef} width="100%" height="100%" viewBox={scene.viewBox} xmlns="http://www.w3.org/2000/svg">
+        {scene.edges.map(e => {
+          const s = byId.get(e.source), t = byId.get(e.target);
+          if (!s || !t) return null;
+          const color = e.style?.stroke ?? '#334155';
+          const x1 = s.style.x, y1 = s.style.y, x2 = t.style.x, y2 = t.style.y;
+          const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+          const ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+          const size = Math.max(6, (e.style?.lineWidth ?? 1) * 3);
+          const ax = x1 + ux * size, ay = y1 + uy * size;
+          const px = -uy * size * 0.55, py = ux * size * 0.55;
+          return (
+            <g key={e.id}>
+              <line x1={ax} y1={ay} x2={x2} y2={y2} stroke={color} strokeWidth={e.style?.lineWidth ?? 1} />
+              <polygon points={`${x1},${y1} ${ax + px},${ay + py} ${ax - px},${ay - py}`} fill={color} />
+            </g>
+          );
+        })}
+        {scene.nodes.map(n => {
+          const st = n.style;
+          const box = textBoxOfNode(st);
+          const isRect = n.type === 'rect' && Array.isArray(st.size);
+          return (
+            <g key={n.id}>
+              {isRect && (
+                <rect x={st.x - st.size[0] / 2} y={st.y - st.size[1] / 2} width={st.size[0]} height={st.size[1]} rx={st.radius ?? 0} fill={st.fill ?? 'none'} stroke={st.stroke ?? 'none'} strokeWidth={st.lineWidth ?? 0} />
+              )}
+              {box && st.labelText && String(st.labelText).split('\n').map((line, i, arr) => {
+                const fs = st.labelFontSize ?? (isRect ? 14 : 12);
+                const lh = st.labelLineHeight ?? fs * 1.25;
+                const y = (box.y1 + box.y2) / 2 - ((arr.length - 1) * lh) / 2 + i * lh;
+                return <text key={i} x={(box.x1 + box.x2) / 2} y={y} textAnchor="middle" dominantBaseline="middle" fontSize={fs} fontWeight={st.labelFontWeight ?? 'normal'} fill={st.labelFill ?? '#1e293b'}>{esc(line)}</text>;
+              })}
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 });

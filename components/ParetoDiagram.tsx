@@ -111,7 +111,10 @@ export const ParetoDiagram = forwardRef<ParetoDiagramRef, Props>(({ data, styles
         ];
         const decimals = finalStyles.decimals ?? 1;
 
+        const isHeadless = typeof window !== 'undefined' && window.location.search.includes('mode=headless');
+
         return {
+            animation: !isHeadless,
             title: {
                 text: finalStyles.title || '排列图 (Pareto Chart)',
                 left: 'center',

@@ -216,7 +216,10 @@ export const HistogramDiagram = forwardRef<HistogramDiagramRef, Props>(({ data, 
             });
         }
 
+        const isHeadless = typeof window !== 'undefined' && window.location.search.includes('mode=headless');
+
         return {
+            animation: !isHeadless,
             title: {
                 text: finalStyles.title || '直方图',
                 subtext: `Mean: ${stats.mean.toFixed(3)} | StdDev: ${stats.std.toFixed(3)} | N: ${data.length}`,

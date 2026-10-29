@@ -17,7 +17,7 @@ import {
     Zap
 } from 'lucide-react';
 import { ParetoItem, ParetoChartStyles, DEFAULT_PARETO_STYLES } from '../types';
-import {generateParetoDSL} from '../services/aiService';
+import { generateParetoDSL } from '../services/aiService';
 import { INITIAL_PARETO_DATA, INITIAL_PARETO_DSL } from '../constants';
 import { CardDocModal } from './CardDocModal';
 import { Switch } from './ui/Switch';
@@ -65,9 +65,12 @@ export const parseParetoDSL = (content: string, baseStyles: ParetoChartStyles = 
             return;
         }
 
-        const itemMatch = trimmed.match(/^-\s*(.+):\s*(\d+)/);
+        const itemMatch = trimmed.match(/^-\s*(.+):\s*([\d.]+)/);
         if (itemMatch) {
-            newItems.push({ id: genId('item'), name: itemMatch[1].trim(), value: parseInt(itemMatch[2]) });
+            const val = parseFloat(itemMatch[2]);
+            if (!isNaN(val)) {
+                newItems.push({ id: genId('item'), name: itemMatch[1].trim(), value: val });
+            }
         }
     });
 
@@ -148,8 +151,8 @@ export const ParetoEditor: React.FC<Props> = ({
     };
 
     const handleReset = () => {
-            setDsl(INITIAL_PARETO_DSL);
-            handleParseDSL(INITIAL_PARETO_DSL);
+        setDsl(INITIAL_PARETO_DSL);
+        handleParseDSL(INITIAL_PARETO_DSL);
         setPendingReset(false);
     };
 
@@ -430,6 +433,6 @@ export const ParetoEditor: React.FC<Props> = ({
                 <CardDocModal kind="pareto" open={showDocs} onClose={() => setShowDocs(false)} />
             )}
         </div>
-        
+
     );
 };

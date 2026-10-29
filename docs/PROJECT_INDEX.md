@@ -54,6 +54,10 @@ related:
 | **P4** | **2026-09-12** | **FLOW R22：R21 复测** → 端口朝向/回折穿盒/子流程整数倍格修复 + 几何门禁 G1–G5（含注入回归） | `docs/flow/review/FLOW_COMPONENT_AUDIT_R22.md` · `docs/flow/review/FLOW_AUDIT_FINDINGS.md`（R22 / AUD-141..146）· `scripts/assert_flow_geometry.ts` · `components/flow/*` |
 | **P4** | **2026-09-12** | **FLOW R23：出入口红线 + 子流程范式**（已实施 S0–S3） | `docs/flow/review/FLOW_COMPONENT_AUDIT_R23.md` · 台账 AUD-147..151 已修复 · `FLOW_ROUTING_EXCLUSIVITY_DESIGN.md` |
 | **P4** | **2026-09-13** | **FLOW R24：N/DATA 水平 + A1 前瞻 + 代数下降性能** | `FLOW_ROUTING_EXCLUSIVITY_DESIGN.md` §5–6 · 台账 AUD-152..153 · `g7-doc-horizontal` · canonical SVG ~150ms |
+| **P6** | **2026-10-27** | **R25–R26：全栈工程深度审计 + MCP 14 CORE 诊断 + 双模分层渲染引擎** | `docs/IQS_MCP_DESIGN_DUAL_ENGINE_AUDIT_R26.md` · 台账 `AUD-155..164` · `scripts/flow_lint_core.ts` · `mcp-server/{index,linters}.js` · `App.tsx` |
+| **P6** | **2026-10-27** | **R27：MCP 双模渲染引擎加固与确定性渲染** | `docs/IQS_MCP_ENGINE_HARDENING_R27.md` · 台账 `AUD-165..169` · 退出信号清理 · 12s 熔断 · 全局动画清零 · resvg 可选依赖 · 新鲜度门禁 |
+| **P6** | **2026-10-27** | **R28：G6 渲染缺陷诊断 + 关联图因果代数重构 + 全组件确定性布局** | `docs/IQS_MCP_DETERMINISTIC_LAYOUT_DESIGN_R28.md` · 台账 `AUD-170..174` · `utils/relationGraph.ts`（469 行纯数学布局）· `PDPCDiagram` / `RelationDiagram` 帧同步 |
+| **P6** | **2026-10-28** | **R29：鱼骨图布局数学评估 + 算法重构实施 + 全仓审计**（已落地，工程记录见 `IQS_FISHBONE_ENGINEERING_LOG_R29.md`） | `docs/IQS_FISHBONE_LAYOUT_MATH_AUDIT_R29.md` · 台账 `AUD-175..183` 全部修复 · `utils/fishboneGraph.ts` 五遍闭式解重写 · `scripts/assert_fishbone_math.ts`（G1–G7 / 44 断言）· `npm run test:fishbone` 入 build+CI · `docs/IQS_DIAGRAM_MATHEMATICAL_LAYOUT_SPEC.md` 第三章重写 |
 
 ### 时间线读法（三条主线）
 
@@ -113,6 +117,12 @@ related:
 | `docs/IQS_CHART_MCP_DESIGN.md` | 48 | 03-16 → 09-02 | 🟡 | MCP 渲染服务设计：目标、**渲染增强桥接**架构 |
 | `docs/archive/IQS_COMP_PLAN_Y_MATRIX.md` | 28 | 02-05 → 02-05 | 🔵 | Y-Matrix 精简与画布填充方案（**单点实施计划**，已完成） |
 | `docs/IQS_DSL_CARD_SSOT_DESIGN.md` | ~400 | **09-12** | 🟢 | **卡片单一真源（SSOT）设计方案**：7 源诊断 → TS 真源 → 生成器 → 五道门禁 → 落点切换 → MCP 资源接入（§1–§11） |
+| `docs/IQS_MCP_DESIGN_DUAL_ENGINE_AUDIT_R26.md` | ~310 | **10-27** | 🟢 | **全栈工程深度审计与 MCP 双模分层渲染架构设计及实施全记录（R26）**：12 项审计发现（`AUD-159..164`）· 无头浏览器合理性评估 · Tier-1 原生直出 + Tier-2 常驻热页 IPC 桥接 · 14 CORE 全量前置 Linter · Phase 1–4 实施与实测验收 |
+| `docs/IQS_MCP_ENGINE_HARDENING_R27.md` | ~140 | **10-27** | 🟢 | **MCP 双模渲染引擎稳定性加固与确定性渲染设计及实施（R27）**：孤儿进程清理 · 12s 熔断自愈 · 全局动画清零 · resvg 可选依赖 · 新鲜度门禁 |
+| `docs/IQS_MCP_DETERMINISTIC_LAYOUT_DESIGN_R28.md` | ~155 | **10-27** | 🟢 | **G6 全景渲染缺陷诊断 + 关联图因果代数重构（R28）**：PDPC Dagre/fitView 时序根因 · 16 类图表无头截帧排查矩阵 · 关联图方向型/中央型/自由型纯数学布局 · Phase 1–3 |
+| `docs/IQS_DIAGRAM_MATHEMATICAL_LAYOUT_SPEC.md` | ~630 | **10-28** | 🟡 | **图形组件布局数学实现规范（SSOT 草案）**：关联图三类布局公式、复杂度对照；鱼骨图分形/避障/排版阶梯。⚠️ §3.1 仍描述旧算法（均分脊椎 + 线性骨长），与现行 `utils/fishboneGraph.ts` 包络推进不一致，见 `AUD-183` |
+| `docs/IQS_FISHBONE_ENGINEERING_LOG_R29.md` | ~330 | **10-28** | 🟢 | **鱼骨图引擎工程记录（R29 全轮次）**：10 项已落地能力 · 6 次失败尝试与回退根因 · 三条"改了几轮没变化"的教训（G6 字段名/`center` 下 offset 不生效/探针对≠页面对）· 代码结构 7 处问题 · **范式重构建议（几何清单 + 渲染分离）** · **§10 抛弃 G6 可行性（仅鱼骨图，6 处依赖全部可替代 + 三步迁移 + 已有原型）** · **§11 与 MCP 链路的关系（鱼骨图可进 Tier-1 免浏览器；MCP 整体仍需 Tier-2）** · **A1–A10 待审计清单** |
+| `docs/IQS_FISHBONE_LAYOUT_MATH_AUDIT_R29.md` | ~330 | **10-28** | 🟢 | **鱼骨图布局数学评估 + 算法重构实施（R29）**：五条定理（串联紧性 / 成对绑定弱劣界 / 包络低估 / 垂直自洽必要式 / 缩放闭环判据）· 用户五步方案逐条裁定 · 闭式五遍算法**已实现** · 前后实测（4 骨 61.6%→83.1%、长文本 66.8%→95.1%、6 骨按设计 warn）· G1–G7 验收 + 44 断言 · 台账 `AUD-175..183` 全修复 |
 
 ### 3.3 功能手册
 

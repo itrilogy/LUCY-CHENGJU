@@ -3,7 +3,7 @@
 > **用途**：FLOW 组件相关文档的**唯一入口**。按「权威层级 × 领域 × 类型」组织，并标注每份文档的**时效状态**，避免误引过时内容。
 > **维护规则**：新增文档须在此登记；状态变化须同步更新。
 > **上级索引**：**`docs/PROJECT_INDEX.md`**（全项目文档总索引与工程历程）—— 本文件是其 FLOW 专项子索引。
-> **关联**：审计台账 `docs/flow/review/FLOW_AUDIT_FINDINGS.md`（R1–R25 / 158 条）· R23 出入口红线 `docs/flow/review/FLOW_COMPONENT_AUDIT_R23.md` · 现行口径 `docs/flow/design/FLOW_ROUTING_EXCLUSIVITY_DESIGN.md` · R22 `docs/flow/review/FLOW_COMPONENT_AUDIT_R22.md` · 工作记录 `docs/flow/notes/FLOW_ROUTING_WORKLOG.md`
+> **关联**：审计台账 `docs/flow/review/FLOW_AUDIT_FINDINGS.md`（R1–R26 / 164 条）· R26 双模渲染与全栈审计 `docs/IQS_MCP_DESIGN_DUAL_ENGINE_AUDIT_R26.md` · R23 出入口红线 `docs/flow/review/FLOW_COMPONENT_AUDIT_R23.md` · 现行口径 `docs/flow/design/FLOW_ROUTING_EXCLUSIVITY_DESIGN.md` · R22 `docs/flow/review/FLOW_COMPONENT_AUDIT_R22.md` · 工作记录 `docs/flow/notes/FLOW_ROUTING_WORKLOG.md`
 
 ---
 
@@ -127,7 +127,8 @@
 | `docs/flow/review/FLOW_ENGINEERING_AUDIT_NOTES.md` | 全局 | ⚪ | 工程审计记录（未审计） |
 | `docs/flow/review/FLOW_RENDER_REVIEW_QA.md` | 渲染 | ⚪ | 渲染 QA（未审计） |
 | `docs/flow/review/FLOW_PANEL_MATH_DOCKER_REVIEW.md` | 全局 | ⚪ | 面板/数学/Docker 评审（未审计） |
-| **`docs/flow/review/FLOW_AUDIT_FINDINGS.md`** | 全局 | 🟢 | 审计台账 R1–R25 / **158 条** |
+| **`docs/flow/review/FLOW_AUDIT_FINDINGS.md`** | 全局 | 🟢 | 审计台账 R1–R26 / **164 条** |
+| **`docs/IQS_MCP_DESIGN_DUAL_ENGINE_AUDIT_R26.md`** | MCP·全局 | 🟢 | **新（2026-10-27）** · R26 全栈工程深度审计与 MCP 双模分层渲染架构设计及实施全记录（`AUD-159..164`） |
 | **`docs/flow/review/FLOW_AGENT_CARD_AUDIT.md`** | 协议 | 🟢 | **新** · AI 推理卡专项审计（14 kind 全部供给 LLM 的范式材料 + MCP 分发设计）：三源漂移量化 · 7 条卡-实现冲突 · 含复现命令 |
 | **`docs/flow/review/FLOW_COMPONENT_AUDIT_R22.md`** | 布线·渲染·布局 | 🟢 | R21 复测驱动：端口朝向 + 回折穿盒 + 子流程整数倍格 · 几何门禁 G1–G5。**R23 复核**：网关白名单误关 A1 |
 | **`docs/flow/review/FLOW_COMPONENT_AUDIT_R23.md`** | 布线·布局 | 🟢 | **新（2026-09-12）** · 出入口红线（同入/同出可复用、同侧既入又出禁止）+ 子流程未走 3×3 绘制格范式 · AUD-147..151 |

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AffinityItem,
+import {
+    AffinityItem,
     AffinityChartStyles,
-    DEFAULT_AFFINITY_STYLES } from '../types';
+    DEFAULT_AFFINITY_STYLES
+} from '../types';
 import {
     Boxes,
     Sparkles,
@@ -26,7 +28,7 @@ import {
     Zap,
     AlertTriangle,
 } from 'lucide-react';
-import {generateLogicDSL} from '../services/aiService';
+import { generateLogicDSL } from '../services/aiService';
 import { QCToolType } from '../types';
 import { INITIAL_AFFINITY_DATA, INITIAL_AFFINITY_DSL } from '../constants';
 import { CardDocModal } from './CardDocModal';
@@ -48,7 +50,7 @@ export const parseAffinityDSL = (content: string, baseStyles: AffinityChartStyle
 
     lines.forEach(line => {
         const trimmed = line.trim();
-        if (!trimmed) return;
+        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) return;
 
         // Properties
         if (trimmed.startsWith('Title:')) { newStyles.title = trimmed.replace('Title:', '').trim(); return; }
@@ -241,17 +243,17 @@ const AffinityEditor: React.FC<AffinityEditorProps> = ({
         const sz = TIER[Math.min(depth, TIER.length - 1)];
         const ic = ICON[Math.min(depth, ICON.length - 1)];
         const RowAction: React.FC<{ title: string; onClick: () => void; danger?: boolean; children: React.ReactNode }> =
-          ({ title, onClick, danger, children }) => (
-            <button
-                type="button" title={title} aria-label={title} onClick={onClick}
-                className={`${sz} w-auto aspect-square shrink-0 flex items-center justify-center rounded-sm
+            ({ title, onClick, danger, children }) => (
+                <button
+                    type="button" title={title} aria-label={title} onClick={onClick}
+                    className={`${sz} w-auto aspect-square shrink-0 flex items-center justify-center rounded-sm
                             border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--sidebar-muted)]
                             transition-colors opacity-60 focus-visible:opacity-100 hover:opacity-100
                             ${danger ? 'hover:text-[var(--text-danger)] hover:border-[var(--alert-red)]' : 'hover:text-primary hover:border-primary'}`}
-            >
-                {children}
-            </button>
-          );
+                >
+                    {children}
+                </button>
+            );
         return (
             <div key={item.id} className="space-y-1.5" style={{ paddingLeft: depth * 22 }}>
                 <div className={`flex items-center gap-2 ${depth === 0 ? 'bg-[var(--card-bg)] border border-[var(--border-line-r)] p-2.5 rounded-md' : ''}`}>
@@ -293,15 +295,15 @@ const AffinityEditor: React.FC<AffinityEditorProps> = ({
     };
 
     const doReset = () => {
-            setDsl(INITIAL_AFFINITY_DSL);
-            handleParseDSL(INITIAL_AFFINITY_DSL);
+        setDsl(INITIAL_AFFINITY_DSL);
+        handleParseDSL(INITIAL_AFFINITY_DSL);
         setConfirmReset(false);
     };
 
     return (
         <div className="flex flex-col h-[calc(100vh-80px)] bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] relative">
-                {/* Header Area */}
-                <div className="p-6 border-b border-[var(--border-line-r)] space-y-6">
+            {/* Header Area */}
+            <div className="p-6 border-b border-[var(--border-line-r)] space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-primary/20 rounded-md flex items-center justify-center border border-primary/30">
@@ -649,7 +651,7 @@ const AffinityEditor: React.FC<AffinityEditorProps> = ({
                 <CardDocModal kind="affinity" open={showDocs} onClose={() => setShowDocs(false)} />
             )}
         </div>
-        
+
     );
 };
 

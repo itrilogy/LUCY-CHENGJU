@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const FLOW_LINT_BUNDLE = path.join(__dirname, "lib/flow_lint.mjs");
 const FLOW_LINT_SCRIPT = path.join(__dirname, "../scripts/lint_flow.ts");
-let flowLinterPromise = null;
+let coreBundlePromise = null;
 
 function lintFlowViaSubprocess(dsl) {
   const r = spawnSync(process.execPath, ["--experimental-strip-types", FLOW_LINT_SCRIPT], {
@@ -21,52 +21,80 @@ function lintFlowViaSubprocess(dsl) {
     console.error(`[MCP] Flow lint subprocess produced no output: ${String(r.stderr || r.error || "").slice(0, 300)}`);
     return null;
   }
-  return JSON.parse(out.split("\n").filter(Boolean).pop());
+  try {
+    const lastLine = out.split("\n").filter(Boolean).pop();
+    return JSON.parse(lastLine);
+  } catch (err) {
+    console.error(`[MCP] Flow lint subprocess parse error: ${err.message}, raw: ${out.slice(0, 150)}`);
+    return null;
+  }
 }
 
-function loadFlowLinter() {
-  if (!flowLinterPromise) {
-    flowLinterPromise = (async () => {
+export function loadCoreBundle() {
+  if (!coreBundlePromise) {
+    coreBundlePromise = (async () => {
       if (fs.existsSync(FLOW_LINT_BUNDLE)) {
         try {
           const mod = await import(pathToFileURL(FLOW_LINT_BUNDLE).href);
-          if (typeof mod.lintFlow === "function") {
-            return (dsl) => mod.lintFlow(String(dsl ?? ""));
-          }
+          return mod;
         } catch (e) {
-          console.error(`[MCP] Flow lint bundle load failed: ${e.message}`);
+          console.error(`[MCP] Core bundle load failed: ${e.message}`);
         }
       }
-      if (fs.existsSync(FLOW_LINT_SCRIPT)) {
-        return lintFlowViaSubprocess;
-      }
-      console.error("[MCP] Flow lint unavailable: 诊断跳过，正常放行");
       return null;
     })();
   }
-  return flowLinterPromise;
+  return coreBundlePromise;
+}
+
+const CORE_TOOLS = [
+  "render_flow",
+  "render_fishbone",
+  "render_affinity",
+  "render_pareto",
+  "render_histogram",
+  "render_control",
+  "render_scatter",
+  "render_radar",
+  "render_relation",
+  "render_arrow",
+  "render_pdpc",
+  "render_matrix",
+  "render_matrix_plot",
+  "render_basic",
+];
+
+/**
+ * 通用 Linter 注册表：覆盖全部 14 个 CORE 质量控制图表
+ */
+const linterRegistry = {};
+for (const toolName of CORE_TOOLS) {
+  const slug = toolName.replace(/^render_/, "");
+  linterRegistry[toolName] = async (dsl) => {
+    const mod = await loadCoreBundle();
+    if (mod) {
+      try {
+        if (slug === "flow" && typeof mod.lintFlow === "function") {
+          return mod.lintFlow(String(dsl ?? ""));
+        }
+        if (typeof mod.lintCoreKind === "function") {
+          return mod.lintCoreKind(slug, String(dsl ?? ""));
+        }
+      } catch (e) {
+        console.error(`[MCP] Core lint execution error (${toolName}): ${e.message}`);
+        return null;
+      }
+    }
+    if (slug === "flow" && fs.existsSync(FLOW_LINT_SCRIPT)) {
+      return lintFlowViaSubprocess(dsl);
+    }
+    return null;
+  };
 }
 
 /**
- * 通用 Linter 注册表
- * 未来如需扩展 pareto, control 等图表的校验器，只需在此处挂载对应的 linter 函数
- */
-const linterRegistry = {
-  render_flow: async (dsl) => {
-    const linter = await loadFlowLinter();
-    if (!linter) return null;
-    try {
-      return linter(dsl);
-    } catch (e) {
-      console.error(`[MCP] Flow lint execution error: ${e.message}`);
-      return null;
-    }
-  }
-};
-
-/**
  * 获取指定图表工具的前置校验器
- * @param {string} toolName - 工具名称，如 "render_flow"
+ * @param {string} toolName - 工具名称，如 "render_flow"、"render_pareto"
  * @returns {Function|null} 校验函数
  */
 export function getToolLinter(toolName) {
@@ -109,12 +137,15 @@ export function formatLinterError(lintResult) {
  */
 export function formatLinterDiag(lintResult) {
   if (!lintResult) return "";
-  const parts = [
-    "error: false",
-    `nodes: ${lintResult.nodes ?? 0}`,
-    `edges: ${lintResult.edges ?? 0}`,
-    `lanes: ${lintResult.lanes ?? 0}`
-  ];
+  const parts = ["error: false"];
+
+  if (lintResult.nodes != null) {
+    parts.push(`nodes: ${lintResult.nodes}`);
+    parts.push(`edges: ${lintResult.edges ?? 0}`);
+    parts.push(`lanes: ${lintResult.lanes ?? 0}`);
+  } else if (lintResult.items != null) {
+    parts.push(`items: ${lintResult.items}`);
+  }
 
   if (lintResult.gateways != null) parts.push(`gateways: ${lintResult.gateways}`);
   if (lintResult.subprocesses != null) parts.push(`subprocesses: ${lintResult.subprocesses}`);

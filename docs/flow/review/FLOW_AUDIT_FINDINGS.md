@@ -511,7 +511,7 @@ v2 的设计直接参照 `obstacle-router`/libavoid 的参数语义：`bendCost�
 > **触发**：`/tmp/flowreview/diag_hit.mjs` 诊断穿盒时发现路径含**斜线段**（`(1086,322)→(978,136)`）与**连续重复点**，追查后确认实现缺陷。
 > **结论**：**R10 中路径 B 的全部指标作废**，且"路径 B v2 成功"的判断**反转**。
 
-### 1. 两个实现缺陷（原型代码缺陷，但直接导致 R10 误判）
+### 1. 两个实现缺陷（原型代码缺陷，但直接导���� R10 误判）
 
 | ID | 级别 | 类别 | 问题 | 证据 | 状态 |
 |:---|:---:|:---|:---|:---|:---|
@@ -840,6 +840,25 @@ v2 的设计直接参照 `obstacle-router`/libavoid 的参数语义：`bendCost�
 ## 修复优先级建议（累计）
 
 | 优先级 | 条目 | 动作 |
+|:---|:---|:---|
+| ✅ **已完成** | 110 / 109 / 108 / 104 / 107 | L4 布线内核换代落地（Σ折弯 −45%、190 断言零回归） |
+| ✅ **已完成** | 111 / 112 / 113 / 114 / 115 | 停 T2 · 删射线松弛（列对齐 0.0px）· 判据补符号 · 对齐不变量 CI · 文档迁移 |
+| **P0** | **083 / 107 余项** | 折弯与回折判据的**其余同源处**核查（`getTheoreticalBends` 等） |
+| **P0** | 060, 031, 030 | T2 相关遗留代码清理（`GuardedShift.ts` 现无调用方） |
+| **P0** | 053, 059 | `BACK_EDGE_LABELS` 去 `'否'`；回边判据改拓扑 |
+| **P0** | 001, 002 | 修默认流分支扇出误连 + 修正官方正例（4 处同源） |
+| **P0** | 039, 040 | 修 `#11` 填充顺序 + 重写 `R6` |
+| **P0** | 043, 044, 045 | BPMN：`parent` 赋值、lane 逐索引、`documentation` |
+| **P1** | 105, 101, 102, 027, 028, 029, 084, 088, 089 | 布线内核细节；叠线（088）暂缓 |
+| **P1** | **087, 091** | stencil 统一尺寸 / 延伸列位归属原阶段 |
+| **P1** | 069, 073, 067, 070, 080, 076 | 门禁链 + 读写路径（AUD-067 已部分修正，见 V-48） |
+| **P1** | 003, 004, 005, 006, 011, 012, 014, 066 | 解析器静默失败与校验缺陷 |
+| **P1** | 046, 061, 062 | BPMN `isDefault` 归位；两趟端口分配；腾挪改整列/整行 |
+| **P2** | 009, 010, 017, 018, 041, 051, 054, 055, 064, 071, 075, 079, 092, 094, 099 | canonical 契约 / Attr 聚合 / 岗位图例 / 嵌套几何 / 落点语义 / 测试保真 / 未证命题 / 层边界 / 原型勘误 |
+| **P3** | 015, 016, 019, 020, 022, 024, 037, 038, 042, 047, 048, 056, 058, 063, 065, 072, 074, 078, 081, 082, 085, 093, 097 | 死代码 / 文档漂移 / 命名通胀 / 导出保真 / 依赖成熟度 / 参数一致性 |
+
+---
+
 ## R21 — 使用者实测驱动（2026-09-12）
 
 > **触发**：使用者在画布上实测，提出三个问题并附截图：
@@ -891,25 +910,6 @@ npm run check:cards-fresh EXIT=0
 ```
 
 **提交**：`2535978 fix(flow): 渲染缓存、子流程继承布局、默认流跳过集合（AUD-138/139/140）`
-
----
-
-|:---|:---|:---|
-| ✅ **已完成** | 110 / 109 / 108 / 104 / 107 | L4 布线内核换代落地（Σ折弯 −45%、190 断言零回归） |
-| ✅ **已完成** | 111 / 112 / 113 / 114 / 115 | 停 T2 · 删射线松弛（列对齐 0.0px）· 判据补符号 · 对齐不变量 CI · 文档迁移 |
-| **P0** | **083 / 107 余项** | 折弯与回折判据的**其余同源处**核查（`getTheoreticalBends` 等） |
-| **P0** | 060, 031, 030 | T2 相关遗留代码清理（`GuardedShift.ts` 现无调用方） |
-| **P0** | 053, 059 | `BACK_EDGE_LABELS` 去 `'否'`；回边判据改拓扑 |
-| **P0** | 001, 002 | 修默认流分支扇出误连 + 修正官方正例（4 处同源） |
-| **P0** | 039, 040 | 修 `#11` 填充顺序 + 重写 `R6` |
-| **P0** | 043, 044, 045 | BPMN：`parent` 赋值、lane 逐索引、`documentation` |
-| **P1** | 105, 101, 102, 027, 028, 029, 084, 088, 089 | 布线内核细节；叠线（088）暂缓 |
-| **P1** | **087, 091** | stencil 统一尺寸 / 延伸列位归属原阶段 |
-| **P1** | 069, 073, 067, 070, 080, 076 | 门禁链 + 读写路径（AUD-067 已部分修正，见 V-48） |
-| **P1** | 003, 004, 005, 006, 011, 012, 014, 066 | 解析器静默失败与校验缺陷 |
-| **P1** | 046, 061, 062 | BPMN `isDefault` 归位；两趟端口分配；腾挪改整列/整行 |
-| **P2** | 009, 010, 017, 018, 041, 051, 054, 055, 064, 071, 075, 079, 092, 094, 099 | canonical 契约 / Attr 聚合 / 岗位图例 / 嵌套几何 / 落点语义 / 测试保真 / 未证命题 / 层边界 / 原型勘误 |
-| **P3** | 015, 016, 019, 020, 022, 024, 037, 038, 042, 047, 048, 056, 058, 063, 065, 072, 074, 078, 081, 082, 085, 093, 097 | 死代码 / 文档漂移 / 命名通胀 / 导出保真 / 依赖成熟度 / 参数一致性 |
 
 ---
 
@@ -1033,16 +1033,62 @@ npm run check:cards-fresh EXIT=0  PASS（重生成前后一致）
 ## R25 — MCP 服务容器化与健壮性修复（2026-10-27）
 
 > **触发**：容器部署后反向代理地址失真、图片链接不可达；代码审计发现容器内缺失 `scripts/` 与 `components/` 导致 `render_flow` 必然拦截失败（P0）；JSON 拦截返回错误外壳示例（P1）。
-> **完整评估报告**：[mcp_server_review.md](file:///Users/kwangwah/.gemini/antigravity-ide/brain/a5a7ab7c-cbf1-4ec4-8e91-1f078de6eca7/mcp_server_review.md)
 
 | 编号 | 级别 | 状态 | 主题 | 结论 |
 |:--|:--:|:--|:--|:--|
 | **AUD-155** | **P0** | **已修复** | 容器内 `render_flow` 因依赖源码脚本必然失败 | `lintFlowDsl` 依赖 `../scripts/lint_flow.ts` 与 `../components/flow/FlowParser.ts`，生产 Dockerfile 未复制该目录。执行抛 `Cannot find module` → stdout 为空 → 被误判为语法错误全部拦截。**修复**：抽离 `scripts/flow_lint_core.ts` 纯函数，构建阶段 `npm run build:mcp-lint` 通过 esbuild 打包至 `mcp-server/lib/flow_lint.mjs` 并随镜像分发；MCP 进程内优先直接 import 打包产物，无打包时回退子进程，彻底断开源码依赖；若诊断模块自身异常统一安全放行，避免辅助校验阻塞核心出图。 |
-| **AUD-156** | **P1** | **已修复** | JSON 误传拦截示例匹配失效（误导模型） | [index.js:699](file:///Users/kwangwah/Copyright/LUCY-CHENGJU/mcp-server/index.js#L699) 按 `t.parent_type === type` 匹配，原生图表（`parent_type="iqs_native"`）永远匹配不上，回落到 VChart 外壳示例 `Title: 标题\nSpec: { ... }`，反向诱导模型。**修复**：改为精确按 `t.name === name` 查找对应图表，展示真实的 `official_example`，消除错误引导。 |
+| **AUD-156** | **P1** | **已修复** | JSON 误传拦截示例匹配失效（误导模型） | `mcp-server/index.js` 原按 `t.parent_type === type` 匹配，原生图表（`parent_type="iqs_native"`）永远匹配不上，回落到 VChart 外壳示例 `Title: 标题\nSpec: { ... }`，反向诱导模型。**修复**：改为精确按 `t.name === name` 查找对应图表，展示真实的 `official_example`，消除错误引导。 |
 | **AUD-157** | **P1** | **已修复** | 多级反代头非法拼接与渲染图片无持久化 | 多级反向代理注入逗号分隔的 `X-Forwarded-*` 标头时直接拼接产生非法 URL；`trust proxy: true` 过于宽泛；Docker 重建后历史生成图片全部 404。**修复**：改用 Express 内置代理感知解析真实协议与主机（自动取第一跳有效地址）；`trust proxy` 默认收敛为回环与私网网段并支持 `IQS_TRUST_PROXY` 灵活配置；图片标题改用图表 `display_name` 增强可读性；`docker-compose.yml` 为 `/app/mcp-server/renders` 挂载命名卷 `iqs-renders` 保障图片持久化访问。 |
 | **AUD-158** | **P1** | **已修复** | 通用 Linter 抽象解耦与 Flow 诊断能力增强 | 主入口特化硬编码 `render_fishbone` 正则防呆与 `render_flow` 专用分支违背开闭原则；原始诊断信息单一死板无行号与分类建议。**修复**：彻底移除 `fishbone` 正则特化（交由协议传导与前端容错）；将多段协议合并通用化，自动探测 `.agent.md`；抽离 `mcp-server/linters.js` 通用 Linter 调度槽位；外层增强 Flow 诊断：行号与代码切片安全标注（Annotated Errors）、动态分类针对性自愈指引（Fix Hints）、拓扑健康度（Gateways/Subprocesses）元数据回传，完全不破坏底座 206 项门禁。 |
 
 ---
 
+## R26 — 全栈工程深度审计与 MCP 双模分层渲染引擎重塑（2026-10-27）
+
+> **触发**：对全仓代码与最新 Markdown 文档体系进行深度工程审计，并评估「MCP 全量通过每次冷启动无头浏览器渲染是否合理，是否存在更直接、工程化且优雅的方案」。
+> **完整设计与实施报告**：`docs/IQS_MCP_DESIGN_DUAL_ENGINE_AUDIT_R26.md`
+
+| 编号 | 级别 | 状态 | 主题 | 结论 |
+|:--|:--:|:--|:--|:--|
+| **AUD-159** | **P0** | **已修复** | `Dockerfile` 漏拷 `mcp-server/linters.js` 致容器启动崩溃 | R25（`AUD-158`）在 `mcp-server/index.js` 新增 `import ... from "./linters.js"`，但 `Dockerfile` Stage 2 未拷贝该文件，容器启动必抛 `ERR_MODULE_NOT_FOUND`。**修复**：`Dockerfile` 补齐 `COPY mcp-server/linters.js ./mcp-server/`，并注入 `PUPPETEER_SKIP_DOWNLOAD=true` 消除构建期重复下载 Chrome；`docker-entrypoint.sh` 用 HTTP 轮询探针替代 `sleep 5`。 |
+| **AUD-160** | **P0** | **已修复** | 审计台账路径泄露与表格语法断裂 | 本文件 R25 含本机私有绝对路径 `file:///Users/...`，且第 842 行「修复优先级建议」表头与表体被 `## R21` 截断。**修复**：移除本机绝对路径，完整闭合表格。 |
+| **AUD-161** | **P1** | **已修复** | MCP 协议层残留硬编码错误 `Data:` 范式与三倍重复拼接 | `getToolDslDescription` 手写 `switch` 对 `pareto`/`control` 给出错误的 `Data:` 范式；`buildFullProtocolDoc` 出现两个 `## 二、` 且将语法表与官方示例重复拼接 3 遍。**修复**：`getToolDslDescription` 改为从 L0 真源 `official_example` 提取首 4 行；`buildFullProtocolDoc` 动态递增章节序号并剥离重复块，单次 `read_protocol("flow")` 节省 ~37% Token。 |
+| **AUD-162** | **P1** | **已修复** | `App.tsx` 维护 5 套过时内联解析器导致无头与交互态分裂 | `Fishbone`/`Pareto`/`Histogram`/`Scatter`/`Affinity` 在 `App.tsx` 使用手写阉割版 `parseInitial*`（丢失鱼骨 4 级节点、散点 `Show3D:`、排列图 `Font` 与浮点数）。**修复**：删除 `App.tsx` 230 行内联重复解析代码，100% 委托给 `*Editor.tsx` 导出的标准 `parse*DSL`；清理死文件 `EditorPanel.tsx` 与 `GuardedShift.ts`。 |
+| **AUD-163** | **P1** | **已修复** | MCP 前置 Linter 扩展至全量 14 个 CORE 图表 | 原 `linters.js` 仅挂载 `render_flow`，其余 13 个 CORE 图表传入错误语法时仍启动浏览器截白图。**修复**：`scripts/flow_lint_core.ts` 新增 `lintCoreKind(kind, dsl)` 并打包进 `mcp-server/lib/flow_lint.mjs`，`linters.js` 覆盖全部 14 个 CORE 图表毫秒级拦截与 `Fix Hints` 自愈引导。 |
+| **AUD-164** | **P1** | **已修复** | MCP 双模分层渲染引擎（Tier-1 原生直出 + Tier-2 常驻热页 IPC） | 原架构每次调用均 `puppeteer.launch()` + URL GET 传参 + 死等 `1500ms`（耗时 ~3.5s 且受 URL 长度限制）。**修复**：升级为双模分层架构 —— **Tier-1（`flow`）** 在 MCP 进程内直接调 `renderFlowSVG`（带 LRU 缓存）+ 单页 Canvas / `@resvg/resvg-js` 光栅化（**零 `:12000` Web 服务依赖，热态 ~270ms**）；**Tier-2（G6/ECharts/Mermaid/VChart）** 复用常驻 Browser + 预热 Warm-Page + `window.renderIQSChart` 内存态 IPC 桥接（无 URL 长度限制，自适应帧等待）。 |
+
+---
+
+## R27 — MCP 渲染引擎稳定性加固与确定性渲染（2026-10-27）
+
+> **触发**：基于 R26 深度审计发现，针对常驻 Chromium 孤儿进程泄漏、Tier-2 内存桥接无超时挂死风险、无头模式缓动动画导致中间过渡帧抓取抖动等关键隐患实施加固。
+> **完整设计与规划报告**：`docs/IQS_MCP_ENGINE_HARDENING_R27.md`
+
+| 编号 | 级别 | 状态 | 主题 | 结论 |
+|:--|:--:|:--|:--|:--|
+| **AUD-165** | **P0** | **已修复** | 常驻 Chromium 缺少退出信号处理致孤儿进程泄漏 | 在 `mcp-server/index.js` 注册 `SIGINT` / `SIGTERM` / `SIGHUP` 信号捕获与 `closeSharedBrowser()`，退出时主动注销并终止后台 Chromium 实例，杜绝孤儿进程与内存泄漏。 |
+| **AUD-166** | **P1** | **已修复** | Tier-2 内存桥接缺少超时保护致串行队列永久挂死雪崩 | Puppeteer `page.evaluate()` 默认无超时。引入 `evaluateWithTimeout`（12s 熔断保护），超时抛出异常并自动重置 `warmPagePromise = null` 触发自愈重启，释放 `renderQueue`，防止整个服务不可逆挂死。 |
+| **AUD-167** | **P1** | **已修复** | 无头模式缓动动画与过渡导致截图帧抓取抖动 | `FishboneDiagram` 在无头模式下 `fitView` 动画时长强制归零（`duration: 0`）；`iqs-headless-style` 全局注入 CSS 强制动画与过渡清零规则（`animation-duration: 0s`、`transition-duration: 0s`），确保截图瞬间画面 100% 绝对定格。 |
+| **AUD-168** | **P2** | **已修复** | Tier-1 引入 `@resvg/resvg-js` 可选依赖实现 Rust 纯 CPU 直出 | 在 `package.json` 中配置可选依赖，支持 Rust 原生毫秒级（<10ms）SVG 到 PNG 转换；在不具备预编译包的环境下优雅降级为单页 Canvas，双保险生效。 |
+| **AUD-169** | **P2** | **已修复** | MCP 共享内核构建物新鲜度门禁闭环 | 新增 `scripts/check_mcp_lint_fresh.ts` 检查 `flow_lint_core.ts` 与 `mcp-server/lib/flow_lint.mjs` 是否一致，并接入 `npm run build` 和 GitHub Actions CI 必跑门禁。 |
+
+---
+
+## R28 — PDPC 全景截图残缺根治、关联图因果代数纯数学重构与确定性布局（2026-10-27）
+
+> **触发**：无头渲染下 PDPC 图截图仅捕获画布左上局部（`render_2026-10-27_07-37-13_vtad2v.png`）的根因排查，以及关联图力导向算法迭代计算不稳定致出图残缺的算法级重构。
+> **完整设计与规划方案**：`docs/IQS_MCP_DETERMINISTIC_LAYOUT_DESIGN_R28.md`
+
+| 编号 | 级别 | 状态 | 主题 | 结论 |
+|:--|:--:|:--|:--|:--|
+| **AUD-170** | **P1** | **已修复** | PDPC 图 Dagre 异步布局与 fitView 时序脱节致截图严重残缺 | 在 `PDPCDiagram.tsx` 中，`graph.render()` 异步完成前调用 `fitView({ duration: 500 })`，导致视口以初始未展开坐标进行缩放计算。修复：等待 Dagre 异步布局完成的 Promise 并在无头模式下以 `duration: 0` 瞬发 `fitView`。 |
+| **AUD-171** | **P1** | **已修复** | G6 图表 getDataURL 未等待 Canvas 渲染管线提交帧 | `PDPCDiagram.tsx` 与 `RelationDiagram.tsx` 在 `setSize` 与 `fitView` 后直接调用 `toDataURL`，底层 Canvas 变换矩阵尚未提交。修复：引入双 `requestAnimationFrame` 显式帧同步，确保画布 100% 重绘上屏后再导出。 |
+| **AUD-172** | **P2** | **已修复** | ECharts 系列图表默认 1000ms 缓动动画干扰无头截帧 | `ParetoDiagram.tsx`、`HistogramDiagram.tsx`、`ScatterDiagram.tsx`、`BasicDiagram.tsx` 在 `mode=headless` 时统一注入 `animation: false`，消除缓动动画抓取到半高柱状图或残缺折线的风险。 |
+| **AUD-173** | **P1** | **已修复** | 关联图 Fruchterman 力导向与 Radial 异步迭代不可控 | 彻底摒弃不可预测的异步物理退火模拟插件，在 `utils/relationGraph.ts` 中建立**因果净通量**模型，实现纯数学的**方向型最长链分层+质心降交叉算法**与**中央型自适应无碰撞同心椭圆因果极坐标投影算法**（<2ms 闭式解）。 |
+| **AUD-174** | **P1** | **已修复** | 关联图节点直接注入确定性几何坐标 | 改造 `RelationDiagram.tsx`，将纯数学计算出的 `(x, y)` 直接注入节点数据，G6 设 `layout: undefined`，消除力导向收敛等待与飞出视口风险，实现 0ms 同步全景渲染。 |
+
+---
+
 *台账维护：逐轮追加新条目，编号严格递增不回收；已修复条目改状态为 `已修复(commit)` 并保留原文。*
+
 

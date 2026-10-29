@@ -249,7 +249,10 @@ export const BasicDiagram = forwardRef<BasicDiagramRef, Props>(({ data, styles }
             });
         }
 
+        const isHeadless = typeof window !== 'undefined' && window.location.search.includes('mode=headless');
+
         const baseOption: any = {
+            animation: !isHeadless,
             backgroundColor: finalStyles.backgroundColor,
             title: {
                 text: title || finalStyles.title,

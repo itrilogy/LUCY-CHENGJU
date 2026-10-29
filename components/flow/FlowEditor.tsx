@@ -9,9 +9,10 @@ import React, { useEffect, useState } from 'react';
 import { FlowData, FlowChartStyles, QCToolType, DEFAULT_FLOW_STYLES } from '../../types';
 import { INITIAL_FLOW_DSL } from '../../constants';
 import { parseFlowDSL } from './FlowParser';
-import {generateLogicDSL,getLastAICompletion} from '../../services/aiService';
+import { generateLogicDSL, getLastAICompletion } from '../../services/aiService';
 import { COLOR_SLOT_MAP, FLOW_PALETTES, applyPalette, paletteOf } from './FlowThemes';
 import { CardDocModal } from '../CardDocModal';
+import { ConfirmInline } from '../ui/ConfirmInline';
 import { useAIEngine } from '../../hooks/useAIEngine';
 import {
   Sparkles, Code, HelpCircle, X, Loader2, Database, ChevronRight,
@@ -95,6 +96,20 @@ function upsertColorSlot(src: string, slot: string, hex: string): string {
 
 function upsertGridLine(src: string, kind: 'dashed' | 'solid'): string {
   return upsertKv(src, /^Grid\s*:.*$/mi, `Grid: ${kind}`);
+}
+
+const ATTR_KEYS: { key: 'role' | 'sop' | 'lv' | 'time' | 'kpi' | 'm'; label: string; placeholder: string }[] = [
+  { key: 'role', label: 'Role 岗位', placeholder: 'Role (如 R[0])' },
+  { key: 'sop', label: 'SOP 依据', placeholder: 'SOP 编号' },
+  { key: 'lv', label: 'Lv 风险', placeholder: 'Lv (一般/重要/关键)' },
+  { key: 'time', label: 'Time 时效', placeholder: 'Time (如 2h)' },
+  { key: 'kpi', label: 'KPI 指标', placeholder: 'KPI 指标' },
+  { key: 'm', label: 'M 标记', placeholder: 'M 标记' },
+];
+
+function upsertAttrActive(src: string, active: string[]): string {
+  const line = `Attr active [${active.map((a) => a.toUpperCase()).join(',')}]`;
+  return upsertKv(src, /^Attr\s+active.*$/mi, line);
 }
 
 function upsertPaletteColors(src: string, colors: Partial<FlowChartStyles>): string {
@@ -217,7 +232,7 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
   const [dsl, setDsl] = useState(INITIAL_FLOW_DSL);
   const [activeTab, setActiveTab] = useState<'manual' | 'dsl' | 'ai'>('manual');
   const [showDocs, setShowDocs] = useState(false);
-  const [docTab, setDocTab] = useState<'dsl' | 'logic'>('dsl');
+  const [confirmReset, setConfirmReset] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [aiPrompt, setAiPrompt] = useState('');
@@ -261,7 +276,10 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
     setDsl(INITIAL_FLOW_DSL);
     applyDsl(INITIAL_FLOW_DSL);
     setActiveTab('manual');
+    setConfirmReset(false);
   };
+
+  const activeAttrs = data.attrPanel?.active?.length ? data.attrPanel.active : ['role', 'sop'];
 
   const handleTabChange = (tab: 'manual' | 'dsl' | 'ai') => {
     if (tab === 'dsl' && activeTab === 'manual') {
@@ -314,13 +332,21 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
             </div>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={handleReset}
-              className="p-3 bg-[var(--input-bg)] rounded-md text-[var(--sidebar-text)] hover:text-primary transition-all border border-[var(--input-border)]"
-              title="恢复示例"
-            >
-              <RotateCcw size={18} />
-            </button>
+            {confirmReset ? (
+              <ConfirmInline
+                message="恢复示例？"
+                onConfirm={handleReset}
+                onCancel={() => setConfirmReset(false)}
+              />
+            ) : (
+              <button
+                onClick={() => setConfirmReset(true)}
+                className="p-3 bg-[var(--input-bg)] rounded-md text-[var(--sidebar-text)] hover:text-primary transition-all border border-[var(--input-border)]"
+                title="恢复示例"
+              >
+                <RotateCcw size={18} />
+              </button>
+            )}
             <button
               onClick={() => setShowDocs(true)}
               className="p-3 bg-[var(--input-bg)] rounded-md text-[var(--sidebar-text)] hover:text-primary transition-all border border-[var(--input-border)]"
@@ -340,11 +366,10 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
             <button
               key={t.id}
               onClick={() => handleTabChange(t.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-black uppercase tracking-widest transition-all ${
-                activeTab === t.id
-                  ? 'bg-primary text-white shadow-xl'
-                  : 'text-[var(--sidebar-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--input-bg)]'
-              }`}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === t.id
+                ? 'bg-primary text-white shadow-xl'
+                : 'text-[var(--sidebar-muted)] hover:text-[var(--sidebar-text)] hover:bg-[var(--input-bg)]'
+                }`}
             >
               {t.icon} {t.label}
             </button>
@@ -353,6 +378,22 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6 min-h-0">
+        {error && (
+          <div role="alert" className="px-4 py-2 bg-[var(--alert-red)]/10 border border-[var(--alert-red)]/20 rounded-md flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <span className="w-1.5 h-1.5 mt-1.5 bg-[var(--alert-red)] rounded-full animate-pulse shrink-0" />
+              <span className="text-[11px] font-medium text-[var(--text-danger)] leading-relaxed">{error}</span>
+            </div>
+            <button type="button" onClick={() => setError(null)} className="text-[var(--text-danger)] opacity-70 hover:opacity-100 shrink-0" aria-label="关闭错误提示">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+        {warnings.length > 0 && !error && (
+          <div role="status" className="px-4 py-2 bg-[var(--luxi-gold)]/10 border border-[var(--luxi-gold)]/20 rounded-md text-[11px] text-[var(--text-warn)] whitespace-pre-wrap">
+            {warnings.join('\n')}
+          </div>
+        )}
         {activeTab === 'manual' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="space-y-4">
@@ -371,11 +412,10 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                   <button
                     key={dir}
                     onClick={() => commitDsl(upsertHeader(dsl, 'Layout', dir))}
-                    className={`flex-1 h-10 rounded-md text-[11px] font-black uppercase tracking-widest border ${
-                      (data.layout || 'H') === dir
-                        ? 'bg-primary text-white border-primary'
-                        : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)]'
-                    }`}
+                    className={`flex-1 h-10 rounded-md text-[11px] font-black uppercase tracking-widest border ${(data.layout || 'H') === dir
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)]'
+                      }`}
                   >
                     Layout {dir} {dir === 'H' ? '横向' : '纵向'}
                   </button>
@@ -446,6 +486,40 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
             <div className="space-y-4">
               <div className="flex items-center gap-3 pl-2">
                 <ChevronRight size={14} className="text-primary" />
+                <span className="text-[11px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">属性标注 Attr active</span>
+              </div>
+              <div className="p-4 bg-[var(--card-bg)] rounded-md border border-[var(--sidebar-border)] space-y-2">
+                <div className="text-[11px] text-[var(--sidebar-muted)]">控制节点右下角标注与底部属性图例显示项（按激活顺序）：</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {ATTR_KEYS.map((ak) => {
+                    const on = activeAttrs.includes(ak.key);
+                    return (
+                      <button
+                        key={ak.key}
+                        type="button"
+                        onClick={() => {
+                          const next = on
+                            ? activeAttrs.filter((k) => k !== ak.key)
+                            : [...activeAttrs, ak.key];
+                          if (!next.length) return;
+                          commitDsl(upsertAttrActive(dsl, next));
+                        }}
+                        className={`h-7 px-2.5 rounded text-[11px] font-black border transition-all ${on
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)] hover:text-[var(--sidebar-text)]'
+                          }`}
+                      >
+                        {ak.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 pl-2">
+                <ChevronRight size={14} className="text-primary" />
                 <span className="text-[11px] font-black text-[var(--sidebar-text)] uppercase tracking-widest">结构层 泳道 / 节点</span>
               </div>
               <div className="p-4 bg-[var(--card-bg)] rounded-md border border-[var(--sidebar-border)] space-y-3 text-[11px]">
@@ -476,11 +550,10 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                                 if (!next.length) return;
                                 commitDsl(replaceLaneLine(dsl, l, { ...l, indices: next }));
                               }}
-                              className={`px-2 py-1 rounded border text-[11px] ${
-                                on
-                                  ? 'bg-primary text-white border-primary'
-                                  : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)]'
-                              }`}
+                              className={`px-2 py-1 rounded border text-[11px] ${on
+                                ? 'bg-primary text-white border-primary'
+                                : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)]'
+                                }`}
                             >
                               {idx} {v}
                             </button>
@@ -526,9 +599,8 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                           <button
                             key={dir}
                             onClick={() => commitDsl(replaceWLine(dsl, { ...n, vh: dir }))}
-                            className={`h-8 px-2 rounded text-[11px] font-black border ${
-                              n.vh === dir ? 'bg-primary text-white border-primary' : 'border-[var(--input-border)] text-[var(--sidebar-muted)]'
-                            }`}
+                            className={`h-8 px-2 rounded text-[11px] font-black border ${n.vh === dir ? 'bg-primary text-white border-primary' : 'border-[var(--input-border)] text-[var(--sidebar-muted)]'
+                              }`}
                           >
                             {dir}
                           </button>
@@ -572,19 +644,16 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                           )}
                         </div>
                       )}
-                      <div className="flex gap-2">
-                        <input
-                          placeholder="SOP"
-                          value={n.attrs?.sop || ''}
-                          onChange={(e) => commitDsl(replaceWLine(dsl, { ...n, attrs: { ...n.attrs, sop: e.target.value } }))}
-                          className="flex-1 h-8 px-2 rounded bg-[var(--card-bg)] border border-[var(--input-border)] text-[11px] text-[var(--sidebar-text)] outline-none"
-                        />
-                        <input
-                          placeholder="Role"
-                          value={n.attrs?.role || ''}
-                          onChange={(e) => commitDsl(replaceWLine(dsl, { ...n, attrs: { ...n.attrs, role: e.target.value } }))}
-                          className="flex-1 h-8 px-2 rounded bg-[var(--card-bg)] border border-[var(--input-border)] text-[11px] text-[var(--sidebar-text)] outline-none"
-                        />
+                      <div className="grid grid-cols-2 gap-2">
+                        {ATTR_KEYS.filter((ak) => activeAttrs.includes(ak.key)).map((ak) => (
+                          <input
+                            key={ak.key}
+                            placeholder={ak.placeholder}
+                            value={n.attrs?.[ak.key] || ''}
+                            onChange={(e) => commitDsl(replaceWLine(dsl, { ...n, attrs: { ...n.attrs, [ak.key]: e.target.value } }))}
+                            className="h-8 px-2 rounded bg-[var(--card-bg)] border border-[var(--input-border)] text-[11px] text-[var(--sidebar-text)] outline-none"
+                          />
+                        ))}
                       </div>
                       {(n.type === 'annotation' || n.type === 'dataObject') && (
                         <input
@@ -639,11 +708,10 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                           onStylesChange(next);
                           commitDsl(upsertPaletteColors(dsl, p.colors));
                         }}
-                        className={`h-8 px-3 rounded-md text-[11px] font-black tracking-widest border flex items-center gap-2 ${
-                          on
-                            ? 'bg-primary text-white border-primary'
-                            : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)] hover:text-[var(--sidebar-text)]'
-                        }`}
+                        className={`h-8 px-3 rounded-md text-[11px] font-black tracking-widest border flex items-center gap-2 ${on
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)] hover:text-[var(--sidebar-text)]'
+                          }`}
                         title={`应用「${p.name}」到全部色槽`}
                       >
                         <span className="flex -space-x-0.5">
@@ -671,11 +739,10 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
                         onStylesChange({ ...styles, gridLine: g.id });
                         commitDsl(upsertGridLine(dsl, g.id));
                       }}
-                      className={`flex-1 h-10 rounded-md text-[11px] font-black uppercase tracking-widest border ${
-                        (styles.gridLine || 'dashed') === g.id
-                          ? 'bg-primary text-white border-primary'
-                          : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)]'
-                      }`}
+                      className={`flex-1 h-10 rounded-md text-[11px] font-black uppercase tracking-widest border ${(styles.gridLine || 'dashed') === g.id
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-[var(--input-bg)] text-[var(--sidebar-muted)] border-[var(--input-border)]'
+                        }`}
                     >
                       {g.label} Grid
                     </button>
@@ -720,17 +787,6 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
               placeholder="输入 IQS-Flow DSL…"
               spellCheck={false}
             />
-            {error && (
-              <div className="px-4 py-2 bg-[var(--alert-red)]/10 border border-[var(--alert-red)]/20 rounded-md flex items-start gap-2">
-                <span className="w-1.5 h-1.5 mt-1.5 bg-[var(--alert-red)] rounded-full animate-pulse shrink-0" />
-                <span className="text-[11px] font-medium text-[var(--text-danger)] leading-relaxed">{error}</span>
-              </div>
-            )}
-            {warnings.length > 0 && !error && (
-              <div className="px-4 py-2 bg-[var(--luxi-gold)]/10 border border-[var(--luxi-gold)]/20 rounded-md text-[11px] text-[var(--text-warn)] whitespace-pre-wrap">
-                {warnings.join('\n')}
-              </div>
-            )}
           </div>
         )}
 
@@ -793,7 +849,7 @@ const FlowEditor: React.FC<FlowEditorProps> = ({ data, styles, onDataChange, onS
       </div>
 
       {showDocs && (
-          <CardDocModal kind="flow" open={showDocs} onClose={() => setShowDocs(false)} />
+        <CardDocModal kind="flow" open={showDocs} onClose={() => setShowDocs(false)} />
       )}
     </div>
   );

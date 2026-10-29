@@ -1,11 +1,18 @@
 /**
- * IQS-Flow Excel 式泳道布局（绘制格 3×3 + 交叉格 + 整行整列扩展 + CellOrder + 射线松弛 + T2 守护位移）
- * 纯函数，无 SVG 着色。渲染见 flowToSVG.ts。T2 见 GuardedShift.ts。
+ * IQS-Flow Excel 式泳道布局（绘制格 3×3 + 交叉格 + 整行整列扩展 + CellOrder + 射线松弛）
+ * 纯函数，无 SVG 着色。渲染见 flowToSVG.ts。
  */
 import type { FlowData, FlowChartStyles } from '../../types';
 import { computeCellOrder } from './CellOrder.ts';
 import { computeMainlineOrder } from './MainlineOrder.ts';
-import type { T2Stats } from './GuardedShift.ts';
+
+export interface T2Stats {
+  accepted: number;
+  rejected: number;
+  phiRoute0: number;
+  phiRoute1: number;
+  moves?: { edgeId: string; kind: string; ids: string[]; dPhi: number }[];
+}
 
 export interface FlowSvgDims { width: number; height: number; }
 
@@ -448,7 +455,7 @@ export function computeExcelLayout(data: FlowData, st: FlowChartStyles): XyLayou
   // ===== 统一二维全向扩展格代数视线避让与流形松弛引擎 (Unified 2D Ray Clearance & Manifold Relaxation) =====
   // 核心代数全序公理：
   // 0 弯直线 (Cost=0) + 扩展格单次位移 (Cost=150) = 150 << 2/3/4 弯多重避障折线 (Cost=250~1000)
-  
+
   // 1. 水平射线视线松弛 (Horizontal Ray Clearance via Y-Displacement)
   // 包含：资料依附虚线、同行跨列长跨度主干流
   for (const n of data.nodes) {

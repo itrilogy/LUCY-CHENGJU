@@ -18,12 +18,26 @@ export IQS_TRUST_PROXY="${IQS_TRUST_PROXY:-}"
 # Start the Frontend (Vite preview for production build)
 echo "Starting Frontend on port ${WEB_PORT}..."
 npx vite preview --port "$WEB_PORT" --host 0.0.0.0 --strictPort &
+WEB_PID=$!
 
-# Wait for Frontend to be ready
-echo "Waiting for Frontend to initialize..."
-sleep 5
+# Wait for Frontend HTTP endpoint to be ready (max 15s)
+echo "Waiting for Frontend to initialize on http://127.0.0.1:${WEB_PORT}..."
+READY=0
+for i in $(seq 1 30); do
+  if node -e "fetch('http://127.0.0.1:${WEB_PORT}').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))" 2>/dev/null; then
+    READY=1
+    break
+  fi
+  sleep 0.5
+done
+
+if [ "$READY" -eq 1 ]; then
+  echo "Frontend is ready."
+else
+  echo "Warning: Frontend readiness probe timed out after 15s, continuing..."
+fi
 
 # Start the MCP Server in SSE mode
 echo "Starting MCP Server (SSE) on port ${MCP_PORT}..."
 cd mcp-server
-npm run start:sse
+exec npm run start:sse

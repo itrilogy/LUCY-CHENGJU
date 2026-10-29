@@ -10,7 +10,7 @@ import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
-import { getToolLinter, formatLinterError, formatLinterDiag } from "./linters.js";
+import { getToolLinter, formatLinterError, formatLinterDiag, loadCoreBundle } from "./linters.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express from "express";
 import cors from "cors";
@@ -67,10 +67,13 @@ function resolveBaseUrl(req) {
   }
   if (req) {
     const proto = req.protocol || "http";
-    const host = req.host || req.get("host");
-    let prefix = "";
     const trustFn = req.app?.get("trust proxy fn");
     const fromTrustedProxy = typeof trustFn === "function" && trustFn(req.socket?.remoteAddress, 0);
+    const fwdHost = fromTrustedProxy
+      ? String(req.get("x-forwarded-host") || "").split(",")[0].trim()
+      : "";
+    const host = fwdHost || req.get("host") || req.host;
+    let prefix = "";
     if (fromTrustedProxy) {
       const rawPrefix = String(req.get("x-forwarded-prefix") || "").split(",")[0].trim();
       if (rawPrefix.startsWith("/")) prefix = rawPrefix;
@@ -101,6 +104,9 @@ function checkChartSpec() {
 }
 
 async function getExecutablePath() {
+  if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
   const commonPaths = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
@@ -109,94 +115,340 @@ async function getExecutablePath() {
     "/usr/bin/chromium",
     "/usr/bin/chromium-browser"
   ];
-  for (const path of commonPaths) {
-    if (fs.existsSync(path)) return path;
+  for (const p of commonPaths) {
+    if (fs.existsSync(p)) return p;
   }
   return undefined;
 }
 
-async function renderChart(type, dsl, width = 1200, height = 800, saveToFile = false, baseUrlOverride = "") {
-  const executablePath = await getExecutablePath();
+// ============================================================
+// 双模分层渲染引擎 (Dual-Mode Tiered Rendering Engine)
+//   Tier-1: 进程内原生 SVG 计算 (renderFlowSVG) + 极速光栅化 (无需 Web 端 :12000)
+//   Tier-2: 常驻 Browser 连接池 + 预热 Warm-Page + window.renderIQSChart 内存桥接
+// ============================================================
 
-  const launchOptions = {
-    headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"]
-  };
+let sharedBrowserPromise = null;
+let warmPagePromise = null;
+let rasterPagePromise = null;
+let renderQueue = Promise.resolve();
+let isShuttingDown = false;
 
-  if (executablePath) {
-    launchOptions.executablePath = executablePath;
+async function closeSharedBrowser() {
+  if (sharedBrowserPromise) {
+    try {
+      const b = await sharedBrowserPromise;
+      if (b && b.connected) {
+        await b.close();
+      }
+    } catch (e) {
+      console.error(`[MCP] Error closing shared browser: ${e.message}`);
+    }
+    sharedBrowserPromise = null;
+    warmPagePromise = null;
+    rasterPagePromise = null;
   }
+}
 
-  const browser = await puppeteer.launch(launchOptions);
-  const page = await browser.newPage();
+const handleShutdown = async (signal) => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.error(`[MCP] Received ${signal}, gracefully closing browser...`);
+  await closeSharedBrowser();
+  process.exit(0);
+};
 
-  await page.setViewport({ width, height, deviceScaleFactor: 3 });
-  const encodedDsl = encodeURIComponent(dsl);
-  const url = `${BASE_URL}/?mode=headless&type=${type}&dsl=${encodedDsl}&theme=light`;
+process.on("SIGINT", () => handleShutdown("SIGINT"));
+process.on("SIGTERM", () => handleShutdown("SIGTERM"));
+process.on("SIGHUP", () => handleShutdown("SIGHUP"));
 
+async function getSharedBrowser() {
+  if (isShuttingDown) {
+    throw new Error("[MCP] Server is shutting down, refusing browser operations");
+  }
+  if (sharedBrowserPromise) {
+    try {
+      const b = await sharedBrowserPromise;
+      if (b && b.connected) return b;
+    } catch { }
+    sharedBrowserPromise = null;
+    warmPagePromise = null;
+    rasterPagePromise = null;
+  }
+  sharedBrowserPromise = (async () => {
+    const executablePath = await getExecutablePath();
+    const launchOptions = {
+      headless: "new",
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+    };
+    if (executablePath) {
+      launchOptions.executablePath = executablePath;
+    }
+    const browser = await puppeteer.launch(launchOptions);
+    browser.on("disconnected", () => {
+      sharedBrowserPromise = null;
+      warmPagePromise = null;
+      rasterPagePromise = null;
+    });
+    return browser;
+  })();
+  return sharedBrowserPromise;
+}
+
+async function getRasterPage() {
+  if (rasterPagePromise) {
+    try {
+      const p = await rasterPagePromise;
+      if (p && !p.isClosed()) return p;
+    } catch { }
+    rasterPagePromise = null;
+  }
+  rasterPagePromise = (async () => {
+    const browser = await getSharedBrowser();
+    return await browser.newPage();
+  })();
+  return rasterPagePromise;
+}
+
+/**
+ * Tier-1 专用：将进程内生成的确定性 SVG 字符串光栅化为 3x 高清 PNG Base64。
+ * 优先尝试 @resvg/resvg-js（若环境已装），否则复用常驻 Browser 的单页 Canvas 光栅化（无需访问 :12000 Web 服务，零新建 Page 开销）。
+ */
+async function rasterizeSvgString(svgString, width, height) {
   try {
-    await page.evaluateOnNewDocument((w, h) => {
-      const style = document.createElement('style');
+    const resvgMod = await import("@resvg/resvg-js").catch(() => null);
+    if (resvgMod && resvgMod.Resvg) {
+      const resvg = new resvgMod.Resvg(svgString, {
+        background: "#ffffff",
+        fitTo: width ? { mode: "width", value: width * 3 } : { mode: "zoom", value: 3 },
+        font: { loadSystemFonts: true }
+      });
+      return Buffer.from(resvg.render().asPng()).toString("base64");
+    }
+  } catch { }
+
+  const page = await getRasterPage();
+  try {
+    const dataURL = await page.evaluate(async (svg, w, h) => {
+      const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      try {
+        const img = await new Promise((resolve, reject) => {
+          const im = new Image();
+          im.onload = () => resolve(im);
+          im.onerror = reject;
+          im.src = url;
+        });
+        const outW = w || img.naturalWidth || 1200;
+        const outH = h || img.naturalHeight || 800;
+        const scale = 3;
+        const canvas = document.createElement("canvas");
+        canvas.width = outW * scale;
+        canvas.height = outH * scale;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL("image/png");
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    }, svgString, width, height);
+    return String(dataURL || "").replace(/^data:image\/png;base64,/, "");
+  } catch (e) {
+    rasterPagePromise = null;
+    throw e;
+  }
+}
+
+async function getWarmPage() {
+  if (warmPagePromise) {
+    try {
+      const p = await warmPagePromise;
+      if (p && !p.isClosed()) return p;
+    } catch { }
+    warmPagePromise = null;
+  }
+  warmPagePromise = (async () => {
+    const browser = await getSharedBrowser();
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 3 });
+    await page.evaluateOnNewDocument(() => {
+      const style = document.createElement("style");
+      style.id = "iqs-headless-style";
       style.textContent = `
-        #root, body, html { height: ${h}px !important; width: ${w}px !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: white !important; }
+        #root, body, html { height: 100vh !important; width: 100vw !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: white !important; }
         #root > div { height: 100% !important; width: 100% !important; overflow: hidden !important; }
         #pareto-chart-container, #vchart-container, .mermaid, .echarts-for-react { height: 100% !important; width: 100% !important; position: absolute !important; top: 0 !important; left: 0 !important; }
         .p-8, .p-4 { padding: 0 !important; }
+        *, *::before, *::after {
+          animation-delay: -1ms !important;
+          animation-duration: 1ms !important;
+          animation-iteration-count: 1 !important;
+          transition-delay: 0s !important;
+          transition-duration: 0s !important;
+        }
       `;
       document.head.appendChild(style);
-    }, width, height);
+    });
+    const url = `${BASE_URL}/?mode=headless&theme=light`;
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 });
+    await page.waitForFunction(() => window.IQS_READY === true, { timeout: 15000 });
+    return page;
+  })();
+  return warmPagePromise;
+}
 
-    await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
-    
-    // 1. Wait for our custom readiness signal
-    console.error(`[MCP] Waiting for IQS_READY...`);
-    await page.waitForFunction(() => window.IQS_READY === true, { timeout: 20000 });
-    
-    // 2. Trigger a final resize just in case
-    await page.evaluate(() => { window.dispatchEvent(new Event('resize')); });
-    await new Promise(r => setTimeout(r, 500));
+function evaluateWithTimeout(page, fn, arg, timeoutMs = 12000) {
+  return Promise.race([
+    page.evaluate(fn, arg),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Tier-2 render timeout after ${timeoutMs}ms`)), timeoutMs)
+    )
+  ]);
+}
 
-    // 3. Call the bridge capture function
-    console.error(`[MCP] Invoking captureIQSChart with resolution: ${width}x${height}`);
-    const dataURL = await page.evaluate(async (w, h) => {
-      if (typeof window.captureIQSChart === 'function') {
-        return await window.captureIQSChart({ 
-          pixelRatio: 3, 
-          backgroundColor: '#ffffff',
-          width: w,
-          height: h
-        });
-      }
-      return '';
-    }, width, height);
-
-    if (!dataURL) {
-      throw new Error("Failed to capture chart via captureIQSChart bridge");
-    }
-
-    const base64Data = dataURL.replace(/^data:image\/png;base64,/, "");
-
-    if (saveToFile) {
-      const now = new Date();
-      const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19).replace('T', '_');
-      const hash = Math.random().toString(36).substring(7);
-      const filename = `render_${timestamp}_${hash}.png`;
-      const filePath = path.join(RENDERS_DIR, filename);
-      
-      fs.writeFileSync(filePath, base64Data, 'base64');
-      
-      const activeBaseUrl = (baseUrlOverride || PUBLIC_URL || `http://${SERVER_IP}:${process.env.PORT || 12001}`).replace(/\/$/, "");
-      const fileUrl = `${activeBaseUrl}/renders/${filename}`;
-      await browser.close();
-      return { url: fileUrl };
-    } else {
-      await browser.close();
-      return { base64: base64Data };
-    }
-  } catch (error) {
-    await browser.close();
-    throw error;
+function finalizeRenderOutput(base64Data, saveToFile, baseUrlOverride) {
+  if (!saveToFile) {
+    return { base64: base64Data };
   }
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[:.]/g, "-").slice(0, 19).replace("T", "_");
+  const hash = Math.random().toString(36).substring(2, 8);
+  const filename = `render_${timestamp}_${hash}.png`;
+  const filePath = path.join(RENDERS_DIR, filename);
+  fs.writeFileSync(filePath, base64Data, "base64");
+  const activeBaseUrl = (baseUrlOverride || PUBLIC_URL || `http://${SERVER_IP}:${process.env.PORT || 12001}`).replace(/\/$/, "");
+  return { url: `${activeBaseUrl}/renders/${filename}` };
+}
+
+/**
+ * 鱼骨图按结构复杂度自动升档画布（③）：
+ * 5M1E 六骨、三层以上深钻在 1200×800 下有效字号只有 5–7px（几何必然，见 R29 §12/§13）。
+ * 这里按「大骨数 / 最大层级」预估所需画布，避免出图后字太小还要重跑。
+ */
+function autoScaleFishboneCanvas(dsl, width, height) {
+  const lines = String(dsl || "").split(/\r?\n/);
+  let mains = 0;
+  let maxDepth = 0;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || line.startsWith("//") || /^Color\[/i.test(line) || /^Title\s*[:：]/i.test(line)) continue;
+    const m = line.match(/^(#+)\s+\S+/);
+    if (!m) continue;
+    const lv = m[1].length;
+    if (lv === 1) mains++;
+    if (lv > maxDepth) maxDepth = lv;
+  }
+  let w = width;
+  let h = height;
+  if (mains > 6 || maxDepth > 4) { w = Math.max(w, 1920); h = Math.max(h, 1200); }
+  else if (mains > 4 || maxDepth > 3) { w = Math.max(w, 1600); h = Math.max(h, 1000); }
+  return { width: w, height: h, mains, maxDepth, scaled: w !== width || h !== height };
+}
+
+async function renderChart(type, dsl, width = 1200, height = 800, saveToFile = false, baseUrlOverride = "") {
+  if (type === "fishbone") {
+    const fit = autoScaleFishboneCanvas(dsl, width, height);
+    if (fit.scaled) {
+      console.error(
+        `[MCP] 鱼骨图结构较复杂（大骨 ${fit.mains} 个 / 最深层级 ${fit.maxDepth}），` +
+        `画布自动升档为 ${fit.width}×${fit.height} 以保证可读性`
+      );
+      width = fit.width;
+      height = fit.height;
+    }
+  }
+  // ── Tier-1: IQS-Flow 进程内原生 SVG 直出（零 Web 服务依赖，~60ms–150ms）──
+  if (type === "flow") {
+    try {
+      const coreMod = await loadCoreBundle();
+      if (coreMod && typeof coreMod.renderFlowSVG === "function") {
+        const { svg, width: natW, height: natH } = coreMod.renderFlowSVG(dsl);
+        const base64Data = await rasterizeSvgString(svg, natW || width, natH || height);
+        if (base64Data) {
+          return finalizeRenderOutput(base64Data, saveToFile, baseUrlOverride);
+        }
+      }
+    } catch (e) {
+      console.error(`[MCP Tier-1] Native flow render fallback to Tier-2: ${e.message}`);
+    }
+  }
+
+  // ── Tier-2: 常驻热页池 IPC 渲染（串行复用单页或降级新建页，避免并发 OOM）──
+  const runTier2 = async () => {
+    try {
+      const page = await getWarmPage();
+      await page.setViewport({ width, height, deviceScaleFactor: 3 });
+      const hasWarmBridge = await page.evaluate(() => typeof window.renderIQSChart === "function");
+      if (hasWarmBridge) {
+        const dataURL = await evaluateWithTimeout(
+          page,
+          async (params) => await window.renderIQSChart(params),
+          { type, dsl, width, height, pixelRatio: 3, backgroundColor: "#ffffff" },
+          12000
+        );
+        if (dataURL) {
+          const base64Data = dataURL.replace(/^data:image\/png;base64,/, "");
+          return finalizeRenderOutput(base64Data, saveToFile, baseUrlOverride);
+        }
+      }
+    } catch (warmErr) {
+      console.warn(`[MCP Tier-2] Warm page render failed (${warmErr.message}), resetting warm page...`);
+      warmPagePromise = null;
+    }
+
+    // 兜底：若目标 Web 服务为旧版前端（尚未暴露 window.renderIQSChart）或热页异常，走单页冷加载
+    const browser = await getSharedBrowser();
+    const page = await browser.newPage();
+    try {
+      await page.setViewport({ width, height, deviceScaleFactor: 3 });
+      const encodedDsl = encodeURIComponent(dsl);
+      const url = `${BASE_URL}/?mode=headless&type=${type}&dsl=${encodedDsl}&theme=light`;
+      await page.evaluateOnNewDocument((w, h) => {
+        const style = document.createElement("style");
+        style.textContent = `
+          #root, body, html { height: ${h}px !important; width: ${w}px !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: white !important; }
+          #root > div { height: 100% !important; width: 100% !important; overflow: hidden !important; }
+          #pareto-chart-container, #vchart-container, .mermaid, .echarts-for-react { height: 100% !important; width: 100% !important; position: absolute !important; top: 0 !important; left: 0 !important; }
+          .p-8, .p-4 { padding: 0 !important; }
+          *, *::before, *::after {
+            animation-delay: -1ms !important;
+            animation-duration: 1ms !important;
+            animation-iteration-count: 1 !important;
+            transition-delay: 0s !important;
+            transition-duration: 0s !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }, width, height);
+      await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
+      await page.waitForFunction(() => window.IQS_READY === true, { timeout: 20000 });
+      await page.evaluate(() => { window.dispatchEvent(new Event("resize")); });
+      await new Promise((r) => setTimeout(r, 250));
+      const dataURL = await evaluateWithTimeout(
+        page,
+        async (w, h) => {
+          if (typeof window.captureIQSChart === "function") {
+            return await window.captureIQSChart({ pixelRatio: 3, backgroundColor: "#ffffff", width: w, height: h });
+          }
+          return "";
+        },
+        [width, height],
+        12000
+      );
+      if (!dataURL) {
+        throw new Error("Failed to capture chart via captureIQSChart bridge");
+      }
+      const base64Data = dataURL.replace(/^data:image\/png;base64,/, "");
+      return finalizeRenderOutput(base64Data, saveToFile, baseUrlOverride);
+    } finally {
+      await page.close().catch(() => { });
+    }
+  };
+
+  const next = renderQueue.then(runTier2, runTier2);
+  renderQueue = next.catch(() => { });
+  return next;
 }
 
 // --- MCP Server Factory ---
@@ -257,37 +509,24 @@ function createServer(context = {}) {
   }
 
   function getToolDslDescription(tool) {
-    const kind = tool.sub_type;
     const parent = tool.parent_type;
-    const readHint = `【完整语法规范调用 read_protocol("${tool.name.replace(/^render_/, '')}")】`;
+    const slug = String(tool.name).replace(/^render_/, '');
+    const readHint = `【完整语法规范调用 read_protocol("${slug}")】`;
+    const sampleLines = String(tool.official_example || '')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l && !l.startsWith('//'))
+      .slice(0, 4)
+      .join('\\n');
+    const sampleHint = sampleLines ? `范式: ${sampleLines}。` : '';
 
     if (parent === "mermaid") {
-      return `纯文本 Mermaid 代码（严禁 Markdown 代码块围栏 \`\`\` ）。例如: graph TD\\n  A --> B。${readHint}`;
+      return `纯文本 Mermaid 代码（严禁 Markdown 代码块围栏 \`\`\` ）。${sampleHint}${readHint}`;
     }
     if (parent === "vchart") {
       return `纯文本外壳（严禁直接传裸 JSON）。格式必须为: Title: 标题\\nSpec: { ... }。${readHint}`;
     }
-
-    switch (kind) {
-      case "fishbone":
-        return `纯文本 DSL。层级必须严格使用 # 一级大骨、## 二级中骨、### 三级小骨（严禁 - 列表，严禁 JSON）。范式: Title: 问题\\n# 分类名\\n## 原因\\n### 根因。${readHint}`;
-      case "flow":
-        return `纯文本 DSL（严禁 JSON/Mermaid）。体系文件字典-泳道图。范式: Title: 标题\\nDict: D[...]\\nLane from D[...] Layout H\\nW: w1: 节点 Type[S]... ${readHint}`;
-      case "pareto":
-        return `纯文本 DSL。二八定律排列图。范式: Title: 标题\\nData:\\n  缺陷A: 40\\n  缺陷B: 20。${readHint}`;
-      case "control":
-        return `纯文本 DSL。SPC 控制图。范式: Title: 标题\\nType: I-MR\\nData: 10, 12, 11, ... ${readHint}`;
-      case "affinity":
-        return `纯文本 DSL。KJ法亲和图。范式: Title: 标题\\nItem: id, 标签, 父ID。${readHint}`;
-      case "histogram":
-        return `纯文本 DSL。直方图。范式: Title: 标题\\n- 10.2\\n- 10.5\\nUSL: 12\\nLSL: 8。${readHint}`;
-      case "radar":
-        return `纯文本 DSL。雷达图。范式: Title: 标题\\nAxis: 维度1, 100\\nSeries: 样本A, [80, 90]。${readHint}`;
-      case "scatter":
-        return `纯文本 DSL。散点图。范式: Title: 标题\\n- 1.2, 3.4\\n- 2.3, 4.5。${readHint}`;
-      default:
-        return `纯文本 DSL 字符串（严禁 JSON，严禁 Markdown 围栏）。${readHint}`;
-    }
+    return `纯文本 IQS-DSL v1（严禁 JSON 对象，严禁 Markdown 代码块围栏）。${sampleHint}${readHint}`;
   }
 
   function getToolSegmentContent(tool) {
@@ -371,18 +610,23 @@ function createServer(context = {}) {
 
   /**
    * 核心装配流水线：全量无缝拼接【图表类型 + 家族总纲 + 专家协议切片 + 官方标准语法示例 + AI提示词与输出红线】
+   * 自动对重复段落（如 promptDoc 中与 rawSegment 重复的范式和语法表）去重，并保证中文大章节序号严格递增。
    */
   function buildFullProtocolDoc(tool, allTools) {
     const parent = tool.parent_type;
     const sub = tool.sub_type;
     const master = allTools.find((t) => t.parent_type === parent && t.sub_type === "master");
     const slug = tool.name.replace(/^render_/, '');
-    const agentDoc = getProtocolFile(`segments/${sub}.agent.md`) || 
-                     getProtocolFile(`segments/${slug}.agent.md`);
+    const agentDoc = getProtocolFile(`segments/${sub}.agent.md`) ||
+      getProtocolFile(`segments/${slug}.agent.md`);
     const rawSegment = getToolSegmentContent(tool);
     const promptDoc = getToolPromptContent(tool);
     const tier = tool.tier || (parent === "iqs_native" ? "core" : "relief");
     const tierLabel = tier === "core" ? "CORE" : "RELIEF";
+
+    const CN_NUM = ["一", "二", "三", "四", "五", "六"];
+    let secIdx = 0;
+    const nextSec = () => CN_NUM[secIdx++] || String(secIdx);
 
     const sections = [
       `# [${tierLabel}] ${tool.display_name}（完整协议切片与语法规范）`,
@@ -393,42 +637,51 @@ function createServer(context = {}) {
       tool.expertise ? `- **业务专长**: ${tool.expertise}` : ""
     ];
 
-    // 0. 若存在该图表专属的编译卡 (Agent Guide)，作为核心红线指令优先引入
+    // 1. 若存在该图表专属的编译卡 (Agent Guide)，作为核心红线指令优先引入
     if (agentDoc) {
-      sections.push(`\n---\n## 一、编译卡与红线指令 (Agent Guide)\n\n${agentDoc}`);
+      sections.push(`\n---\n## ${nextSec()}、编译卡与红线指令 (Agent Guide)\n\n${agentDoc}`);
     }
 
-    // 1. 家族总纲 (Master Protocol)
+    // 2. 家族总纲 (Master Protocol)
     if (master && master.name !== tool.name) {
       sections.push(
-        `\n---\n## 二、家族总纲 (Master Protocol: ${master.display_name})\n` +
+        `\n---\n## ${nextSec()}、家族总纲 (Master Protocol: ${master.display_name})\n` +
         `${master.expert_logic || ""}\n\n${master.syntax_rules || ""}`
       );
     }
 
-    // 2. 专家协议切片全文 (Segment: Soul & Flesh，含正反例、参数与语法约束)
+    // 3. 专家协议切片全文 (Segment: Soul & Flesh，含正反例、参数与语法约束)
     if (rawSegment) {
-      sections.push(`\n---\n## 二、专家协议切片全文 (The Protocol Segment)\n\n${rawSegment}`);
+      const cleanSegment = rawSegment.replace(/\n---\n\n\*\*权威性声明\*\*[\s\S]*$/, "").trim();
+      sections.push(`\n---\n## ${nextSec()}、专家协议切片全文 (The Protocol Segment)\n\n${cleanSegment}`);
     } else {
-      if (tool.expert_logic) sections.push(`\n---\n## 二、专家逻辑 (Expert Logic)\n\n${tool.expert_logic}`);
-      if (tool.syntax_rules) sections.push(`\n---\n## 三、语法规则 (Syntax Rules)\n\n${tool.syntax_rules}`);
+      if (tool.expert_logic) sections.push(`\n---\n## ${nextSec()}、专家逻辑 (Expert Logic)\n\n${tool.expert_logic}`);
+      if (tool.syntax_rules) sections.push(`\n---\n## ${nextSec()}、语法规则 (Syntax Rules)\n\n${tool.syntax_rules}`);
     }
 
-    // 3. 官方范式示例 (Official Example)
+    // 4. 官方范式示例 (Official Example) —— 若 rawSegment 未含示例才完整输出，否则输出精简指引以消除三倍重复
     if (tool.official_example) {
-      sections.push(
-        `\n---\n## 三、官方范式示例 (Official Example)\n\n` +
-        `> 必须以纯文本输出以下 DSL 范式，严禁 Markdown 代码块围栏，严禁 JSON 对象：\n\n` +
-        `\`\`\`dsl\n${tool.official_example}\n\`\`\``
-      );
+      if (!rawSegment || !rawSegment.includes("## 3. 官方示例")) {
+        sections.push(
+          `\n---\n## ${nextSec()}、官方范式示例 (Official Example)\n\n` +
+          `> 必须以纯文本输出以下 DSL 范式，严禁 Markdown 代码块围栏，严禁 JSON 对象：\n\n` +
+          `\`\`\`dsl\n${tool.official_example}\n\`\`\``
+        );
+      } else {
+        sections.push(
+          `\n---\n## ${nextSec()}、官方范式示例 (Official Example)\n\n` +
+          `> 标准 DSL 范式已包含于上方「3. 官方示例 (The Seed)」小节；调用工具时必须以纯文本输出，严禁 Markdown 代码块围栏，严禁 JSON 对象。`
+        );
+      }
     }
 
-    // 4. AI 生成提示词与全局输出红线 (Prompt & Output Controls)
+    // 5. AI 生成提示词与全局输出红线 (Prompt & Output Controls) —— 剥离与 rawSegment 重复的 `## 范式` 和 `## 语法` 块
     if (promptDoc) {
-      sections.push(`\n---\n## 四、AI 生成提示词与输出规范 (Prompt Template)\n\n${promptDoc}`);
+      const compactPrompt = promptDoc.split(/\n## 范式/)[0].trim();
+      sections.push(`\n---\n## ${nextSec()}、AI 生成提示词与输出规范 (Prompt Template)\n\n${compactPrompt}`);
     } else {
       sections.push(
-        `\n---\n## 四、全局输出红线 (Output Controls)\n\n` +
+        `\n---\n## ${nextSec()}、全局输出红线 (Output Controls)\n\n` +
         `1. 必须输出纯文本 DSL，严禁使用 \`\`\`dsl 等 Markdown 代码块围栏。\n` +
         `2. dsl 参数必须是纯字符串文本，绝对禁止传导 JSON 对象。\n` +
         `3. 严禁输出任何前后缀客套说明文字，只输出符合语法的 DSL 正文。`
@@ -675,15 +928,15 @@ function createServer(context = {}) {
     }
 
     // ILDR 2.0: 增强型 JSON 检测
-    const isJsonLike = (typeof dsl === 'object' && dsl !== null) || 
-                       (typeof dsl === 'string' && dsl.trim().startsWith('{'));
+    const isJsonLike = (typeof dsl === 'object' && dsl !== null) ||
+      (typeof dsl === 'string' && dsl.trim().startsWith('{'));
 
     if (isJsonLike) {
       // AUD-156：按工具全名查找。原实现按 parent_type === type 匹配，原生图表（parent_type=iqs_native）
       // 永远匹配不上，回落到 VChart 外壳示例，误导模型。
       const tool = getMCPTools().find(t => t.name === name);
       const example = tool?.official_example || "Title: 标题";
-      
+
       const slug = name.replace(/^render_/, '');
       return {
         content: [{

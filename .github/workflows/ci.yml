@@ -25,8 +25,17 @@ jobs:
       - name: TypeScript 类型检查
         run: npx tsc --noEmit
 
-      - name: IQS-Flow 断言（parser + svg + bpmn）
+      - name: 卡片单一真源（SSOT）产物新鲜度与门禁校验
+        run: npm run check:cards-fresh && npm run validate:cards
+
+      - name: MCP 共享内核打包 + 新鲜度校验
+        run: npm run build:mcp-lint && npm run check:mcp-lint-fresh
+
+      - name: 鱼骨图几何不变量（G1–G7）
+        run: npm run test:fishbone
+
+      - name: IQS-Flow 断言（parser + svg + bpmn + geometry）
         run: npm run test:flow
 
-      - name: 构建（validate:dsl + test:flow + vite）
+      - name: 构建（validate:dsl + test:flow + build:mcp-lint + vite）
         run: npm run build

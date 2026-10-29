@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react
 import { Graph } from '@antv/g6';
 import { RelationNode, RelationLink, RelationChartStyles, DEFAULT_RELATION_STYLES, BaseDiagramRef } from '../types';
 import { estimateTextWidth } from '../utils/textMetrics';
+import { computeDeterministicRelationLayout } from '../utils/relationGraph';
 
 export interface RelationDiagramRef extends BaseDiagramRef {}
 
@@ -24,8 +25,14 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
             if (!graphRef.current) return '';
             if (options?.width && options?.height) {
                 graphRef.current.setSize(options.width, options.height);
-                graphRef.current.fitView({ padding: 120 } as any);
             }
+            await graphRef.current.fitView({ padding: 60, duration: 0 } as any);
+            // 等待至少一帧 Canvas 重绘提交
+            await new Promise<void>((resolve) => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => resolve());
+                });
+            });
             return await graphRef.current.toDataURL({
                 pixelRatio: options?.pixelRatio || 3,
                 backgroundColor: options?.backgroundColor || '#FFFFFF'
@@ -86,14 +93,17 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
         },
         tidyLayout: () => {
             if (graphRef.current) {
-                graphRef.current.layout();
-                graphRef.current.fitView({ duration: 500 } as any);
+                const isHeadless = typeof window !== 'undefined' && window.location.search.includes('mode=headless');
+                graphRef.current.fitView({ padding: 60, duration: isHeadless ? 0 : 300 } as any);
             }
         }
     }));
 
     useEffect(() => {
         if (!containerRef.current || !nodes.length) return;
+
+        const isHeadless = typeof window !== 'undefined' && window.location.search.includes('mode=headless');
+        const animDuration = isHeadless ? 0 : 300;
 
         const width = containerRef.current.clientWidth || 800;
         const height = containerRef.current.clientHeight || 600;
@@ -112,9 +122,19 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
             }
         });
 
-        // 2. Create G6 Nodes
+        // 2. 纯数学确定性因果拓扑坐标计算（<2ms 闭式解，无异步力导向迭代）
+        const layoutCoords = computeDeterministicRelationLayout(
+            validNodes,
+            links,
+            finalStyles.layout,
+            width,
+            height
+        );
+
+        // 3. Create G6 Nodes
         const g6Nodes = validNodes.map(node => {
             const isSymptom = (outDegree.get(node.id) || 0) === 0;
+            const coord = layoutCoords.get(node.id) || { x: width / 2, y: height / 2 };
             
             let fill = finalStyles.middleColor;
             let stroke = finalStyles.middleColor;
@@ -140,8 +160,7 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
                 shape = 'ellipse';
             }
 
-            // 按**实际字宽**估算（汉字 1em / 拉丁 0.56em），旧实现用 label.length
-            // 会把中文算窄（溢出）把英文算宽（留白过大）
+            // 按**实际字宽**估算（汉字 1em / 拉丁 0.56em）
             const textW = estimateTextWidth(node.label, fontSize);
             const size: number | [number, number] = shape === 'rect'
                 ? [Math.max(120, textW + 40), 50]
@@ -151,10 +170,14 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
                 id: node.id,
                 type: shape,
                 data: { ...node },
+                x: coord.x,
+                y: coord.y,
                 style: {
+                    x: coord.x,
+                    y: coord.y,
                     fill,
                     stroke,
-                    lineWidth: 1,          // 原为 0：同色相邻节点会糊成一片，细描边提供轮廓
+                    lineWidth: 1,
                     radius: 8,
                     labelText: node.label,
                     labelFill,
@@ -167,7 +190,7 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
             };
         });
 
-        // 3. Transform User Links (Filter out self-references and title nodes)
+        // 4. Transform User Links (Filter out self-references and title nodes)
         const g6Edges = links
             .filter(link => link.source !== link.target && link.source !== 'root' && link.target !== 'root')
             .map(link => ({
@@ -186,71 +209,21 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
                 width,
                 height,
                 data: { nodes: g6Nodes, edges: g6Edges },
-                layout: getLayoutConfig(finalStyles.layout || 'Directional'),
                 behaviors: ['drag-canvas', 'zoom-canvas', 'drag-element'],
                 autoFit: 'view',
-                padding: [40, 40, 40, 40],
-                animation: true,
+                padding: [60, 60, 60, 60],
+                animation: !isHeadless,
             });
 
             graphRef.current = graph;
-            graph.render();
+            graph.render().then(() => {
+                graph.fitView({ padding: 60, duration: animDuration } as any);
+            });
         } else {
             graphRef.current.setData({ nodes: g6Nodes, edges: g6Edges });
-            // Update Layout dynamically
-            graphRef.current.setLayout(getLayoutConfig(finalStyles.layout || 'Directional'));
-            graphRef.current.render();
-            // 数据变化后重新布局并自适应。用 requestAnimationFrame 双帧替代
-            // 硬编码 100ms 定时器（原实现既不精确、又无清理，卸载后仍会执行）
-            rafRef.current && cancelAnimationFrame(rafRef.current);
-            rafRef.current = requestAnimationFrame(() => {
-                rafRef.current = requestAnimationFrame(() => {
-                    if (!graphRef.current) return;
-                    graphRef.current.layout();
-                    graphRef.current.fitView();
-                });
+            graphRef.current.render().then(() => {
+                graphRef.current?.fitView({ padding: 60, duration: animDuration } as any);
             });
-        }
-
-        function getLayoutConfig(type: string): any {
-            switch (type) {
-                case 'Directional':
-                    return {
-                        type: 'dagre',
-                        rankdir: 'LR',
-                        nodesep: 50,
-                        ranksep: 100,
-                        controlPoints: true,
-                    };
-                case 'Centralized':
-                    // Radial Layout
-                    return {
-                        type: 'radial',
-                        center: [width / 2, height / 2],
-                        unitRadius: 180,
-                        linkDistance: 150,
-                        preventOverlap: true,
-                        nodeSize: 80,
-                        strict: true,
-                    };
-                case 'Free':
-                    return {
-                        type: 'fruchterman',
-                        gravity: 0.5,
-                        speed: 10,
-                        linkDistance: 200,
-                        nodeSpacing: 30,
-                        preventOverlap: true,
-                        nodeSize: 120,
-                        gpuEnabled: true,
-                        workerEnabled: true,
-                    };
-                default:
-                    return {
-                        type: 'dagre',
-                        rankdir: 'LR',
-                    };
-            }
         }
 
         const resizeObserver = new ResizeObserver((entries) => {
@@ -258,7 +231,7 @@ const RelationDiagram = forwardRef<RelationDiagramRef, RelationDiagramProps>(({ 
             const { width, height } = entries[0].contentRect;
             if (width > 0 && height > 0) {
                 graphRef.current.setSize(width, height);
-                graphRef.current.fitView();
+                graphRef.current.fitView({ padding: 60, duration: 0 } as any);
             }
         });
         resizeObserver.observe(containerRef.current);
