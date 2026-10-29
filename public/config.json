@@ -1,6 +1,6 @@
 {
   "project": "澄矩 · ChengJu (IQS / Intelligent QC Studio)",
-  "version": "3.6.0-ildr",
+  "version": "3.6.2-ildr",
   "description": "IQS Config for AI services.",
   "ai_config": {
     "active_profile": "deepseek_public",

@@ -22,10 +22,10 @@ related:
 |:--|:--|
 | **用途** | 全项目文档的**唯一入口**（MOC）。按「工程历程 × 文档类别」组织，并标注时效与权威层级 |
 | **维护规则** | 新增文档须在此登记；状态变化须同步更新。仅追加，不覆盖历史 |
-| **软件版本** | `V3.6.0-ildr`（`package.json` name = `chengju-iqs`） |
+| **软件版本** | `V3.6.2-ildr`（`package.json` name = `chengju-iqs`） |
 | **出品** | 江西省上饶市烟草专卖局（公司）信息中心 · 鹿溪联合创新实验室（LUXI Lab） |
-| **提交跨度** | **2026-02-05 → 2026-10-28**，158+ 次提交（`git log`） |
-| **本索引生成** | 2026-10-28（R31 单一真源版本历史与大模型管理中心） |
+| **提交跨度** | **2026-02-05 → 2026-10-28**，162+ 次提交（`git log`） |
+| **本索引生成** | 2026-10-28（R32 客户端浏览器 Cookie 模型解耦与工业 UI 精修） |
 
 > **FLOW 组件**的文档已在 2026-09-12 单独整理过一次，其子索引为 `docs/flow/README.md`（41 份）。本索引不重复其内部条目，只做**入口指引**。
 
@@ -60,7 +60,9 @@ related:
 | **P6** | `v3.5.4` | **2026-10-28** | **R29：鱼骨图布局数学评估 + 算法重构实施 + 全仓审计**（已落地，工程记录见 `IQS_FISHBONE_ENGINEERING_LOG_R29.md`） | `docs/IQS_FISHBONE_LAYOUT_MATH_AUDIT_R29.md` · 台账 `AUD-175..183` 全部修复 · `utils/fishboneGraph.ts` 五遍闭式解重写 · `scripts/assert_fishbone_math.ts`（G1–G7 / 67 断言）· `npm run test:fishbone` 入 build+CI · `docs/IQS_DIAGRAM_MATHEMATICAL_LAYOUT_SPEC.md` 第三章重写 |
 | **P7** | `v3.5.5` | **2026-10-28** | **规划：全量自研 SVG 迁移与 G6 归零技术规划** | `docs/IQS_MIGRATION_PLAN_SVG_DE_G6.md` · 规划关联图与 PDPC 自研闭式解与原生 SVG 替代 · 剥离 `@antv/g6` 与 MCP Tier-1 毫秒级直出下沉 |
 | **P7** | `v3.5.9` | **2026-10-28** | **R30：全仓 G6 归零与关联图/PDPC 原生 SVG 迁移实施落地**（工程记录见 `docs/IQS_SVG_DE_G6_ENGINEERING_LOG_R30.md`） | `docs/IQS_SVG_DE_G6_ENGINEERING_LOG_R30.md` · 台账 `AUD-188..194` 全部闭环 · `utils/{relationSvg,pdpcGraph,pdpcSvg,fishboneSvg}.ts` · `components/{RelationDiagram,PDPCDiagram}.tsx` · `scripts/assert_{relation,pdpc}_math.ts` · `mcp-server` Tier-1 覆盖 `flow/fishbone/relation/pdpc` 四大拓扑图 · 彻底卸载 `@antv/g6` |
-| **P7** | `v3.6.0` | **2026-10-28** | **R31：版本发行记录单一真源（SSOT）直读 + 大模型接入管理中心（ENV 密码门禁 / 客户端 Cookie 解耦模式 / 自定义提供商 ID / 远端模型拉取与热激活）** | `utils/projectIndexParser.ts` · `components/AIModelManagerModal.tsx` · `services/aiService.ts` · `components/DashboardView.tsx` |
+| **P7** | `v3.6.0` | **2026-10-28** | **R31：版本发行记录单一真源（SSOT）直读 + 大模型接入管理中心（ENV 密码门禁 / 多协议支持 / 远端模型拉取与热激活）** | `utils/projectIndexParser.ts` · `components/AIModelManagerModal.tsx` · `services/aiService.ts` · `components/DashboardView.tsx` |
+| **P7** | `v3.6.1` | **2026-10-28** | **R32a：客户端浏览器 Cookie 模型配置解耦 + 提供商标识 ID 自定义重命名 + 主页面工业圆角收敛** | `services/aiService.ts` · `components/AIModelManagerModal.tsx` · `components/DashboardView.tsx` · `public/config.json` |
+| **P7** | `v3.6.2` | **2026-10-28** | **R32b：本地模型 13 项服务商预设下拉选择（零模型误导）+ 主题切换开关组件化 + 网格跨度单行排布 + 未配置引导横幅** | `components/AIModelManagerModal.tsx` · `components/DashboardView.tsx` · `services/aiService.ts` |
 
 ### 时间线读法（三条主线）
 

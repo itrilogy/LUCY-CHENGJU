@@ -123,7 +123,7 @@ export function parseProjectIndexReleases(markdown: string = projectIndexRaw): P
     const groupDefs: Array<{ id: string; title: string; matchStages: string[]; isHighlight: boolean }> = [
         {
             id: 'P7',
-            title: 'P7 · 全量自研 SVG 化、G6 归零与大模型管理中心 · 现行发行 (v3.5.5 – v3.6.0)',
+            title: 'P7 · 全量自研 SVG 化、G6 归零与大模型管理中心 · 现行发行 (v3.5.5 – v3.6.2)',
             matchStages: ['P7'],
             isHighlight: true,
         },
