@@ -107,9 +107,9 @@ export function getDefaultClientCookieConfig(): ClientCookieLLMConfig {
         id: "local_client",
         name: "客户端本地模型",
         protocol: "openai",
-        endpoint: "http://127.0.0.1:1234/v1/chat/completions",
+        endpoint: "",
         apiKey: "",
-        model: "qwen/qwen3.6-35b-a3b",
+        model: "",
         max_tokens: 8192,
         models: [],
     };
@@ -152,7 +152,7 @@ export function loadClientCookieConfig(): ClientCookieLLMConfig {
 }
 
 /**
- * 判断客户端是否已在浏览器 Cookie 中配置了有效的模型端点
+ * 判断客户端是否已在浏览器 Cookie 中配置了有效的模型端点与模型名
  */
 export function hasConfiguredClientCookie(): boolean {
     if (typeof document === "undefined") return false;
@@ -160,7 +160,7 @@ export function hasConfiguredClientCookie(): boolean {
     const exists = document.cookie.split("; ").some(row => row.startsWith(prefix));
     if (!exists) return false;
     const cfg = loadClientCookieConfig();
-    return Boolean(cfg.endpoint && cfg.endpoint.trim().length > 0);
+    return Boolean(cfg.endpoint && cfg.endpoint.trim().length > 0 && cfg.model && cfg.model.trim().length > 0);
 }
 
 /**
@@ -847,6 +847,18 @@ export const generateScatterDSL = async (prompt: string) => {
 export const generateBasicDSL = async (prompt: string) => {
     return generateLogicDSL(prompt, QCToolType.BASIC);
 };
+
+/**
+ * 检查当前是否处于「管理端已要求使用客户端模型，但本地浏览器尚未配置有效 Cookie」的待配置状态
+ */
+export async function checkNeedsClientCookieSetup(): Promise<boolean> {
+    try {
+        const state = await loadAIConfigState();
+        return state.active_profile === CLIENT_COOKIE_PROFILE_ID && !hasConfiguredClientCookie();
+    } catch {
+        return false;
+    }
+}
 
 /**
  * Retrieves the name and active model of the currently active AI engine

@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { TOOL_CONFIGS } from '../constants';
 import { QCToolType } from '../types';
-import { ArrowUpRight, Cpu, ShieldCheck, LayoutGrid, Sun, Moon, Info, X, ChevronRight, Settings2, Laptop } from 'lucide-react';
+import { ArrowUpRight, Cpu, ShieldCheck, LayoutGrid, Sun, Moon, Info, X, ChevronRight, Settings2, Laptop, AlertTriangle } from 'lucide-react';
 import { parseProjectIndexReleases } from '../utils/projectIndexParser';
 import { AIModelManagerModal } from './AIModelManagerModal';
-import { hasConfiguredClientCookie, AI_CONFIG_CHANGED_EVENT } from '../services/aiService';
+import { hasConfiguredClientCookie, checkNeedsClientCookieSetup, AI_CONFIG_CHANGED_EVENT } from '../services/aiService';
+import { Switch } from './ui/Switch';
 
 interface Props {
   onSelectTool: (type: QCToolType) => void;
@@ -18,9 +19,13 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
   const [showInfo, setShowInfo] = useState(false);
   const [modelModalMode, setModelModalMode] = useState<'admin' | 'client' | null>(null);
   const [clientCookieReady, setClientCookieReady] = useState<boolean>(() => hasConfiguredClientCookie());
+  const [needsClientSetup, setNeedsClientSetup] = useState<boolean>(false);
 
   useEffect(() => {
-    const syncCookieBadge = () => setClientCookieReady(hasConfiguredClientCookie());
+    const syncCookieBadge = () => {
+      setClientCookieReady(hasConfiguredClientCookie());
+      checkNeedsClientCookieSetup().then(setNeedsClientSetup);
+    };
     syncCookieBadge();
     window.addEventListener(AI_CONFIG_CHANGED_EVENT, syncCookieBadge);
     return () => window.removeEventListener(AI_CONFIG_CHANGED_EVENT, syncCookieBadge);
@@ -40,7 +45,7 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
 
   return (
     <div className={`w-screen h-screen ${isDark ? 'bg-[#020617]' : 'bg-slate-50'} stripe-grid overflow-y-auto custom-scrollbar transition-colors duration-500 relative`}>
-      <div className="max-w-[1600px] mx-auto w-full p-16 space-y-16 relative z-10">
+      <div className="max-w-[1600px] mx-auto w-full p-16 space-y-12 relative z-10">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-12">
           <div className="flex items-center gap-8">
             {/* 双标并排 · 等大 64×64（范式 §1.3 / DESIGN.md：README、官网、关于页必须等大并排） */}
@@ -73,12 +78,13 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
           </div>
 
           <div className="flex items-center gap-4">
-            <div className={`${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/40 border-white/50'} backdrop-blur-xl px-6 py-3.5 rounded-xl border shadow-lg flex items-center gap-5 transition-all border-b-2 border-b-blue-500/10`}>
-              <LayoutGrid size={22} className="text-blue-500" />
-              <div className="flex flex-col min-w-[130px]">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className={`text-[11px] font-black ${isDark ? 'text-slate-500' : 'text-slate-400'} uppercase tracking-[0.2em] leading-none`}>网格跨度</span>
-                  <span className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-blue-600'} tracking-tighter`}>{cols} COLUMNS</span>
+            {/* 网格跨度控制舱 */}
+            <div className={`${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/60 border-slate-200/80'} backdrop-blur-xl px-5 h-12 rounded-xl border shadow-sm flex items-center gap-4 transition-all`}>
+              <LayoutGrid size={20} className="text-blue-500 shrink-0" />
+              <div className="flex flex-col min-w-[124px]">
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`text-[11px] font-black ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-[0.15em] leading-none`}>网格跨度</span>
+                  <span className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-blue-600'} tracking-tighter font-mono`}>{cols} COLS</span>
                 </div>
                 <input
                   type="range"
@@ -90,56 +96,83 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
               </div>
             </div>
 
-            <button
-              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              className={`relative flex items-center ${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/40 border-white/50'} backdrop-blur-xl p-1.5 rounded-xl border shadow-lg transition-all w-44 h-12 overflow-hidden cursor-pointer`}
-              title={isDark ? '切换到亮色模式' : '切换到暗色模式'}
+            {/* 亮色 / 暗色模式：统一使用标准开关式控件（Switch），消除外壳圆角与胶囊叠加突兀感 */}
+            <div
+              className={`${
+                isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/60 border-slate-200/80'
+              } backdrop-blur-xl px-4 h-12 rounded-xl border shadow-sm flex items-center gap-3 transition-all`}
+              title={isDark ? '当前为暗色模式，点击切换亮色' : '当前为亮色模式，点击切换暗色'}
             >
-              {/* Sliding Background Indicator */}
-              <div 
-                className={`absolute inset-y-1.5 w-[calc(50%-6px)] rounded-lg shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-0`}
-                style={{
-                  transform: isDark ? 'translateX(calc(100% + 6px))' : 'translateX(0)',
-                  backgroundColor: isDark ? '#42525C' : '#FFFFFF'
-                }}
+              <Sun
+                size={16}
+                className={`transition-colors ${!isDark ? 'text-amber-500' : 'text-slate-500'}`}
               />
-              
-              <div className={`relative z-10 flex-1 flex justify-center items-center gap-2 text-[11px] font-black uppercase tracking-wider transition-colors duration-500 ${isDark ? 'text-slate-400' : 'text-amber-500 drop-shadow-sm'}`}>
-                <Sun size={14} />
-                <span>Light</span>
-              </div>
-              
-              <div className={`relative z-10 flex-1 flex justify-center items-center gap-2 text-[11px] font-black uppercase tracking-wider transition-colors duration-500 ${isDark ? 'text-blue-400 drop-shadow-sm' : 'text-slate-400'}`}>
-                <Moon size={14} />
-                <span>Dark</span>
-              </div>
-            </button>
+              <Switch
+                checked={isDark}
+                onChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                ariaLabel="切换亮色或暗色主题"
+              />
+              <Moon
+                size={16}
+                className={`transition-colors ${isDark ? 'text-blue-400' : 'text-slate-400'}`}
+              />
+            </div>
 
-            {/* 新增：本地客户端模型配置弹窗按钮（免管理密码，直接读写浏览器 Cookie） */}
+            {/* 本地客户端模型配置弹窗按钮 */}
             <button
               onClick={() => setModelModalMode('client')}
-              className={`relative ${isDark ? 'bg-slate-800/40 border-slate-700/50 text-slate-300 hover:border-blue-500/50' : 'bg-white/40 border-white/50 text-slate-600 hover:border-blue-500/50'} backdrop-blur-xl px-4 h-12 rounded-xl border shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer`}
-              title="本地客户端模型配置（通过浏览器 Cookie 配置个人模型，与服务端解耦）"
+              className={`relative ${
+                needsClientSetup
+                  ? 'bg-[var(--luxi-gold)]/15 border-[var(--luxi-gold)]/60 text-[var(--text-warn)]'
+                  : isDark
+                  ? 'bg-slate-800/40 border-slate-700/50 text-slate-300 hover:border-blue-500/50'
+                  : 'bg-white/60 border-slate-200/80 text-slate-700 hover:border-blue-500/50'
+              } backdrop-blur-xl px-4 h-12 rounded-xl border shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer`}
+              title="配置个人本地或云端模型（保存在当前浏览器 Cookie 中）"
             >
-              <Laptop size={20} className="text-primary" />
+              <Laptop size={18} className="text-primary" />
               <span className="text-[11px] font-black uppercase tracking-wider hidden sm:inline">本地模型</span>
-              {clientCookieReady && (
+              {clientCookieReady ? (
                 <span
                   className="w-2 h-2 rounded-full bg-[var(--state-up)] animate-pulse"
-                  title="当前浏览器已配置客户端模型 Cookie"
+                  title="当前浏览器已配置个人模型"
                 />
-              )}
+              ) : needsClientSetup ? (
+                <span
+                  className="w-2 h-2 rounded-full bg-[var(--alert-red)] animate-ping"
+                  title="系统当前要求使用本地模型，请点击完成配置"
+                />
+              ) : null}
             </button>
 
             <button
               onClick={() => setShowInfo(true)}
-              className={`${isDark ? 'bg-slate-800/40 border-slate-700/50 text-slate-300 hover:border-blue-500/50' : 'bg-white/40 border-white/50 text-slate-600 hover:border-blue-500/50'} backdrop-blur-xl w-12 h-12 rounded-xl border shadow-lg hover:scale-105 active:scale-95 transition-all group flex items-center justify-center cursor-pointer`}
+              className={`${isDark ? 'bg-slate-800/40 border-slate-700/50 text-slate-300 hover:border-blue-500/50' : 'bg-white/60 border-slate-200/80 text-slate-600 hover:border-blue-500/50'} backdrop-blur-xl w-12 h-12 rounded-xl border shadow-sm hover:scale-105 active:scale-95 transition-all group flex items-center justify-center cursor-pointer`}
               title="版权与说明"
             >
-              <Info size={22} />
+              <Info size={20} />
             </button>
           </div>
         </header>
+
+        {/* 当管理端已将全局激活项设为「本地客户端模型」，但当前浏览器尚未配置时，在主页面展示醒目引导提示条 */}
+        {needsClientSetup && (
+          <div className="p-4 rounded-xl border border-[var(--luxi-gold)]/50 bg-[var(--luxi-gold)]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle size={18} className="text-[var(--text-warn)] shrink-0" />
+              <span className="text-xs font-bold text-[var(--text-warn)]">
+                系统当前已切换为「个人本地模型」模式，检测到您的浏览器尚未配置模型参数。使用 AI 推理前请先完成本地模型配置。
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setModelModalMode('client')}
+              className="h-9 px-4 rounded-lg bg-primary text-white text-xs font-black uppercase tracking-wider shrink-0 hover:opacity-90 transition-all cursor-pointer"
+            >
+              立即配置本地模型
+            </button>
+          </div>
+        )}
 
         <section className={`grid grid-cols-1 ${gridColsClass} gap-6`}>
           {TOOL_CONFIGS.map((tool) => (

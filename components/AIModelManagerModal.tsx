@@ -61,45 +61,106 @@ const PROTOCOL_OPTIONS: Array<{ value: AIProtocolType; label: string }> = [
     { value: 'custom', label: '自定义直连端点 (Custom URL)' },
 ];
 
+/**
+ * 代表性大模型服务商快速填入预设（仅预填 ID、服务商名、协议与接入地址，不预填具体模型名以避免误导用户）
+ */
 const CLIENT_QUICK_PRESETS: Array<{
     label: string;
     id: string;
     name: string;
     protocol: AIProtocolType;
     endpoint: string;
-    model: string;
 }> = [
     {
-        label: '本地 LMStudio (:1234)',
+        label: '本地 LM Studio (http://127.0.0.1:1234/v1)',
         id: 'local_lmstudio',
-        name: '本地 LMStudio',
+        name: '本地 LM Studio',
         protocol: 'openai',
         endpoint: 'http://127.0.0.1:1234/v1/chat/completions',
-        model: 'qwen/qwen3.6-35b-a3b',
     },
     {
-        label: '本地 Ollama (:11434)',
+        label: '本地 Ollama (http://127.0.0.1:11434/v1)',
         id: 'local_ollama',
         name: '本地 Ollama',
         protocol: 'openai',
         endpoint: 'http://127.0.0.1:11434/v1/chat/completions',
-        model: 'qwen2.5:14b',
     },
     {
-        label: 'DeepSeek 云端',
+        label: '本地 vLLM / LiteLLM (http://127.0.0.1:8000/v1)',
+        id: 'local_vllm',
+        name: '本地 vLLM / LiteLLM',
+        protocol: 'openai',
+        endpoint: 'http://127.0.0.1:8000/v1/chat/completions',
+    },
+    {
+        label: 'DeepSeek 深度求索 (https://api.deepseek.com/v1)',
         id: 'client_deepseek',
-        name: '个人 DeepSeek',
+        name: 'DeepSeek 官方服务',
         protocol: 'openai',
         endpoint: 'https://api.deepseek.com/v1/chat/completions',
-        model: 'deepseek-chat',
     },
     {
-        label: 'SiliconFlow 硅基流动',
+        label: 'SiliconFlow 硅基流动 (https://api.siliconflow.cn/v1)',
         id: 'client_siliconflow',
-        name: '个人 SiliconFlow',
+        name: 'SiliconFlow 硅基流动',
         protocol: 'openai',
         endpoint: 'https://api.siliconflow.cn/v1/chat/completions',
-        model: 'Qwen/Qwen2.5-72B-Instruct',
+    },
+    {
+        label: '阿里云百炼 DashScope (https://dashscope.aliyuncs.com/compatible-mode/v1)',
+        id: 'client_bailian',
+        name: '阿里云百炼',
+        protocol: 'openai',
+        endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    },
+    {
+        label: '火山引擎方舟 Ark (https://ark.cn-beijing.volces.com/api/v3)',
+        id: 'client_volcengine',
+        name: '火山引擎豆包/方舟',
+        protocol: 'openai',
+        endpoint: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+    },
+    {
+        label: '智谱清言 BigModel (https://open.bigmodel.cn/api/paas/v4)',
+        id: 'client_zhipu',
+        name: '智谱 BigModel',
+        protocol: 'openai',
+        endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+    },
+    {
+        label: '月之暗面 Moonshot / Kimi (https://api.moonshot.cn/v1)',
+        id: 'client_moonshot',
+        name: 'Moonshot Kimi',
+        protocol: 'openai',
+        endpoint: 'https://api.moonshot.cn/v1/chat/completions',
+    },
+    {
+        label: 'OpenAI 官方 (https://api.openai.com/v1)',
+        id: 'client_openai',
+        name: 'OpenAI 官方',
+        protocol: 'openai',
+        endpoint: 'https://api.openai.com/v1/chat/completions',
+    },
+    {
+        label: 'Anthropic Claude (https://api.anthropic.com/v1)',
+        id: 'client_anthropic',
+        name: 'Anthropic Claude',
+        protocol: 'anthropic',
+        endpoint: 'https://api.anthropic.com/v1/messages',
+    },
+    {
+        label: 'Google Gemini (https://generativelanguage.googleapis.com/v1beta)',
+        id: 'client_gemini',
+        name: 'Google Gemini',
+        protocol: 'gemini',
+        endpoint: 'https://generativelanguage.googleapis.com/v1beta',
+    },
+    {
+        label: 'OpenRouter 聚合网关 (https://openrouter.ai/api/v1)',
+        id: 'client_openrouter',
+        name: 'OpenRouter',
+        protocol: 'openai',
+        endpoint: 'https://openrouter.ai/api/v1/chat/completions',
     },
 ];
 
@@ -132,6 +193,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
     // Client Cookie Mode State
     const [clientConfig, setClientConfig] = useState<ClientCookieLLMConfig>(() => loadClientCookieConfig());
     const [cookieConfigured, setCookieConfigured] = useState<boolean>(() => hasConfiguredClientCookie());
+    const [selectedPresetId, setSelectedPresetId] = useState<string>('');
 
     const [showApiKey, setShowApiKey] = useState(false);
     const [isFetchingModels, setIsFetchingModels] = useState(false);
@@ -145,6 +207,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
         setStatusBanner(null);
         setConfirmReset(false);
         setConfirmDeleteKey(null);
+        setSelectedPresetId('');
         setClientConfig(loadClientCookieConfig());
         setCookieConfigured(hasConfiguredClientCookie());
 
@@ -229,7 +292,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
         if (key === CLIENT_COOKIE_PROFILE_ID) {
             setStatusBanner({
                 type: 'ok',
-                text: '已将全局策略设为「使用本地客户端模型 (Browser Cookie)」，内部大模型服务已解耦。',
+                text: '已将系统默认策略切换为「使用本地客户端模型」，用户将在各自浏览器中配置个人模型。',
             });
         } else {
             setStatusBanner({
@@ -251,8 +314,8 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
             protocol: 'openai',
             endpoint: 'https://api.openai.com/v1/chat/completions',
             apiKey: '',
-            model: 'gpt-4o-mini',
-            models: ['gpt-4o-mini'],
+            model: '',
+            models: [],
             max_tokens: 8192,
         };
         const nextState: AIConfigState = {
@@ -266,7 +329,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
         setSelectedKey(newKey);
         setEditableId(newKey);
         saveAIConfigState(nextState);
-        setStatusBanner({ type: 'ok', text: `已新增提供商「${newProfile.name}」，可自定义其 ID、接入地址与密钥。` });
+        setStatusBanner({ type: 'ok', text: `已新增提供商「${newProfile.name}」，可自定义其 ID、接入地址并拉取模型。` });
     };
 
     const handleDeleteProvider = (key: string) => {
@@ -312,16 +375,40 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
         saveClientCookieConfig(next);
         setCookieConfigured(hasConfiguredClientCookie());
         if (!quiet) {
-            setStatusBanner({ type: 'ok', text: '客户端模型配置已实时写入浏览器 Cookie (iqs_client_llm_v1)。' });
+            setStatusBanner({ type: 'ok', text: '配置已保存在当前浏览器中。' });
         }
+    };
+
+    const handleSelectQuickPreset = (presetId: string) => {
+        setSelectedPresetId(presetId);
+        const found = CLIENT_QUICK_PRESETS.find(p => p.id === presetId);
+        if (!found) return;
+        // 仅填入服务商标识、名称、协议和接入地址，清空模型名与历史模型列表以避免误导用户
+        updateClientCookie(
+            {
+                enabled: true,
+                id: found.id,
+                name: found.name,
+                protocol: found.protocol,
+                endpoint: found.endpoint,
+                model: '',
+                models: [],
+            },
+            true
+        );
+        setStatusBanner({
+            type: 'ok',
+            text: `已填入「${found.name}」的接入地址与协议，请填写密钥后点击「拉取模型」或手动输入模型名称。`,
+        });
     };
 
     const handleClearClientCookie = () => {
         const fresh = clearClientCookieConfig();
         setClientConfig(fresh);
         setCookieConfigured(false);
+        setSelectedPresetId('');
         setConfirmReset(false);
-        setStatusBanner({ type: 'ok', text: '已清除浏览器中的客户端模型 Cookie 配置。' });
+        setStatusBanner({ type: 'ok', text: '已清除当前浏览器保存的模型配置。' });
     };
 
     /* ────────────────────── 共用模型拉取逻辑（Admin & Client 复用） ────────────────────── */
@@ -336,9 +423,10 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
         setStatusBanner(null);
         try {
             const models = await fetchProviderModels(activeTargetProfile, isClientMode);
-            const nextModel = models.includes(activeTargetProfile.model)
-                ? activeTargetProfile.model
-                : models[0];
+            const nextModel =
+                activeTargetProfile.model && models.includes(activeTargetProfile.model)
+                    ? activeTargetProfile.model
+                    : models[0];
 
             if (isClientMode) {
                 updateClientCookie({ models, model: nextModel }, true);
@@ -347,14 +435,14 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
             }
             setStatusBanner({
                 type: 'ok',
-                text: `成功从远端拉取 ${models.length} 个可用模型，可在下拉框或胶囊标签中直接选择。`,
+                text: `成功获取 ${models.length} 个可用模型，已自动选中「${nextModel}」，您可在下拉框或标签中切换。`,
             });
         } catch (err: any) {
             setStatusBanner({
                 type: 'err',
                 text:
                     err?.message ||
-                    '拉取模型列表失败，请检查接入地址、协议类型、API Key 或本地服务是否已开启 CORS 跨域。',
+                    '拉取模型列表失败，请检查接入地址、协议类型、API Key 或本地服务是否已开启跨域访问。',
             });
         } finally {
             setIsFetchingModels(false);
@@ -392,7 +480,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
             <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
                     <Hash size={13} className="text-primary" />
-                    <span>提供商标识 ID (Provider ID · 可编辑)</span>
+                    <span>提供商标识 ID (可编辑)</span>
                 </label>
                 {isClientForm ? (
                     <input
@@ -435,13 +523,13 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
             <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
                     <Server size={13} className="text-primary" />
-                    <span>提供商名称 (Provider Name)</span>
+                    <span>提供商名称</span>
                 </label>
                 <input
                     type="text"
                     value={prof.name}
                     onChange={e => onPatch({ name: e.target.value })}
-                    placeholder="例如：DeepSeek 官方 / 本地 LMStudio / 阿里百炼"
+                    placeholder="例如：DeepSeek 官方 / 本地 LM Studio / 阿里云百炼"
                     className="iqs-input h-11"
                 />
             </div>
@@ -450,7 +538,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
             <div className="space-y-2">
                 <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
                     <Layers size={13} className="text-primary" />
-                    <span>接口协议类型 (Protocol)</span>
+                    <span>接口协议类型</span>
                 </label>
                 <select
                     value={prof.protocol || 'openai'}
@@ -478,8 +566,8 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                         onChange={e => onPatch({ apiKey: e.target.value })}
                         placeholder={
                             isClientForm
-                                ? 'sk-... （本地 LMStudio / Ollama 可留空或任意填写）'
-                                : 'sk-... （留空则回退读取服务端环境变量 API_KEY）'
+                                ? 'sk-... （本地 LM Studio / Ollama 可留空）'
+                                : 'sk-... （留空则默认读取系统环境变量 API_KEY）'
                         }
                         className="iqs-input h-11 flex-1 font-mono"
                     />
@@ -504,7 +592,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                     type="text"
                     value={prof.endpoint}
                     onChange={e => onPatch({ endpoint: e.target.value })}
-                    placeholder="http://127.0.0.1:1234/v1/chat/completions 或 https://api.deepseek.com/v1"
+                    placeholder="请选择上方预设或输入地址，如 https://api.deepseek.com/v1"
                     className="iqs-input h-11 font-mono"
                 />
                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[var(--text-muted)]">
@@ -518,10 +606,10 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                 <div className="flex items-center justify-between">
                     <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
                         <Cpu size={13} className="text-primary" />
-                        <span>模型名称与远端拉取 (Model Selection)</span>
+                        <span>模型名称与远端拉取</span>
                     </label>
                     <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                        已拉取模型：{(prof.models || []).length} 个
+                        已获取模型列表：{(prof.models || []).length} 个
                     </span>
                 </div>
 
@@ -530,7 +618,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                         type="text"
                         value={prof.model}
                         onChange={e => onPatch({ model: e.target.value })}
-                        placeholder="输入或从右侧下拉选择模型名，如 deepseek-chat / qwen3.5-9b"
+                        placeholder="请点击右侧「拉取模型」自动获取，或手动输入模型名"
                         className="iqs-input h-11 flex-1 font-mono"
                     />
 
@@ -546,7 +634,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                             title="从已拉取的模型列表中选择"
                         >
                             <option value="" disabled>
-                                — 选择已拉取模型 ({prof.models?.length}) —
+                                — 选择已获取模型 ({prof.models?.length}) —
                             </option>
                             {(prof.models || []).map(m => (
                                 <option key={m} value={m}>
@@ -609,26 +697,26 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                 >
                     <div className="flex items-center gap-4">
                         <div className="w-11 h-11 rounded-md bg-primary/15 border border-primary/30 flex items-center justify-center text-primary">
-                            {isClientMode ? <Cookie size={22} /> : <Server size={22} />}
+                            {isClientMode ? <Laptop size={22} /> : <Server size={22} />}
                         </div>
                         <div>
                             <div className="flex items-center gap-3">
                                 <h2 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                                    {isClientMode ? '本地客户端模型配置 (Browser Cookie)' : '大模型配置与接入管理中心'}
+                                    {isClientMode ? '个人本地模型配置' : '大模型配置与接入管理中心'}
                                 </h2>
                                 <span className="iqs-badge">
                                     <span className="w-2 h-2 rounded-full bg-[var(--state-up)] animate-pulse" />
                                     {isClientMode
                                         ? cookieConfigured
-                                            ? `Cookie 已配置 · ${clientConfig.model}`
-                                            : 'Cookie 待配置'
+                                            ? `已就绪 · ${clientConfig.model}`
+                                            : '待完成配置'
                                         : configState.profiles[configState.active_profile]?.name || '未激活'}
                                 </span>
                             </div>
-                            <p className={`text-[11px] font-bold tracking-[0.12em] uppercase mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            <p className={`text-[12px] font-medium mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                                 {isClientMode
-                                    ? 'Client-Side BYOK & Local LLM · 配置存储于本地浏览器 Cookie，与服务端算力彻底解耦'
-                                    : 'Admin LLM Gateway Hub · 管理全局模型提供商、自定义 ID 或指派使用客户端本地 Cookie 模型'}
+                                    ? '配置您自己的大模型或本地模型服务，仅保存在当前浏览器中，不占用公共服务配额'
+                                    : '管理全局模型服务商、自定义标识 ID，或切换为由用户各自配置本地模型'}
                             </p>
                         </div>
                     </div>
@@ -677,27 +765,27 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={() => setStatusBanner(null)}
-                                    className="text-[11px] underline opacity-75 hover:opacity-100"
+                                    className="text-[11px] underline opacity-75 hover:opacity-100 shrink-0"
                                 >
                                     关闭
                                 </button>
                             </div>
                         )}
 
-                        {/* 客户端激活控制与快速预设 */}
+                        {/* 客户端激活控制开关 */}
                         <div className="iqs-note flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div className="space-y-1">
                                 <div className="flex items-center gap-2">
                                     <Laptop size={15} className="text-primary" />
                                     <span className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                                        启用本机浏览器 Cookie 模型连接
+                                        优先使用当前浏览器的个人模型配置
                                     </span>
                                     {adminForcesClientCookie && (
-                                        <span className="iqs-badge">管理端已强制指定客户端模式</span>
+                                        <span className="iqs-badge">系统当前要求使用本地配置</span>
                                     )}
                                 </div>
                                 <p className="text-[11px] text-[var(--text-muted)]">
-                                    开启后，AI 推理将直接使用当前浏览器 Cookie（<code className="font-mono">iqs_client_llm_v1</code>）中的地址与密钥发起连接，不依赖内部服务端配置。
+                                    开启后，AI 绘图推演将直接使用您在下方填写的模型服务；关闭则恢复使用系统默认服务。
                                 </p>
                             </div>
                             <div className="shrink-0 flex items-center gap-3">
@@ -708,60 +796,53 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                             </div>
                         </div>
 
-                        {/* 一键快速模板 */}
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[11px] font-black uppercase tracking-wider text-[var(--text-muted)] mr-1">
-                                快速填入预设：
-                            </span>
-                            {CLIENT_QUICK_PRESETS.map(preset => (
-                                <button
-                                    key={preset.id}
-                                    type="button"
-                                    onClick={() =>
-                                        updateClientCookie({
-                                            enabled: true,
-                                            id: preset.id,
-                                            name: preset.name,
-                                            protocol: preset.protocol,
-                                            endpoint: preset.endpoint,
-                                            model: preset.model,
-                                        })
-                                    }
-                                    className={`h-8 px-3 rounded-md border text-[11px] font-bold transition-all cursor-pointer ${
-                                        isDark
-                                            ? 'bg-slate-800 border-slate-700 text-slate-300 hover:border-primary'
-                                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-primary'
-                                    }`}
-                                >
-                                    {preset.label}
-                                </button>
-                            ))}
+                        {/* 快速填入预设：下拉选择框（不预填模型名） */}
+                        <div className="space-y-2">
+                            <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
+                                <Server size={13} className="text-primary" />
+                                <span>快速填入常见服务商预设（仅自动填写接入地址与协议，模型请拉取或手填）</span>
+                            </label>
+                            <select
+                                value={selectedPresetId}
+                                onChange={e => handleSelectQuickPreset(e.target.value)}
+                                className="iqs-input h-11"
+                            >
+                                <option value="">— 请选择常见本地或云端大模型服务商预设 —</option>
+                                {CLIENT_QUICK_PRESETS.map(preset => (
+                                    <option key={preset.id} value={preset.id}>
+                                        {preset.label}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         {/* 复用模型配置表单 */}
                         {renderProfileFormFields(clientConfig, patch => updateClientCookie(patch), true)}
 
-                        {/* 清除 Cookie 按钮 */}
-                        <div className="pt-4 border-t border-[var(--border-line-r)] flex items-center justify-between">
-                            <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                                存储位置：Browser Cookie (`iqs_client_llm_v1`, SameSite=Lax, Max-Age=365d)
-                            </span>
-                            {confirmReset ? (
-                                <ConfirmInline
-                                    message="确认清除本机浏览器 Cookie 模型配置？"
-                                    onConfirm={handleClearClientCookie}
-                                    onCancel={() => setConfirmReset(false)}
-                                />
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={() => setConfirmReset(true)}
-                                    className="h-9 px-3.5 rounded-md border border-[var(--border-line-r)] text-[var(--text-danger)] hover:bg-[var(--alert-red)]/10 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                                >
-                                    <Trash2 size={13} />
-                                    <span>清除浏览器 Cookie 配置</span>
-                                </button>
-                            )}
+                        {/* 底部：左侧两行存储说明 + 右侧等高 44px (h-11) 清除按钮与内联确认条 */}
+                        <div className="pt-4 border-t border-[var(--border-line-r)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex flex-col space-y-0.5 text-[11px] font-mono text-[var(--text-muted)]">
+                                <span>存储位置：当前浏览器 Cookie (`iqs_client_llm_v1`)</span>
+                                <span>安全策略：SameSite=Lax · 有效期 365 天 · 仅本机可见</span>
+                            </div>
+                            <div className="shrink-0">
+                                {confirmReset ? (
+                                    <ConfirmInline
+                                        message="确认清除本机保存的模型配置？"
+                                        onConfirm={handleClearClientCookie}
+                                        onCancel={() => setConfirmReset(false)}
+                                    />
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => setConfirmReset(true)}
+                                        className="h-11 px-4 rounded-md border border-[var(--border-line-r)] text-[var(--text-danger)] hover:bg-[var(--alert-red)]/10 text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer"
+                                    >
+                                        <Trash2 size={15} className="shrink-0" />
+                                        <span>清除浏览器 Cookie 配置</span>
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 ) : !unlocked ? (
@@ -867,7 +948,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                             <div className="pt-3 border-t border-[var(--border-line-r)] space-y-2">
                                 {confirmReset ? (
                                     <ConfirmInline
-                                        message="确认恢复默认 config.json 预设？"
+                                        message="确认恢复默认预设？"
                                         onConfirm={handleResetAdminDefaults}
                                         onCancel={() => setConfirmReset(false)}
                                     />
@@ -875,7 +956,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => setConfirmReset(true)}
-                                        className={`w-full h-9 rounded-md border text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                        className={`w-full h-11 rounded-md border text-[11px] font-bold flex items-center justify-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
                                             isDark
                                                 ? 'border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
                                                 : 'border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -905,7 +986,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => setStatusBanner(null)}
-                                        className="text-[11px] underline opacity-75 hover:opacity-100"
+                                        className="text-[11px] underline opacity-75 hover:opacity-100 shrink-0"
                                     >
                                         关闭
                                     </button>
@@ -926,7 +1007,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                                             </div>
                                             <p className="text-[11px] text-[var(--text-muted)] mt-1">
                                                 {isBuiltinClientSlot
-                                                    ? '激活此项后，系统将与内部大模型服务解耦，强制使用各客户端浏览器 Cookie 中配置的模型参数进行连接。'
+                                                    ? '激活此项后，系统将不再调用内部公共大模型，而是使用每位用户在本地浏览器中配置的个人模型。'
                                                     : '支持直接修改提供商 ID、接入地址、协议类型与模型；点击右侧「设为当前激活」即可全局生效。'}
                                             </p>
                                         </div>
@@ -975,18 +1056,18 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2 text-primary font-black text-sm">
                                                         <Cookie size={18} />
-                                                        <span>客户端浏览器 Cookie 解耦模式说明</span>
+                                                        <span>客户端个人模型模式说明</span>
                                                     </div>
                                                     <span className="iqs-badge">
-                                                        {cookieConfigured ? '当前浏览器已配置 Cookie' : '当前浏览器未配置 Cookie'}
+                                                        {cookieConfigured ? '当前浏览器已配置' : '当前浏览器未配置'}
                                                     </span>
                                                 </div>
                                                 <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-                                                    当管理员将全局激活方案切换为 <strong>「本地客户端模型 (Browser Cookie)」</strong> 时，平台不再调用内部固定大模型，而是读取每位用户浏览器本地 Cookie（<code className="font-mono">iqs_client_llm_v1</code>）中的接入地址、协议、API Key 与模型。用户可在主页面右上角点击「本地模型配置」图标自助完成配置。
+                                                    当管理员将全局方案设为 <strong>「本地客户端模型 (Browser Cookie)」</strong> 时，系统与内部大模型服务彻底解耦，改为读取每位用户自己浏览器中保存的接入地址、密钥与模型。如果用户尚未配置，主页面顶栏与 AI 推理面板会自动给出提醒引导。
                                                 </p>
                                                 {cookieConfigured && (
                                                     <div className="p-4 rounded-md bg-[var(--card-bg)] border border-[var(--border-line-r)] font-mono text-[11px] space-y-1.5">
-                                                        <div className="font-bold text-primary">当前浏览器已检出的 Cookie 模型配置预览：</div>
+                                                        <div className="font-bold text-primary">当前浏览器已保存的模型配置：</div>
                                                         <div>提供商 ID：{clientConfig.id} · 名称：{clientConfig.name}</div>
                                                         <div>协议类型：{clientConfig.protocol} · 模型：{clientConfig.model}</div>
                                                         <div>接入地址：{clientConfig.endpoint}</div>
@@ -999,7 +1080,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                                                         className="h-11 px-5 rounded-md border border-primary/40 bg-primary/10 text-primary text-xs font-black uppercase tracking-wider inline-flex items-center gap-2 hover:bg-primary hover:text-white transition-all cursor-pointer"
                                                     >
                                                         <Laptop size={15} />
-                                                        <span>立即前往配置当前浏览器的客户端模型 (Cookie)</span>
+                                                        <span>前往配置当前浏览器的个人模型</span>
                                                     </button>
                                                 )}
                                             </div>
@@ -1022,11 +1103,11 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                     <p className={`text-[11px] font-mono ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                         {isClientMode ? (
                             <>
-                                本地 Cookie 状态：
+                                当前浏览器模型状态：
                                 <strong className="text-primary ml-1">
                                     {cookieConfigured
                                         ? `${clientConfig.name} (${clientConfig.model})`
-                                        : '未配置'}
+                                        : '尚未完成配置（需填写地址与模型名）'}
                                 </strong>
                             </>
                         ) : (
@@ -1035,7 +1116,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                                 <strong className="text-primary ml-1">
                                     {configState.profiles[configState.active_profile]?.name}
                                 </strong>
-                                （{configState.active_profile === CLIENT_COOKIE_PROFILE_ID ? '读取客户端 Cookie' : configState.profiles[configState.active_profile]?.model}）
+                                （{configState.active_profile === CLIENT_COOKIE_PROFILE_ID ? '使用客户端浏览器配置' : configState.profiles[configState.active_profile]?.model}）
                             </>
                         )}
                     </p>
