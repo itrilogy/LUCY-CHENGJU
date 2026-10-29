@@ -4,7 +4,8 @@ echo "Generating dist/config.js with runtime environment variables..."
 cat <<EOF > /app/dist/config.js
 window.APP_CONFIG = {
   API_KEY: "${API_KEY:-}",
-  AI_ACTIVE_PROFILE: "${AI_ACTIVE_PROFILE:-deepseek_public}"
+  AI_ACTIVE_PROFILE: "${AI_ACTIVE_PROFILE:-deepseek_public}",
+  IQS_ADMIN_PASSWORD: "${IQS_ADMIN_PASSWORD:-luxi2026}"
 };
 EOF
 

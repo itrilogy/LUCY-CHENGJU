@@ -1,20 +1,24 @@
 {
   "project": "澄矩 · ChengJu (IQS / Intelligent QC Studio)",
-  "version": "3.2.0",
+  "version": "3.6.0-ildr",
   "description": "IQS Config for AI services.",
   "ai_config": {
     "active_profile": "deepseek_public",
     "profiles": {
       "deepseek_public": {
-        "name": "DeepSeek",
+        "name": "DeepSeek 官方推理",
+        "protocol": "openai",
         "endpoint": "https://api.deepseek.com/v1/chat/completions",
-        "model": "deepseek-v4-flash",
+        "model": "deepseek-chat",
+        "models": ["deepseek-chat", "deepseek-reasoner"],
         "max_tokens": 8192
       },
       "local_qwen": {
         "name": "内网 Qwen3.5-9B 服务",
+        "protocol": "openai",
         "endpoint": "http://10.37.87.15:4000/v1/chat/completions",
         "model": "qwen3.5-9b",
+        "models": ["qwen3.5-9b", "qwen/qwen3.6-35b-a3b"],
         "max_tokens": 8192
       }
     }

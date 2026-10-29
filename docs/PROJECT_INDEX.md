@@ -22,10 +22,10 @@ related:
 |:--|:--|
 | **用途** | 全项目文档的**唯一入口**（MOC）。按「工程历程 × 文档类别」组织，并标注时效与权威层级 |
 | **维护规则** | 新增文档须在此登记；状态变化须同步更新。仅追加，不覆盖历史 |
-| **软件版本** | `V3.5.3-ildr`（`package.json` name = `chengju-iqs`） |
+| **软件版本** | `V3.6.0-ildr`（`package.json` name = `chengju-iqs`） |
 | **出品** | 江西省上饶市烟草专卖局（公司）信息中心 · 鹿溪联合创新实验室（LUXI Lab） |
-| **提交跨度** | **2026-02-05 → 2026-09-09**，151 次提交（`git log`） |
-| **本索引生成** | 2026-09-12（含尚未提交的工作） |
+| **提交跨度** | **2026-02-05 → 2026-10-28**，158+ 次提交（`git log`） |
+| **本索引生成** | 2026-10-28（R31 单一真源版本历史与大模型管理中心） |
 
 > **FLOW 组件**的文档已在 2026-09-12 单独整理过一次，其子索引为 `docs/flow/README.md`（41 份）。本索引不重复其内部条目，只做**入口指引**。
 
@@ -36,30 +36,31 @@ related:
 > 时间取自 `git log --reverse --format=%ad`（各文件**首次提交**日期），作为追溯证据。
 > ⚠️ 部分文档在后续提交中被持续修订，末次提交见 §3 表格。
 
-| 阶段 | 时间 | 主题 | 标志性文档（首次提交） |
-|:--:|:--|:--|:--|
-| **P1** | 2026-02-05 | **项目起步**：QC 图表组件 + AI 服务 | `docs/IQS_REQ_SPEC_PRODUCT.md` · `docs/IQS_COMP_DESIGN_AFFINITY.md` · `docs/IQS_COMP_DESIGN_MATRIX.md` · `docs/IQS_COMP_MANUAL_*`（12 份）· `docs/IQS_GUIDE_TROUBLESHOOTING.md` · `docs/archive/IQS_DSL_MANUAL_LEGACY.md` |
-| **P1** | 2026-02-06 | 基础图表（basic）+ README | `docs/IQS_COMP_MANUAL_BASIC.md` · `README.md` |
-| **P1** | 2026-02-26 | Mermaid 救济层 | `docs/IQS_COMP_MANUAL_MERMAID.md` |
-| **P2** | 2026-03-16 | **MCP 化**：把 14 个组件暴露为 MCP 工具 | `docs/IQS_CHART_MCP_DESIGN.md` · `docs/IQS_MCP_GUIDE_CONFIG.md` · `IGS_DSL_AGENT_MANIFESTO.md`（v3.0）· `docs/IQS_DSL_AGENT_MANIFESTO.md` |
-| **P2** | 2026-03-26 | **ILDR 4.0 + Token 优化**：子类型对齐、上下文瘦身 | `docs/IQS_MCP_PLAN_ILDR4.md` · `docs/IQS_MCP_PLAN_TOKEN_OPTIMIZATION.md` · `docs/IQS_RENDER_PLAN_VCHART_DEBUG.md` · `docs/IQS_QA_AUDIT_PROMPTS_ALL.md` · `docs/IQS_QA_AUDIT_PROMPTS_CORE.md` |
-| **P3** | 2026-08-24 | **IQS-DSL v1** 统一语言 | `docs/IQS_DSL_V1_MANUAL.md`（细粒度语法手册） |
-| **P4** | 2026-08-25 | **FLOW 组件启动**（第 14 个 CORE kind） | `docs/flow/spec/IQS_FLOW_DSL_SPEC.md` · `docs/flow/design/FLOW_LAYOUT_ENGINE_DESIGN.md` · `docs/flow/review/FLOW_RENDER_REVIEW_QA.md` |
-| **P5** | 2026-08-30 | **软著与发行准备** + DSL v1 架构规范 | `docs/软著与发行/*`（12 份）· `COPYRIGHT.md` · `NOTICE.md` · `CHANGELOG.md` · `docs/IQS_DSL_V1_SPEC.md` |
-| **P4** | 2026-08-31 | **FLOW 深化（爆发日）**：布线 / 布局 / 数学 | `docs/flow/math/*`（5 份）· `docs/flow/design/*`（5 份）· `docs/flow/notes/*` · `docs/flow/review/FLOW_ROUTING_ALGO_STATE.md` |
-| **P4** | 2026-09-01~02 | FLOW 格内序 / 主干序 / 下一阶段 | `docs/flow/design/FLOW_CELL_ORDER_DESIGN.md` · `docs/flow/notes/FLOW_MAINLINE_ORDER_NOTES.md` · `docs/flow/notes/*_PLAN_*` |
-| **P5** | 2026-09-09 | **品牌化 + 仓库更名** | `README.md`（LUXI 双标头部）· 仓库更名 `LUCY-CHENGJU` |
-| **P6** | **2026-09-12** | **卡片单一真源（SSOT）体系**（本次，未提交） | `docs/IQS_DSL_CARD_SSOT_DESIGN.md` · `docs/flow/review/FLOW_AGENT_CARD_AUDIT.md` · `dsl/cards/*` · `docs/flow/notes/FLOW_ROUTING_WORKLOG.md`（W12–W17） |
-| **P6** | **2026-09-12** | **UI 范式精修 + 代码审计**（本次，未提交） | `docs/design/UI_REFINEMENT_LOG.md` · `components/ui/*` · `utils/{id,textMetrics,relationGraph}.ts` · `hooks/useAIEngine.ts` · `scripts/{lint_examples,assert_card_contracts,check_cards_fresh}.ts` |
-| **P4** | **2026-09-12** | **FLOW R22：R21 复测** → 端口朝向/回折穿盒/子流程整数倍格修复 + 几何门禁 G1–G5（含注入回归） | `docs/flow/review/FLOW_COMPONENT_AUDIT_R22.md` · `docs/flow/review/FLOW_AUDIT_FINDINGS.md`（R22 / AUD-141..146）· `scripts/assert_flow_geometry.ts` · `components/flow/*` |
-| **P4** | **2026-09-12** | **FLOW R23：出入口红线 + 子流程范式**（已实施 S0–S3） | `docs/flow/review/FLOW_COMPONENT_AUDIT_R23.md` · 台账 AUD-147..151 已修复 · `FLOW_ROUTING_EXCLUSIVITY_DESIGN.md` |
-| **P4** | **2026-09-13** | **FLOW R24：N/DATA 水平 + A1 前瞻 + 代数下降性能** | `FLOW_ROUTING_EXCLUSIVITY_DESIGN.md` §5–6 · 台账 AUD-152..153 · `g7-doc-horizontal` · canonical SVG ~150ms |
-| **P6** | **2026-10-27** | **R25–R26：全栈工程深度审计 + MCP 14 CORE 诊断 + 双模分层渲染引擎** | `docs/IQS_MCP_DESIGN_DUAL_ENGINE_AUDIT_R26.md` · 台账 `AUD-155..164` · `scripts/flow_lint_core.ts` · `mcp-server/{index,linters}.js` · `App.tsx` |
-| **P6** | **2026-10-27** | **R27：MCP 双模渲染引擎加固与确定性渲染** | `docs/IQS_MCP_ENGINE_HARDENING_R27.md` · 台账 `AUD-165..169` · 退出信号清理 · 12s 熔断 · 全局动画清零 · resvg 可选依赖 · 新鲜度门禁 |
-| **P6** | **2026-10-27** | **R28：G6 渲染缺陷诊断 + 关联图因果代数重构 + 全组件确定性布局** | `docs/IQS_MCP_DETERMINISTIC_LAYOUT_DESIGN_R28.md` · 台账 `AUD-170..174` · `utils/relationGraph.ts`（469 行纯数学布局）· `PDPCDiagram` / `RelationDiagram` 帧同步 |
-| **P6** | **2026-10-28** | **R29：鱼骨图布局数学评估 + 算法重构实施 + 全仓审计**（已落地，工程记录见 `IQS_FISHBONE_ENGINEERING_LOG_R29.md`） | `docs/IQS_FISHBONE_LAYOUT_MATH_AUDIT_R29.md` · 台账 `AUD-175..183` 全部修复 · `utils/fishboneGraph.ts` 五遍闭式解重写 · `scripts/assert_fishbone_math.ts`（G1–G7 / 44 断言）· `npm run test:fishbone` 入 build+CI · `docs/IQS_DIAGRAM_MATHEMATICAL_LAYOUT_SPEC.md` 第三章重写 |
-| **P7** | **2026-10-28** | **规划：全量自研 SVG 迁移与 G6 归零技术规划** | `docs/IQS_MIGRATION_PLAN_SVG_DE_G6.md` · 规划关联图与 PDPC 自研闭式解与原生 SVG 替代 · 剥离 `@antv/g6` 与 MCP Tier-1 毫秒级直出下沉 |
-| **P7** | **2026-10-28** | **R30：全仓 G6 归零与关联图/PDPC 原生 SVG 迁移实施落地**（工程记录见 `docs/IQS_SVG_DE_G6_ENGINEERING_LOG_R30.md`） | `docs/IQS_SVG_DE_G6_ENGINEERING_LOG_R30.md` · 台账 `AUD-188..194` 全部闭环 · `utils/{relationSvg,pdpcGraph,pdpcSvg,fishboneSvg}.ts` · `components/{RelationDiagram,PDPCDiagram}.tsx` · `scripts/assert_{relation,pdpc}_math.ts` · `mcp-server` Tier-1 覆盖 `flow/fishbone/relation/pdpc` 四大拓扑图 · 彻底卸载 `@antv/g6` |
+| 阶段 | 版本 | 时间 | 主题 | 标志性文档（首次提交） |
+|:--:|:--:|:--|:--|:--|
+| **P1** | `v1.0.0` | 2026-02-05 | **项目起步**：QC 图表组件 + AI 服务 | `docs/IQS_REQ_SPEC_PRODUCT.md` · `docs/IQS_COMP_DESIGN_AFFINITY.md` · `docs/IQS_COMP_DESIGN_MATRIX.md` · `docs/IQS_COMP_MANUAL_*`（12 份）· `docs/IQS_GUIDE_TROUBLESHOOTING.md` · `docs/archive/IQS_DSL_MANUAL_LEGACY.md` |
+| **P1** | `v1.2.0` | 2026-02-06 | 基础图表（basic）+ 雷达图（radar）+ README | `docs/IQS_COMP_MANUAL_BASIC.md` · `docs/IQS_COMP_MANUAL_RADAR.md` · `README.md` |
+| **P1** | `v1.8.0` | 2026-02-26 | Mermaid 救济层与仪表盘核心状态集中管理 | `docs/IQS_COMP_MANUAL_MERMAID.md` |
+| **P2** | `v2.0.0` | 2026-03-16 | **MCP 化与容器化**：把 14 个组件暴露为 MCP 工具 + Docker 运行时环境变量注入 | `docs/IQS_CHART_MCP_DESIGN.md` · `docs/IQS_MCP_GUIDE_CONFIG.md` · `IQS_DSL_AGENT_MANIFESTO.md`（v3.0）· `docs/IQS_DSL_AGENT_MANIFESTO.md` |
+| **P2** | `v2.5.0` | 2026-03-26 | **ILDR 4.0 + Token 优化**：子类型对齐、上下文瘦身、本地 Tailwind 构建 | `docs/IQS_MCP_PLAN_ILDR4.md` · `docs/IQS_MCP_PLAN_TOKEN_OPTIMIZATION.md` · `docs/IQS_RENDER_PLAN_VCHART_DEBUG.md` · `docs/IQS_QA_AUDIT_PROMPTS_ALL.md` · `docs/IQS_QA_AUDIT_PROMPTS_CORE.md` |
+| **P3** | `v2.8.0` | 2026-08-24 | **IQS-DSL v1** 统一语言 | `docs/IQS_DSL_V1_MANUAL.md`（细粒度语法手册） |
+| **P4** | `v2.9.0` | 2026-08-25 | **FLOW 组件启动**（第 14 个 CORE kind） | `docs/flow/spec/IQS_FLOW_DSL_SPEC.md` · `docs/flow/design/FLOW_LAYOUT_ENGINE_DESIGN.md` · `docs/flow/review/FLOW_RENDER_REVIEW_QA.md` |
+| **P5** | `v3.0.0` | 2026-08-30 | **软著与发行准备** + DSL v1 架构规范 + 深色模式 | `docs/软著与发行/*`（12 份）· `COPYRIGHT.md` · `NOTICE.md` · `CHANGELOG.md` · `docs/IQS_DSL_V1_SPEC.md` |
+| **P4** | `v3.0.5` | 2026-08-31 | **FLOW 深化（爆发日）**：布线 / 布局 / 数学 | `docs/flow/math/*`（5 份）· `docs/flow/design/*`（5 份）· `docs/flow/notes/*` · `docs/flow/review/FLOW_ROUTING_ALGO_STATE.md` |
+| **P4** | `v3.1.0` | 2026-09-01~02 | FLOW 格内序 / 主干序 / 下一阶段 | `docs/flow/design/FLOW_CELL_ORDER_DESIGN.md` · `docs/flow/notes/FLOW_MAINLINE_ORDER_NOTES.md` · `docs/flow/notes/*_PLAN_*` |
+| **P5** | `v3.2.0` | 2026-09-09 | **品牌化 + 仓库更名 + MCP SSE 混合编排** | `README.md`（LUXI 双标头部）· 仓库更名 `LUCY-CHENGJU` |
+| **P6** | `v3.3.0` | **2026-09-12** | **卡片单一真源（SSOT）体系** | `docs/IQS_DSL_CARD_SSOT_DESIGN.md` · `docs/flow/review/FLOW_AGENT_CARD_AUDIT.md` · `dsl/cards/*` · `docs/flow/notes/FLOW_ROUTING_WORKLOG.md`（W12–W17） |
+| **P6** | `v3.3.5` | **2026-09-12** | **UI 范式精修 + 代码审计**（全项目语义类与令牌统一、开关收敛为 Switch） | `docs/design/UI_REFINEMENT_LOG.md` · `components/ui/*` · `utils/{id,textMetrics,relationGraph}.ts` · `hooks/useAIEngine.ts` · `scripts/{lint_examples,assert_card_contracts,check_cards_fresh}.ts` |
+| **P4** | `v3.4.0` | **2026-09-12** | **FLOW R22：R21 复测** → 端口朝向/回折穿盒/子流程整数倍格修复 + 几何门禁 G1–G5（含注入回归） | `docs/flow/review/FLOW_COMPONENT_AUDIT_R22.md` · `docs/flow/review/FLOW_AUDIT_FINDINGS.md`（R22 / AUD-141..146）· `scripts/assert_flow_geometry.ts` · `components/flow/*` |
+| **P4** | `v3.4.5` | **2026-09-12** | **FLOW R23：出入口红线 + 子流程范式**（已实施 S0–S3） | `docs/flow/review/FLOW_COMPONENT_AUDIT_R23.md` · 台账 AUD-147..151 已修复 · `FLOW_ROUTING_EXCLUSIVITY_DESIGN.md` |
+| **P4** | `v3.5.0` | **2026-09-13** | **FLOW R24：N/DATA 水平 + A1 前瞻 + 代数下降性能** | `FLOW_ROUTING_EXCLUSIVITY_DESIGN.md` §5–6 · 台账 AUD-152..153 · `g7-doc-horizontal` · canonical SVG ~150ms |
+| **P6** | `v3.5.1` | **2026-10-27** | **R25–R26：全栈工程深度审计 + MCP 14 CORE 诊断 + 双模分层渲染引擎** | `docs/IQS_MCP_DESIGN_DUAL_ENGINE_AUDIT_R26.md` · 台账 `AUD-155..164` · `scripts/flow_lint_core.ts` · `mcp-server/{index,linters}.js` · `App.tsx` |
+| **P6** | `v3.5.2` | **2026-10-27** | **R27：MCP 双模渲染引擎加固与确定性渲染** | `docs/IQS_MCP_ENGINE_HARDENING_R27.md` · 台账 `AUD-165..169` · 退出信号清理 · 12s 熔断 · 全局动画清零 · resvg 可选依赖 · 新鲜度门禁 |
+| **P6** | `v3.5.3` | **2026-10-27** | **R28：G6 渲染缺陷诊断 + 关联图因果代数重构 + 全组件确定性布局** | `docs/IQS_MCP_DETERMINISTIC_LAYOUT_DESIGN_R28.md` · 台账 `AUD-170..174` · `utils/relationGraph.ts`（469 行纯数学布局）· `PDPCDiagram` / `RelationDiagram` 帧同步 |
+| **P6** | `v3.5.4` | **2026-10-28** | **R29：鱼骨图布局数学评估 + 算法重构实施 + 全仓审计**（已落地，工程记录见 `IQS_FISHBONE_ENGINEERING_LOG_R29.md`） | `docs/IQS_FISHBONE_LAYOUT_MATH_AUDIT_R29.md` · 台账 `AUD-175..183` 全部修复 · `utils/fishboneGraph.ts` 五遍闭式解重写 · `scripts/assert_fishbone_math.ts`（G1–G7 / 67 断言）· `npm run test:fishbone` 入 build+CI · `docs/IQS_DIAGRAM_MATHEMATICAL_LAYOUT_SPEC.md` 第三章重写 |
+| **P7** | `v3.5.5` | **2026-10-28** | **规划：全量自研 SVG 迁移与 G6 归零技术规划** | `docs/IQS_MIGRATION_PLAN_SVG_DE_G6.md` · 规划关联图与 PDPC 自研闭式解与原生 SVG 替代 · 剥离 `@antv/g6` 与 MCP Tier-1 毫秒级直出下沉 |
+| **P7** | `v3.5.9` | **2026-10-28** | **R30：全仓 G6 归零与关联图/PDPC 原生 SVG 迁移实施落地**（工程记录见 `docs/IQS_SVG_DE_G6_ENGINEERING_LOG_R30.md`） | `docs/IQS_SVG_DE_G6_ENGINEERING_LOG_R30.md` · 台账 `AUD-188..194` 全部闭环 · `utils/{relationSvg,pdpcGraph,pdpcSvg,fishboneSvg}.ts` · `components/{RelationDiagram,PDPCDiagram}.tsx` · `scripts/assert_{relation,pdpc}_math.ts` · `mcp-server` Tier-1 覆盖 `flow/fishbone/relation/pdpc` 四大拓扑图 · 彻底卸载 `@antv/g6` |
+| **P7** | `v3.6.0` | **2026-10-28** | **R31：版本发行记录单一真源（SSOT）直读 + 大模型接入管理中心（ENV 密码门禁 / 多协议 / 远端模型拉取与热激活）** | `utils/projectIndexParser.ts` · `components/AIModelManagerModal.tsx` · `services/aiService.ts` · `components/DashboardView.tsx` |
 
 ### 时间线读法（三条主线）
 

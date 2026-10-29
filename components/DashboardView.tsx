@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { TOOL_CONFIGS } from '../constants';
 import { QCToolType } from '../types';
-import { ArrowUpRight, Cpu, ShieldCheck, LayoutGrid, Sun, Moon, Info, X, ChevronRight } from 'lucide-react';
+import { ArrowUpRight, Cpu, ShieldCheck, LayoutGrid, Sun, Moon, Info, X, ChevronRight, Settings2 } from 'lucide-react';
+import { parseProjectIndexReleases } from '../utils/projectIndexParser';
+import { AIModelManagerModal } from './AIModelManagerModal';
 
 interface Props {
   onSelectTool: (type: QCToolType) => void;
@@ -13,6 +15,10 @@ interface Props {
 
 export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, theme, setTheme }) => {
   const [showInfo, setShowInfo] = useState(false);
+  const [showModelManager, setShowModelManager] = useState(false);
+
+  // 直接从 docs/PROJECT_INDEX.md 单一真源解析版本与工程历程表
+  const releaseMeta = useMemo(() => parseProjectIndexReleases(), []);
 
   const gridColsClass = {
     3: 'md:grid-cols-3',
@@ -102,7 +108,7 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
 
             <button
               onClick={() => setShowInfo(true)}
-              className={`${isDark ? 'bg-slate-800/40 border-slate-700/50 text-slate-300' : 'bg-white/40 border-white/50 text-slate-600'} backdrop-blur-xl p-4 rounded-full border shadow-xl hover:scale-110 active:scale-95 transition-all group flex items-center justify-center min-w-[56px] min-h-[56px]`}
+              className={`${isDark ? 'bg-slate-800/40 border-slate-700/50 text-slate-300' : 'bg-white/40 border-white/50 text-slate-600'} backdrop-blur-xl p-4 rounded-full border shadow-xl hover:scale-110 active:scale-95 transition-all group flex items-center justify-center min-w-[56px] min-h-[56px] cursor-pointer`}
               title="版权与说明"
             >
               <Info size={24} />
@@ -115,7 +121,7 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
             <button
               key={tool.type}
               onClick={() => onSelectTool(tool.type)}
-              className={`group ${isDark ? 'bg-slate-900 text-slate-200 border-slate-800 hover:border-blue-500/50' : 'bg-white text-slate-800 border-slate-200 hover:border-blue-500/50'} rounded-[2.5rem] p-10 border shadow-xl hover:shadow-[0_20px_50px_-10px_rgba(37,99,235,0.2)] transition-all duration-700 relative overflow-hidden flex flex-col h-[320px] text-left active:scale-[0.98]`}
+              className={`group ${isDark ? 'bg-slate-900 text-slate-200 border-slate-800 hover:border-blue-500/50' : 'bg-white text-slate-800 border-slate-200 hover:border-blue-500/50'} rounded-[2.5rem] p-10 border shadow-xl hover:shadow-[0_20px_50px_-10px_rgba(37,99,235,0.2)] transition-all duration-700 relative overflow-hidden flex flex-col h-[320px] text-left active:scale-[0.98] cursor-pointer`}
             >
               <div className="relative z-10 flex flex-col h-full justify-between">
                 <div>
@@ -173,7 +179,10 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
               <div className="flex items-center gap-4">
                 <img src="/brand/iqs-mark.svg" alt="澄矩 · ChengJu" className="w-12 h-12 rounded-[12px] object-contain" />
                 <div>
-                  <h2 className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-slate-900'}`}>澄矩 · ChengJu</h2>
+                  <div className="flex items-center gap-3">
+                    <h2 className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-slate-900'}`}>澄矩 · ChengJu</h2>
+                    <span className="iqs-badge">{releaseMeta.softwareVersion}</span>
+                  </div>
                   <p className={`text-[11px] font-black tracking-widest mt-1 ${isDark ? 'text-[#00D2FF]' : 'text-[#0D5E42]'}`}>源清流澈，行止应矩</p>
                   <div className="mt-2 flex items-center gap-2">
                     <img src={isDark ? '/brand/luxi-lab-inverse.svg' : '/brand/luxi-lab.svg'} alt="LUXI LAB" className="w-6 h-6 object-contain" />
@@ -183,7 +192,7 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
               </div>
               <button 
                 onClick={() => setShowInfo(false)}
-                className={`p-3 rounded-full transition-all ${isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'}`}
+                className={`p-3 rounded-full transition-all cursor-pointer ${isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'}`}
               >
                 <X size={24} />
               </button>
@@ -216,123 +225,103 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
                     <ShieldCheck size={16} className="text-emerald-500" /> 技术架构底座
                   </h3>
                   <ul className="space-y-3 text-xs">
-                    <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> 前端基座：React 18 + Vite 5 高性能渲染</li>
-                    <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> 图表引擎：ECharts 5 深度定制 + 原生 Canvas/SVG</li>
-                    <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> 交互设计：Industrial OS 视觉套件 + Tailwind</li>
-                    <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> 内核解析：TypeScript 强类型 DSL 正则词法引擎</li>
-                    <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> AI 集成：支持 GPT-4o / DeepSeek / Claude 等推理补全</li>
+                    <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> 前端基座：React 19 + Vite 6 高性能渲染</li>
+                    <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> 图表引擎：全量自研确定性 SVG 拓扑引擎 + ECharts 5</li>
+                    <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> 交互设计：LUXI Design System v1.0 视觉套件</li>
+                    <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> 内核解析：IQS-DSL v1 强类型词法与卡片单一真源（SSOT）</li>
+                    <li className="flex items-start gap-2"><ChevronRight size={14} className="mt-0.5 text-emerald-500" /> AI 集成：支持 OpenAI / DeepSeek / Claude / Gemini 多协议管理</li>
                   </ul>
                 </div>
               </div>
 
+              {/* 版本发布记录：保持既有排版形态，数据实时源自 docs/PROJECT_INDEX.md §1 表格 */}
               <section className="space-y-4">
                 <div className="flex items-baseline justify-between gap-4">
                   <h3 className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>版本发布记录 (Release History)</h3>
-                  <span className={`text-[11px] font-mono shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>按工程阶段归档 · 详见 docs/PROJECT_INDEX.md</span>
+                  <span className={`text-[11px] font-mono shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                    单一真源直读 · docs/PROJECT_INDEX.md §1（共 {releaseMeta.totalMilestones} 个里程碑）
+                  </span>
                 </div>
-<div className={`p-6 rounded-lg border ${isDark ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50 border-slate-200'} space-y-5 font-mono text-[11px]`}>
-                  <div className="pt-2 first:pt-0">
-                    <p className={`text-[11px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>P6 · 单一真源（SSOT）与 UI 范式 · 未发布</p>
-                    <div className="space-y-2.5">
-                      <div className="flex gap-4">
-                        <span className="text-blue-500 font-bold shrink-0 w-16 text-right">v3.5.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>feat(flow): 初始示例扩为 14 节点 / 5 部门 / 5 阶段 / 2 网关 / 6 属性；AI 推理选项卡对齐范式；核查 Color 样式语句在 BNF、L0 spec、flow.card.ts 与编辑器四处一致。 (Today)</span>
-                      </div>
-                      <div className="flex gap-4">
-                        <span className="text-blue-500 font-bold shrink-0 w-16 text-right">v3.4.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>fix: 指定问题修复——PDPC 初始配色改浅底深字（原对比度最低 2.54:1）、矢线图连线标号自适应字号、雷达图数值标签改深墨、VChart 示例扩为多系列。 (Today)</span>
-                      </div>
-                      <div className="flex gap-4">
-                        <span className="text-blue-500 font-bold shrink-0 w-16 text-right">v3.3.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>refactor: 全项目 UI 范式归位（语义类与令牌统一、开关收敛为 Switch 组件、字号与色族终检归零）；代码审计修复拓扑-配色脱节、手工路径零校验、DSL 往返截断、ID 碰撞等 15 项。 (Today)</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-2 first:pt-0">
-                    <p className={`text-[11px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>P5 · 品牌化与发行</p>
-                    <div className="space-y-2.5">
-                      <div className="flex gap-4 opacity-70">
-                        <span className="text-slate-500 font-bold shrink-0 w-16 text-right">v3.2.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>feat: 引入 MCP SSE 远程调用与 Docker 混合编排，支持运行时配置注入。 (Today)</span>
-                      </div>
-                      <div className="flex gap-4 opacity-70">
-                        <span className="text-slate-500 font-bold shrink-0 w-16 text-right">v3.1.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>IQS 品牌全域升级：斜纹背景、全新 LOGO 与 UI 深度精进。</span>
-                      </div>
-                      <div className="flex gap-4 opacity-70">
-                        <span className="text-slate-500 font-bold shrink-0 w-16 text-right">v3.0.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>feat: 实现深色模式并增加图表数值显示开关。 (3 days ago)</span>
+                <div className={`p-6 rounded-lg border ${isDark ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50 border-slate-200'} space-y-5 font-mono text-[11px]`}>
+                  {releaseMeta.groups.map((grp) => (
+                    <div key={grp.id} className="pt-2 first:pt-0">
+                      <p className={`text-[11px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {grp.title}
+                      </p>
+                      <div className="space-y-2.5">
+                        {grp.entries.map((entry, idx) => (
+                          <div
+                            key={`${grp.id}_${entry.version}_${idx}`}
+                            className={`flex gap-4 ${grp.isHighlight ? '' : 'opacity-75'}`}
+                          >
+                            <span
+                              className={`${
+                                grp.isHighlight ? 'text-blue-500' : 'text-slate-500'
+                              } font-bold shrink-0 w-16 text-right`}
+                            >
+                              {entry.version}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <span className={isDark ? 'text-slate-300' : 'text-slate-700'}>
+                                {entry.summary}
+                              </span>
+                              <span className={`ml-2 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                ({entry.date})
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                  <div className="pt-2 first:pt-0">
-                    <p className={`text-[11px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>P2–P4 · MCP 化 / 语言规范 / FLOW / 工程化</p>
-                    <div className="space-y-2.5">
-                      <div className="flex gap-4 opacity-70">
-                        <span className="text-slate-500 font-bold shrink-0 w-16 text-right">v2.9.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>chore: 优化文件系统结构并清理冗余资源。 (1 week ago)</span>
-                      </div>
-                      <div className="flex gap-4 opacity-70">
-                        <span className="text-slate-500 font-bold shrink-0 w-16 text-right">v2.8.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>feat: 新增 Mermaid 图表组件与相关文档，并更新核心配置。 (3 weeks ago)</span>
-                      </div>
-                      <div className="flex gap-4 opacity-70">
-                        <span className="text-slate-500 font-bold shrink-0 w-16 text-right">v2.5.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>feat: 集成 Tailwind CSS 和 PostCSS 进行本地构建，移除 CDN 依赖。 (5 weeks ago)</span>
-                      </div>
-                      <div className="flex gap-4 opacity-70">
-                        <span className="text-slate-500 font-bold shrink-0 w-16 text-right">v2.1.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>feat: 引入 Docker 入口脚本支持运行时环境变量。 (5 weeks ago)</span>
-                      </div>
-                      <div className="flex gap-4 opacity-70">
-                        <span className="text-slate-500 font-bold shrink-0 w-16 text-right">v2.0.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>feat: 项目容器化部署支持及 package.json 依赖项升级。 (6 weeks ago)</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-2 first:pt-0">
-                    <p className={`text-[11px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>P1 · 项目起步（QC 图表组件 + AI 服务）</p>
-                    <div className="space-y-2.5">
-                      <div className="flex gap-4 opacity-70">
-                        <span className="text-slate-500 font-bold shrink-0 w-16 text-right">v1.8.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>feat: 新增雷达图 (Radar Chart) 功能及相关配置。 (2 months ago)</span>
-                      </div>
-                      <div className="flex gap-4 opacity-70">
-                        <span className="text-slate-500 font-bold shrink-0 w-16 text-right">v1.5.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>refactor: 将仪表盘核心状态提升至顶层进行集中管理。 (2 months ago)</span>
-                      </div>
-                      <div className="flex gap-4 opacity-70">
-                        <span className="text-slate-500 font-bold shrink-0 w-16 text-right">v1.2.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>feat: 添加基础图表 (Basic Chart) 功能，支持 DSL 编辑与 AI 生成。 (3 months ago)</span>
-                      </div>
-                      <div className="flex gap-4 opacity-70">
-                        <span className="text-slate-500 font-bold shrink-0 w-16 text-right">v1.0.0</span>
-                        <span className={isDark ? "text-slate-300" : "text-slate-700"}>feat: 初始化智能质量控制工作室项目，集成核心 QC 图表与 AI 服务。 (4 months ago)</span>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </section>
             </div>
 
-            {/* Modal Footer */}
+            {/* Modal Footer：左侧版权标识，右侧新增「模型管理」按钮 + 原有「进入工位」确认按钮 */}
             <div className={`p-6 border-t ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-slate-50'} flex justify-between items-center shrink-0`}>
               <p className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                 <span className="inline-flex items-center gap-2">
                   <img src={isDark ? '/brand/luxi-lab-inverse.svg' : '/brand/luxi-lab.svg'} alt="" className="w-5 h-5 object-contain" />
-                  © 2026 澄矩 · ChengJu · 鹿溪联合创新实验室 LUXI LAB
+                  © 2026 澄矩 · ChengJu ({releaseMeta.softwareVersion}) · 鹿溪联合创新实验室 LUXI LAB
                 </span>
               </p>
-              <button 
-                onClick={() => setShowInfo(false)}
-                className={`px-8 py-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-lg ${isDark ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
-              >
-                进入工位
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowInfo(false);
+                    setShowModelManager(true);
+                  }}
+                  className={`px-5 py-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all border flex items-center gap-2 cursor-pointer ${
+                    isDark
+                      ? 'bg-slate-800 border-slate-700 text-slate-200 hover:border-blue-500/60 hover:text-white'
+                      : 'bg-white border-slate-200 text-slate-700 hover:border-blue-500/60 hover:text-slate-900'
+                  }`}
+                  title="管理大模型提供商、API 密钥与激活模型（需 ENV 管理密码）"
+                >
+                  <Settings2 size={15} className="text-primary" />
+                  <span>模型管理</span>
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setShowInfo(false)}
+                  className={`px-8 py-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-lg cursor-pointer ${isDark ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+                >
+                  进入工位
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* 大模型配置与接入管理弹窗（ENV 密码鉴权 + 多提供商 CRUD + 模型拉取与激活） */}
+      <AIModelManagerModal
+        open={showModelManager}
+        onClose={() => setShowModelManager(false)}
+        isDark={isDark}
+      />
     </div>
   );
 };

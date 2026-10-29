@@ -1,12 +1,29 @@
 import { QCToolType } from "../types";
 import { QC_TOOL_TO_KIND } from "../dsl/registry";
 
-interface AIProfile {
+export type AIProtocolType = "openai" | "anthropic" | "gemini" | "custom";
+
+export interface AIProfile {
+    id?: string;
+    /** 提供商名称，如 "DeepSeek 官方推理"、"阿里百炼"、"本地 LMStudio" */
     name: string;
+    /** 协议类型：OpenAI 兼容 / Anthropic Claude / Google Gemini / 自定义端点 */
+    protocol?: AIProtocolType;
+    /** 接入地址（支持根地址如 https://api.openai.com/v1 或完整路径 /v1/chat/completions） */
     endpoint: string;
+    /** 专属 API Key（可选；留空时回退使用 ENV 全局 API_KEY） */
+    apiKey?: string;
+    /** 当前选中的模型名称 */
     model: string;
-    /** 与外部 DeepSeek 对齐；未设时默认 8192，不大于外网档 */
+    /** 已拉取或缓存的可用模型列表 */
+    models?: string[];
+    /** 最大输出 Token 上限（默认 8192） */
     max_tokens?: number;
+}
+
+export interface AIConfigState {
+    active_profile: string;
+    profiles: Record<string, AIProfile>;
 }
 
 export type AICompletionMeta = {
@@ -21,26 +38,13 @@ export function getLastAICompletion(): AICompletionMeta | null {
 }
 
 interface ChartSpec {
-    ai_config: {
-        active_profile: string;
-        profiles: Record<string, AIProfile>;
-    };
+    ai_config: AIConfigState;
 }
+
+const STORAGE_KEY = "iqs_ai_providers_v1";
+export const AI_CONFIG_CHANGED_EVENT = "iqs:ai-config-changed";
 
 let cachedSpec: ChartSpec | null = null;
-
-async function getChartSpec(): Promise<ChartSpec> {
-    if (cachedSpec) return cachedSpec;
-    try {
-        const res = await fetch('/config.json');
-        if (!res.ok) throw new Error("Failed to load config.json");
-        cachedSpec = await res.json();
-        return cachedSpec!;
-    } catch (e) {
-        console.error("Config Load Error:", e);
-        throw e;
-    }
-}
 
 /**
  * Runtime configuration interface
@@ -50,8 +54,294 @@ declare global {
         APP_CONFIG?: {
             API_KEY?: string;
             AI_ACTIVE_PROFILE?: string;
+            IQS_ADMIN_PASSWORD?: string;
         };
     }
+}
+
+/**
+ * 获取管理密码（优先读取 ENV / window.APP_CONFIG，默认回退为 'luxi2026'）
+ */
+export function getAdminPassword(): string {
+    const candidates = [
+        typeof window !== "undefined" ? window.APP_CONFIG?.IQS_ADMIN_PASSWORD : undefined,
+        process.env.IQS_ADMIN_PASSWORD,
+    ];
+    for (const c of candidates) {
+        if (typeof c === "string" && c.trim().length > 0) {
+            return c.trim();
+        }
+    }
+    return "luxi2026";
+}
+
+export function verifyAdminPassword(input: string): boolean {
+    return String(input ?? "").trim() === getAdminPassword();
+}
+
+async function getChartSpec(): Promise<ChartSpec> {
+    if (cachedSpec) return cachedSpec;
+    try {
+        const res = await fetch("/config.json");
+        if (!res.ok) throw new Error("Failed to load config.json");
+        cachedSpec = await res.json();
+        return cachedSpec!;
+    } catch (e) {
+        console.error("Config Load Error:", e);
+        return {
+            ai_config: {
+                active_profile: "deepseek_public",
+                profiles: {
+                    deepseek_public: {
+                        name: "DeepSeek 官方推理",
+                        protocol: "openai",
+                        endpoint: "https://api.deepseek.com/v1/chat/completions",
+                        model: "deepseek-chat",
+                        models: ["deepseek-chat", "deepseek-reasoner"],
+                        max_tokens: 8192,
+                    },
+                },
+            },
+        };
+    }
+}
+
+function readStoredConfig(): AIConfigState | null {
+    if (typeof window === "undefined" || !window.localStorage) return null;
+    try {
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && parsed.profiles && typeof parsed.profiles === "object") {
+            return parsed as AIConfigState;
+        }
+    } catch (e) {
+        console.warn("[AI Config] Failed to parse localStorage config:", e);
+    }
+    return null;
+}
+
+/**
+ * 获取合并后的完整大模型配置状态（localStorage 持久化覆盖 > public/config.json 默认预设）
+ */
+export async function loadAIConfigState(): Promise<AIConfigState> {
+    const spec = await getChartSpec();
+    const stored = readStoredConfig();
+    const envActive =
+        (typeof window !== "undefined" ? window.APP_CONFIG?.AI_ACTIVE_PROFILE : undefined) ||
+        process.env.AI_ACTIVE_PROFILE;
+
+    const mergedProfiles: Record<string, AIProfile> = {};
+    for (const [k, v] of Object.entries(spec.ai_config.profiles || {})) {
+        mergedProfiles[k] = {
+            protocol: "openai",
+            max_tokens: 8192,
+            ...v,
+            id: k,
+        };
+    }
+
+    if (stored && stored.profiles) {
+        // 若用户已保存自定义配置表，以用户保存的列表为准
+        const userProfiles: Record<string, AIProfile> = {};
+        for (const [k, v] of Object.entries(stored.profiles)) {
+            userProfiles[k] = {
+                protocol: "openai",
+                max_tokens: 8192,
+                ...v,
+                id: k,
+            };
+        }
+        const activeKey =
+            stored.active_profile && userProfiles[stored.active_profile]
+                ? stored.active_profile
+                : Object.keys(userProfiles)[0] || spec.ai_config.active_profile;
+        return {
+            active_profile: activeKey,
+            profiles: userProfiles,
+        };
+    }
+
+    const defaultActive =
+        envActive && mergedProfiles[envActive]
+            ? envActive
+            : spec.ai_config.active_profile;
+
+    return {
+        active_profile: defaultActive,
+        profiles: mergedProfiles,
+    };
+}
+
+/**
+ * 保存大模型配置状态并广播全局变更事件（使所有编辑器的引擎徽章实时刷新）
+ */
+export function saveAIConfigState(state: AIConfigState): void {
+    if (typeof window === "undefined" || !window.localStorage) return;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    window.dispatchEvent(new CustomEvent(AI_CONFIG_CHANGED_EVENT, { detail: state }));
+}
+
+/**
+ * 重置大模型配置为默认 config.json 状态
+ */
+export async function resetAIConfigState(): Promise<AIConfigState> {
+    if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.removeItem(STORAGE_KEY);
+    }
+    const fresh = await loadAIConfigState();
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(AI_CONFIG_CHANGED_EVENT, { detail: fresh }));
+    }
+    return fresh;
+}
+
+/**
+ * 解析当前生效的 API Key（提供商专属 Key > .env API_KEY > window.APP_CONFIG.API_KEY）
+ */
+function resolveApiKey(profile: AIProfile): string {
+    const candidates = [
+        profile.apiKey,
+        process.env.API_KEY,
+        typeof window !== "undefined" ? window.APP_CONFIG?.API_KEY : undefined,
+    ];
+    const found = candidates.find(k => typeof k === "string" && k.trim().length > 0);
+    return found ? found.trim() : "";
+}
+
+/**
+ * 根据协议类型与用户填写的接入地址，推导实际的对话请求 URL 与模型列表拉取 URL
+ */
+export function resolveProtocolEndpoints(
+    rawEndpoint: string,
+    protocol: AIProtocolType = "openai",
+    model = ""
+): { chatUrl: string; modelsUrl: string } {
+    const trimmed = String(rawEndpoint || "").trim().replace(/\/+$/, "");
+    if (!trimmed) {
+        return { chatUrl: "", modelsUrl: "" };
+    }
+
+    if (protocol === "anthropic") {
+        const base = trimmed.replace(/\/v1\/messages$/i, "").replace(/\/messages$/i, "");
+        const withV1 = base.endsWith("/v1") ? base : `${base}/v1`;
+        return {
+            chatUrl: trimmed.endsWith("/messages") ? trimmed : `${withV1}/messages`,
+            modelsUrl: `${withV1}/models`,
+        };
+    }
+
+    if (protocol === "gemini") {
+        // 支持原生 Gemini v1beta 或 OpenAI 兼容端点
+        if (trimmed.includes("/chat/completions")) {
+            return {
+                chatUrl: trimmed,
+                modelsUrl: trimmed.replace(/\/chat\/completions$/i, "/models"),
+            };
+        }
+        const base = trimmed.replace(/\/models\/.*$/i, "").replace(/\/models$/i, "");
+        const v1beta = base.includes("/v1") ? base : `${base}/v1beta`;
+        return {
+            chatUrl: `${v1beta}/models/${encodeURIComponent(model || "gemini-2.0-flash")}:generateContent`,
+            modelsUrl: `${v1beta}/models`,
+        };
+    }
+
+    if (protocol === "custom") {
+        const modelsUrl = trimmed.includes("/chat/completions")
+            ? trimmed.replace(/\/chat\/completions$/i, "/models")
+            : `${trimmed.replace(/\/v1$/i, "")}/v1/models`;
+        return {
+            chatUrl: trimmed,
+            modelsUrl,
+        };
+    }
+
+    // 默认 openai 兼容协议
+    if (trimmed.endsWith("/chat/completions")) {
+        return {
+            chatUrl: trimmed,
+            modelsUrl: trimmed.replace(/\/chat\/completions$/i, "/models"),
+        };
+    }
+    if (trimmed.endsWith("/v1")) {
+        return {
+            chatUrl: `${trimmed}/chat/completions`,
+            modelsUrl: `${trimmed}/models`,
+        };
+    }
+    return {
+        chatUrl: `${trimmed}/v1/chat/completions`,
+        modelsUrl: `${trimmed}/v1/models`,
+    };
+}
+
+/**
+ * 从远端提供商拉取可用模型列表（支持 OpenAI `/v1/models`、Anthropic `/v1/models`、Gemini `/v1beta/models`）
+ */
+export async function fetchProviderModels(profile: Pick<AIProfile, "endpoint" | "protocol" | "apiKey" | "model">): Promise<string[]> {
+    const protocol = profile.protocol || "openai";
+    const apiKey = resolveApiKey(profile as AIProfile);
+    const { modelsUrl } = resolveProtocolEndpoints(profile.endpoint, protocol, profile.model);
+    if (!modelsUrl) {
+        throw new Error("请先填写有效的接入地址 (Endpoint)");
+    }
+
+    const headers: Record<string, string> = {
+        Accept: "application/json",
+    };
+
+    let targetUrl = modelsUrl;
+    if (protocol === "anthropic") {
+        if (apiKey) headers["x-api-key"] = apiKey;
+        headers["anthropic-version"] = "2023-06-01";
+    } else if (protocol === "gemini" && !modelsUrl.includes("/v1/models")) {
+        if (apiKey) {
+            targetUrl = `${modelsUrl}${modelsUrl.includes("?") ? "&" : "?"}key=${encodeURIComponent(apiKey)}`;
+        }
+    } else if (apiKey) {
+        headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+
+    const res = await fetch(targetUrl, {
+        method: "GET",
+        headers,
+    });
+
+    if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`拉取模型失败 (HTTP ${res.status}): ${errText.slice(0, 160) || res.statusText}`);
+    }
+
+    const data = await res.json();
+    const list: string[] = [];
+
+    if (Array.isArray(data?.data)) {
+        // OpenAI / Anthropic / NewAPI / LiteLLM / LMStudio 标准格式: { data: [{ id: "..." }] }
+        for (const item of data.data) {
+            const id = item?.id || item?.name;
+            if (typeof id === "string" && id.trim()) list.push(id.trim());
+        }
+    } else if (Array.isArray(data?.models)) {
+        // Gemini / Ollama 格式: { models: [{ name: "models/gemini-..." }] }
+        for (const item of data.models) {
+            const rawName = typeof item === "string" ? item : item?.id || item?.name;
+            if (typeof rawName === "string" && rawName.trim()) {
+                list.push(rawName.trim().replace(/^models\//, ""));
+            }
+        }
+    } else if (Array.isArray(data)) {
+        for (const item of data) {
+            const id = typeof item === "string" ? item : item?.id || item?.name;
+            if (typeof id === "string" && id.trim()) list.push(id.trim());
+        }
+    }
+
+    const unique = Array.from(new Set(list));
+    if (unique.length === 0) {
+        throw new Error("接口返回成功，但未解析到任何模型 ID，请检查端点或手动输入模型名");
+    }
+    return unique;
 }
 
 interface ToolDefinition {
@@ -107,25 +397,20 @@ function buildSmartPrompt(parentType: string, subType: string | undefined, allTo
     const role = specific?.expertise || master?.expertise || "Expert Analyst";
     let prompt = `You are an expert ${role}.\n\n`;
 
-    // 1. Master Protocol Soul (Global Redlines)
     if (master) {
         prompt += `### 🟢 全局专家内核 (Master Protocol)\n${master.expert_logic}\n\n`;
     }
 
-    // 2. Logic Layer: Specific Tool Protocol
     if (specific) {
         prompt += `### 🔵 专项专家逻辑 (Expert Logic - ${subType})\n${specific.expert_logic}\n\n`;
         prompt += `### 📘 语法约束与范式 (Syntax & Examples)\n${specific.syntax_rules}\n\n`;
         prompt += `#### 💡 标准 DSL 范式示例:\n\`\`\`dsl\n${specific.official_example}\n\`\`\`\n\n`;
     }
 
-    // 3. Global Wrapper Rules
     if (master) {
         prompt += `${master.syntax_rules}\n\n`;
     }
 
-    const isJsonBased = parentType === 'vchart';
-    
     const getConstraint5 = () => {
         if (parentType === 'vchart') return `5. **严禁外层 JSON**: 必须直接以 "Title:" 或 "Spec:" 开头输出纯文本。严禁将最终结果包裹在 {} 中。`;
         if (parentType === 'mermaid') return `5. **直接输出语法**: 严禁输出 "Spec:"。必须直接输出 Mermaid 原生指令（如 flowchart TD, pie 等）。严禁包裹在 {} 中。`;
@@ -144,40 +429,102 @@ ${getConstraint5()}`;
 }
 
 async function callAI(systemPrompt: string, userPrompt: string, maxTokens?: number) {
-    const spec = await getChartSpec();
+    const configState = await loadAIConfigState();
+    const activeProfileName = configState.active_profile;
+    const profile = configState.profiles[activeProfileName];
+    if (!profile) throw new Error(`未找到激活的大模型配置方案: ${activeProfileName}`);
 
-    // 1. Check runtime config (window.APP_CONFIG), then build-time env
-    const envProfile = window.APP_CONFIG?.AI_ACTIVE_PROFILE || process.env.AI_ACTIVE_PROFILE;
-
-    // 2. Fallback to chart_spec.json active_profile if no env var
-    const activeProfileName = envProfile || spec.ai_config.active_profile;
-
-    const profile = spec.ai_config.profiles[activeProfileName];
-    if (!profile) throw new Error(`Invalid AI Profile: ${activeProfileName}`);
-
-    // 开发态 .env / Vite define 优先，避免 public/config.js 里过期占位 Key 挡住本地验证
-    const apiKey = [process.env.API_KEY, window.APP_CONFIG?.API_KEY]
-        .find((k) => typeof k === 'string' && k.trim().length > 8);
-
-    const body: Record<string, unknown> = {
-        model: profile.model,
-        messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-        ],
-        temperature: 0.1
-    };
-    // 内外网同一档：档案 max_tokens → 调用方 → 默认 8192（不大于 DeepSeek）
+    const protocol: AIProtocolType = profile.protocol || "openai";
+    const apiKey = resolveApiKey(profile);
+    const { chatUrl } = resolveProtocolEndpoints(profile.endpoint, protocol, profile.model);
     const cap = profile.max_tokens ?? maxTokens ?? 8192;
-    if (typeof cap === 'number' && cap > 0) body.max_tokens = cap;
 
     try {
-        const response = await fetch(profile.endpoint, {
+        if (protocol === "anthropic") {
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json",
+                "anthropic-version": "2023-06-01",
+            };
+            if (apiKey) headers["x-api-key"] = apiKey;
+
+            const response = await fetch(chatUrl, {
+                method: "POST",
+                headers,
+                body: JSON.stringify({
+                    model: profile.model,
+                    system: systemPrompt,
+                    messages: [{ role: "user", content: userPrompt }],
+                    max_tokens: cap,
+                    temperature: 0.1,
+                }),
+            });
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`Anthropic API Error: ${response.status} - ${err}`);
+            }
+            const data = await response.json();
+            const text = Array.isArray(data?.content)
+                ? data.content.map((c: any) => c?.text || "").join("")
+                : String(data?.completion || "");
+            lastAICompletion = {
+                finishReason: data?.stop_reason ?? null,
+                chars: text.length,
+                usage: data?.usage,
+            };
+            return text;
+        }
+
+        if (protocol === "gemini" && !chatUrl.includes("/chat/completions")) {
+            const urlWithKey = apiKey
+                ? `${chatUrl}${chatUrl.includes("?") ? "&" : "?"}key=${encodeURIComponent(apiKey)}`
+                : chatUrl;
+            const response = await fetch(urlWithKey, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+                    generationConfig: {
+                        temperature: 0.1,
+                        maxOutputTokens: cap,
+                    },
+                }),
+            });
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`Gemini API Error: ${response.status} - ${err}`);
+            }
+            const data = await response.json();
+            const parts = data?.candidates?.[0]?.content?.parts || [];
+            const text = parts.map((p: any) => p?.text || "").join("");
+            lastAICompletion = {
+                finishReason: data?.candidates?.[0]?.finishReason ?? null,
+                chars: text.length,
+            };
+            return text;
+        }
+
+        // OpenAI 兼容协议 & Custom 自定义协议
+        const body: Record<string, unknown> = {
+            model: profile.model,
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+            ],
+            temperature: 0.1
+        };
+        if (typeof cap === 'number' && cap > 0) body.max_tokens = cap;
+
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+        if (apiKey) {
+            headers['Authorization'] = `Bearer ${apiKey}`;
+        }
+
+        const response = await fetch(chatUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
+            headers,
             body: JSON.stringify(body)
         });
 
@@ -207,35 +554,25 @@ async function callAI(systemPrompt: string, userPrompt: string, maxTokens?: numb
 
 /**
  * Generates DSL for Logic Tools (Fishbone/Affinity/VChart/Mermaid/etc.)
- * Dynamically looks up tool definitions from mcp_tools.json with Master Logic injection.
  */
 export const generateLogicDSL = async (prompt: string, toolType: QCToolType, subType?: string) => {
     try {
         const tools = await getMCPTools();
 
-        // 1. Determine Parent Type
         const parentType = toolType === QCToolType.VCHART ? 'vchart' :
                            toolType === QCToolType.MERMAID ? 'mermaid' : 
                            'iqs_native';
 
-        // 2. Dynamic Tooling Lookup (Master + SubType) — IQS-DSL v1 registry
         let finalSubType = subType || QC_TOOL_TO_KIND[toolType];
 
-        // 2. Stage 1: Intent Discovery (if subType is unknown)
         if (!finalSubType && (parentType === 'vchart' || parentType === 'mermaid')) {
             const intentPrompt = buildIntentDiscoveryPrompt(parentType, tools);
             const rawIntent = await callAI(intentPrompt, prompt);
-            // Cleanup intent string (remove markdown, dots, etc.)
             finalSubType = rawIntent.replace(/['"`\.\s]/g, '').toLowerCase().trim();
-            console.log(`[DEBUG] Intent Discovered: ${finalSubType}`);
         }
 
-        // 3. Stage 2: Protocol Generation with CoT
         if (parentType) {
             const systemPrompt = buildSmartPrompt(parentType, finalSubType, tools);
-            console.log("--- [DEBUG] LIVE SYSTEM PROMPT (Stage 2) ---");
-            console.log(systemPrompt);
-            console.log("----------------------------------");
             const text = await callAI(systemPrompt, prompt);
             return text.replace(/```\w*/g, '').replace(/```/g, '').trim();
         }
@@ -247,30 +584,18 @@ export const generateLogicDSL = async (prompt: string, toolType: QCToolType, sub
     }
 };
 
-/**
- * Generates DSL for Pareto Chart
- */
 export const generateParetoDSL = async (prompt: string) => {
     return generateLogicDSL(prompt, QCToolType.PARETO, "pareto");
 };
 
-/**
- * Generates DSL for Histogram
- */
 export const generateHistogramDSL = async (prompt: string) => {
     return generateLogicDSL(prompt, QCToolType.HISTOGRAM, "histogram");
 };
 
-/**
- * Generates DSL for Control Chart
- */
 export const generateControlDSL = async (prompt: string) => {
     return generateLogicDSL(prompt, QCToolType.CONTROL, "control");
 };
 
-/**
- * Generates DSL for Scatter Chart
- */
 export const generateScatterDSL = async (prompt: string) => {
     return generateLogicDSL(prompt, QCToolType.SCATTER);
 };
@@ -280,15 +605,14 @@ export const generateBasicDSL = async (prompt: string) => {
 };
 
 /**
- * Retrieves the name of the currently active AI engine
+ * Retrieves the name and active model of the currently active AI engine
  */
 export const getAIStatus = async (): Promise<string> => {
     try {
-        const spec = await getChartSpec();
-        const envProfile = window.APP_CONFIG?.AI_ACTIVE_PROFILE || process.env.AI_ACTIVE_PROFILE;
-        const activeProfileName = envProfile || spec.ai_config.active_profile;
-        const profile = spec.ai_config.profiles[activeProfileName];
-        return profile?.name || "未激活服务";
+        const state = await loadAIConfigState();
+        const profile = state.profiles[state.active_profile];
+        if (!profile) return "未激活服务";
+        return profile.model ? `${profile.name} · ${profile.model}` : profile.name;
     } catch (e) {
         return "未激活服务";
     }

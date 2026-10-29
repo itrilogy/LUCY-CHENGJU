@@ -19,7 +19,8 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env.API_KEY': JSON.stringify(env.API_KEY),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.API_KEY),
-      'process.env.AI_ACTIVE_PROFILE': JSON.stringify(env.AI_ACTIVE_PROFILE || 'deepseek_public')
+      'process.env.AI_ACTIVE_PROFILE': JSON.stringify(env.AI_ACTIVE_PROFILE || 'deepseek_public'),
+      'process.env.IQS_ADMIN_PASSWORD': JSON.stringify(env.IQS_ADMIN_PASSWORD || env.ADMIN_PASSWORD || 'luxi2026')
     },
     resolve: {
       alias: {
