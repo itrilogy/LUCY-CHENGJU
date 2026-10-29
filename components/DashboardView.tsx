@@ -78,22 +78,18 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
           </div>
 
           <div className="flex items-center gap-4">
-            {/* 网格跨度控制舱 */}
-            <div className={`${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/60 border-slate-200/80'} backdrop-blur-xl px-5 h-12 rounded-xl border shadow-sm flex items-center gap-4 transition-all`}>
-              <LayoutGrid size={20} className="text-blue-500 shrink-0" />
-              <div className="flex flex-col min-w-[124px]">
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-[11px] font-black ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-[0.15em] leading-none`}>网格跨度</span>
-                  <span className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-blue-600'} tracking-tighter font-mono`}>{cols} COLS</span>
-                </div>
-                <input
-                  type="range"
-                  min="3" max="6" step="1"
-                  value={cols}
-                  onChange={(e) => setCols(parseInt(e.target.value))}
-                  className={`w-full h-1 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded-lg appearance-none cursor-pointer accent-blue-600 hover:accent-blue-500 transition-all`}
-                />
-              </div>
+            {/* 网格跨度控制舱：单行水平排布（图标 + 网格跨度 + 滑杆 + xx COLS），与右侧 48px 控件等高舒展 */}
+            <div className={`${isDark ? 'bg-slate-800/40 border-slate-700/50' : 'bg-white/60 border-slate-200/80'} backdrop-blur-xl px-5 h-12 rounded-xl border shadow-sm flex items-center gap-3.5 transition-all`}>
+              <LayoutGrid size={18} className="text-blue-500 shrink-0" />
+              <span className={`text-[11px] font-black ${isDark ? 'text-slate-400' : 'text-slate-500'} uppercase tracking-[0.15em] whitespace-nowrap`}>网格跨度</span>
+              <input
+                type="range"
+                min="3" max="6" step="1"
+                value={cols}
+                onChange={(e) => setCols(parseInt(e.target.value))}
+                className={`w-24 h-1.5 ${isDark ? 'bg-slate-700' : 'bg-slate-200'} rounded-lg appearance-none cursor-pointer accent-blue-600 hover:accent-blue-500 transition-all`}
+              />
+              <span className={`text-[11px] font-black ${isDark ? 'text-blue-400' : 'text-blue-600'} tracking-tighter font-mono whitespace-nowrap`}>{cols} COLS</span>
             </div>
 
             {/* 亮色 / 暗色模式：统一使用标准开关式控件（Switch），消除外壳圆角与胶囊叠加突兀感 */}
@@ -157,17 +153,17 @@ export const DashboardView: React.FC<Props> = ({ onSelectTool, cols, setCols, th
 
         {/* 当管理端已将全局激活项设为「本地客户端模型」，但当前浏览器尚未配置时，在主页面展示醒目引导提示条 */}
         {needsClientSetup && (
-          <div className="p-4 rounded-xl border border-[var(--luxi-gold)]/50 bg-[var(--luxi-gold)]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="px-5 py-3.5 rounded-xl border border-[var(--luxi-gold)]/50 bg-[var(--luxi-gold)]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <AlertTriangle size={18} className="text-[var(--text-warn)] shrink-0" />
-              <span className="text-xs font-bold text-[var(--text-warn)]">
+              <AlertTriangle size={16} className="text-[var(--text-warn)] shrink-0" />
+              <span className="text-[11px] font-bold text-[var(--text-warn)] leading-relaxed">
                 系统当前已切换为「个人本地模型」模式，检测到您的浏览器尚未配置模型参数。使用 AI 推理前请先完成本地模型配置。
               </span>
             </div>
             <button
               type="button"
               onClick={() => setModelModalMode('client')}
-              className="h-9 px-4 rounded-lg bg-primary text-white text-xs font-black uppercase tracking-wider shrink-0 hover:opacity-90 transition-all cursor-pointer"
+              className="h-9 px-4 rounded-lg bg-primary text-white text-[11px] font-black uppercase tracking-wider shrink-0 hover:opacity-90 transition-all cursor-pointer whitespace-nowrap"
             >
               立即配置本地模型
             </button>
