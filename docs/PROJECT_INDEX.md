@@ -132,6 +132,7 @@ related:
 | `docs/IQS_MIGRATION_PLAN_SVG_DE_G6.md` | ~290 | **10-28** | 🟢 | **图表引擎全量 SVG 化与 G6 归零设计规划书**：关联图与 PDPC 剥离 `@antv/g6` 四阶段 WBS 与 Geometry Spec 契约设计 |
 | `docs/IQS_SVG_DE_G6_ENGINEERING_LOG_R30.md` | ~220 | **10-28** | 🟢 | **全仓 G6 归零与关联图/PDPC 原生 SVG 闭式重构工程记录（R30）**：预检与规划勘误 `AUD-188..194` 全部闭环 · 关联图精确边界求交与双向弧线分离 · PDPC 阶段凝聚 K-Rank 分层与正交避障路由 · MCP Tier-1 四大拓扑图直出下沉 · 卸载 `@antv/g6`（移除 92 个子包） |
 | `docs/IQS_AUDIT_AND_CONTAINER_HARDENING_R33.md` | ~110 | **10-30** | 🟢 | **全仓深度代码审计、双轨密钥隔离、单进程双端口容器加固与按需分包工程记录（R33）**：台账 `AUD-195..202` 全部闭环 · `mcp-server/api.js` 零泄漏 AI 代理与 HttpOnly 会话鉴权 · 单进程 `:12000`+`:12001` 非 root 容器架构与渲染快照 GC · `dsl/parsers.ts` 解耦与 32 组件路由级分包 |
+| `docs/IQS_DEV_DEPS_OPTIMIZER_R34_DESIGN.md` | ~170 | **10-30** | 🟢 | **开发态 Mermaid / VChart 动态导入 504 修复（R34）**：`vite.config.ts` 以 `optimizeDeps.include` 将 mermaid / vchart 等五项纳入启动期预构建 · 504 全部转 200 · 生产 `vendor-mermaid` / `vendor-vchart` 分包无回退 |
 
 ### 3.3 功能手册
 

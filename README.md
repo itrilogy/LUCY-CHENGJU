@@ -16,9 +16,9 @@
   <img src="https://img.shields.io/badge/Matrix-工坊%C2%B7一法-0D5E42" alt="matrix" />
   <img src="https://img.shields.io/badge/Product-澄矩%20ChengJu-0D5E42" alt="product" />
   <img src="https://img.shields.io/badge/Lab-鹿溪联合创新实验室-047538" alt="lab" />
-  <img src="https://img.shields.io/badge/Version-v3.5.3--ildr-f1c40f" alt="version" />
+  <img src="https://img.shields.io/badge/Version-v3.6.3--ildr-f1c40f" alt="version" />
   <img src="https://img.shields.io/badge/IQS--DSL-v1.1-00D2FF" alt="dsl" />
-  <img src="https://img.shields.io/badge/Stack-React%2019%20%7C%20Vite%206-61DAFB" alt="stack" />
+  <img src="https://img.shields.io/badge/Stack-React%2019%20%7C%20Vite%206%20%7C%20Node%2022-61DAFB" alt="stack" />
   <img src="https://img.shields.io/badge/license-Proprietary-red" alt="license" />
 </p>
 
@@ -33,7 +33,7 @@
   <a href="#快速开始">快速开始</a> ·
   <a href="#核心能力">核心能力</a> ·
   <a href="#图种">图种</a> ·
-  <a href="#iqs-flow-企业流程图">IQS-Flow</a> ·
+  <a href="#iqs-flow企业流程图">IQS-Flow</a> ·
   <a href="#ai-生成">AI 生成</a> ·
   <a href="#文档">文档</a> ·
   <a href="#知识产权与版权">版权</a>
@@ -73,36 +73,53 @@
 - **RELIEF**：Mermaid / VChart 类型外救济（**不替代** QC / 体系文件终稿）
 - 出品标识：**鹿溪联合创新实验室** · 著作权人见文末
 
+当前发行版本 **V3.6.3-ildr**。本版完成了全仓审计（`AUD-195..202`）后的三件事：服务端托管企业模型密钥、生产容器改为单进程双端口、16 类图表与编辑器按需分包。
+
 ---
 
 ## 核心能力
 
 | 能力 | 说明 |
 |:---|:---|
-| **IQS-DSL v1.1** | 统一 Shell + Body；`dsl/kinds.json` 注册；`npm run validate:dsl` 门禁 |
-| **双引擎 + 自研 SVG** | 统计图 ECharts；多数逻辑图 G6/Canvas；**Flow 自研正交 SVG**（零新依赖） |
-| **AI 生成 DSL** | OpenAI 兼容（默认 DeepSeek）；`.env` 的 `API_KEY` 优先于 `public/config.js` |
-| **MCP** | Stdio / SSE；瘦声明 + `protocol://` 资源；Puppeteer ILDR 无头出图 |
-| **导出** | PNG / PDF；无头桥接 `captureIQSChart` |
-| **回归** | `npm run test:flow` 覆盖解析 / SVG / BPMN / 主干序 / 格内序 |
+| **IQS-DSL v1.1** | 统一 Shell + Body；`dsl/kinds.json` 注册；卡片真源 `dsl/cards/*`；`npm run validate:dsl` 门禁 |
+| **纯解析器解耦** | 全部解析器集中于 `dsl/parsers.ts`，零 React 依赖；视图组件只消费解析结果 |
+| **双引擎 + 自研 SVG** | 统计图 ECharts；逻辑图原生 SVG（G6 已全量退场）；**Flow 自研正交 SVG**（零新依赖） |
+| **按需分包** | 16 个 `*Diagram` + 16 个 `*Editor` 全部 `React.lazy`；ECharts / VChart / Mermaid / PDF 拆为独立 chunk，首屏不下载图表引擎 |
+| **AI 双轨路由** | 企业公共模型池走服务端代理（密钥永不到达浏览器）；个人本地模型（Ollama / LM Studio）由浏览器直连 `127.0.0.1` |
+| **MCP** | 同一 Node 进程承载 Web 与 MCP；瘦声明 + `protocol://` 资源；Headless Chromium ILDR 无头出图 |
+| **导出** | PNG / PDF；无头桥接 `captureIQSChart`，动态分包下由挂载门闩等待图表就绪 |
+| **几何回归** | `test:fishbone`（G1–G7）· `test:relation` · `test:pdpc` · `test:flow`（解析 / SVG / BPMN / 主干序 / 格内序），全部串入 `npm run build` |
 | **发行材料** | [`docs/软著与发行/`](./docs/软著与发行/00_文档索引.md) |
 
 ### 架构一览
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  UI  Vite 6 · React 19 · Tailwind · LUXI LAB 侧栏编辑器      │
-├─────────────────────────────────────────────────────────────┤
-│  IQS-DSL v1  解析 · kinds 注册表 · lint / validate            │
-├──────────────────┬──────────────────┬───────────────────────┤
-│  统计图 ECharts  │  逻辑图 G6/Canvas │  Flow 自研 SVG         │
-│  直方/控制/散点… │  鱼骨/亲和/PDPC…  │  泳道网格 + 正交走线   │
-├──────────────────┴──────────────────┴───────────────────────┤
-│  AI  aiService（.env → DeepSeek 等） · 导出 BaseDiagramRef    │
-├─────────────────────────────────────────────────────────────┤
-│  MCP  CORE/RELIEF · protocol://segments/… · Puppeteer ILDR   │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  UI   Vite 6 · React 19 · Tailwind · 32 个图表/编辑器按需加载  │
+├──────────────────────────────────────────────────────────────┤
+│  IQS-DSL v1.1   dsl/parsers.ts 纯解析 · kinds 注册 · 卡片真源  │
+├──────────────────┬───────────────────┬───────────────────────┤
+│  统计图 ECharts  │  逻辑图 原生 SVG   │  Flow 自研 SVG         │
+│  排列/直方/控制… │  鱼骨/关联/PDPC…   │  泳道网格 + 正交走线   │
+├──────────────────┴───────────────────┴───────────────────────┤
+│  AI 双轨   企业池：服务端 /api/ai/* 查表注入密钥转发            │
+│            本地池：浏览器直连 127.0.0.1（Ollama / LM Studio）   │
+├──────────────────────────────────────────────────────────────┤
+│  运行时  单 Node 进程：:12000 Web + API · :12001 MCP SSE       │
+│          Headless Chromium 回环截帧 · 渲染快照 TTL 自动回收    │
+└──────────────────────────────────────────────────────────────┘
 ```
+
+### 生产运行时（R33）
+
+生产容器不再运行 `vite preview`。`mcp-server/index.js` 在同一个 Node 22 进程里同时监听两个端口：
+
+| 端口 | 职责 |
+|:---|:---|
+| **12000** | `dist/` 静态托管、SPA History Fallback、`/api/*`、`/healthz` |
+| **12001** | MCP `/sse`、`/messages`、`/renders`、`/api/*`、`/healthz` |
+
+容器以非特权用户 `appuser (10001:10001)` 运行，`tini` 作为 PID 1 回收 Headless Chromium 僵尸进程，镜像内置 `fonts-noto-cjk` 保障中文出图，`no-new-privileges` 与 `shm_size: 512mb` 为无头浏览器提供运行保障。`iqs-data` 与 `iqs-renders` 两个命名卷分别持久化配置和渲染产物，后者按 `IQS_RENDER_TTL_HOURS`（默认 24h）与 `IQS_RENDER_MAX_FILES`（默认 500）自动回收。
 
 ---
 
@@ -175,9 +192,9 @@ W: q1: 金额超过5000? Type[?] Location(D[0],P[1])
 
 ### 环境
 
-- **Node.js 22+**（`test:flow` 使用 `--experimental-strip-types`；Docker 镜像 `node:22-slim`）
+- **Node.js 22.12+**（`package.json` `engines` 要求；`test:*` 使用 `--experimental-strip-types`；Docker 镜像 `node:22-slim`）
 - Chrome / Edge 推荐
-- （可选）Docker、大模型 API Key（DeepSeek 等 OpenAI 兼容接口）
+- （可选）Docker、大模型 API Key（DeepSeek 等 OpenAI 兼容接口）或本机 Ollama / LM Studio
 
 ### 开发模式
 
@@ -185,7 +202,7 @@ W: q1: 金额超过5000? Type[?] Location(D[0],P[1])
 git clone https://github.com/itrilogy/LUCY-CHENGJU.git
 cd LUCY-CHENGJU
 npm install
-cp .env.example .env          # 填写 API_KEY（勿提交）
+cp .env.example .env          # 按需填写，勿提交
 npm run validate:dsl
 npm run test:flow             # Flow 引擎回归
 npm run dev                   # http://localhost:12000
@@ -193,22 +210,23 @@ npm run dev                   # http://localhost:12000
 
 若提示 `Port 12000 is in use`：结束占用进程后再启（已 `strictPort`，不会自动换端口）。
 
-改 `.env` 后需**重启** `npm run dev`，Vite 才会把密钥注入前端。
+开发态的 Mermaid 与 VChart 依赖图很宽，已在 `vite.config.ts` 的 `optimizeDeps.include` 中提前预构建（R34）。若升级依赖后这两个页面首次打开报动态导入失败，删除 `node_modules/.vite` 再重启 `npm run dev`。
 
 ### Docker
 
 ```bash
-cp .env.example .env
+cp .env.example .env          # 设置 IQS_ADMIN_PASSWORD，按需设置 API_KEY
 docker compose up -d --build
 ```
 
 | 端口 | 服务 |
 |:---|:---|
-| **12000** | Web 工作站 |
+| **12000** | Web 工作站 + `/api/*` |
 | **12001** | MCP SSE |
 
-浏览器：<http://localhost:12000>  
-入口脚本把 `API_KEY` / `AI_ACTIVE_PROFILE` 写入 `dist/config.js`，不要把真实密钥打进镜像层。
+浏览器：<http://localhost:12000>
+
+两个端口由**同一个 Node 进程**提供，健康检查分别探测 `/healthz`。容器入口只把非敏感的 `AI_ACTIVE_PROFILE` 写入 `dist/config.js`，**不会**注入 `API_KEY` 或管理员口令。
 
 ### MCP
 
@@ -232,10 +250,14 @@ npm run mcp:sse         # http://localhost:12001/sse
 
 | 命令 | 说明 |
 |:---|:---|
-| `npm run dev` | 同步 MCP 清单 + Vite 开发服务器 |
-| `npm run test:flow` | Flow 解析 / SVG / BPMN / 序 断言 |
-| `npm run validate:dsl` | 语法手册 / MCP 覆盖校验 |
-| `npm run build` | 校验 + Flow 断言 + 生产构建 |
+| `npm run dev` | 同步 MCP 清单 + Vite 开发服务器（`:12000`） |
+| `npm run test:fishbone` | 鱼骨图几何不变量 G1–G7 |
+| `npm run test:relation` | 关联图因果代数断言 |
+| `npm run test:pdpc` | PDPC 几何断言 |
+| `npm run test:flow` | Flow 解析 / SVG / BPMN / 序断言 |
+| `npm run validate:dsl` | 语法手册 / 示例 / 卡片契约校验 |
+| `npm run validate:cards` | 卡片真源快照校验 |
+| `npm run build` | 全部校验与断言 + MCP Linter 打包 + 生产构建 |
 | `npm run preview` | 预览构建产物 |
 | `npm run sync-tools` | `mcp-server/mcp_tools.json` → `public/` |
 | `npm run mcp:stdio` / `mcp:sse` | 启动 MCP |
@@ -244,22 +266,32 @@ npm run mcp:sse         # http://localhost:12001/sse
 
 ## AI 生成
 
-编辑器「AI 推理」把自然语言编成当前 kind 的 IQS-DSL，再交给本地解析器与渲染器。
+编辑器「AI 推理」把自然语言编成当前 kind 的 IQS-DSL，再交给本地解析器与渲染器。模型接入分两条轨，密钥的去向不同。
+
+### 企业公共模型池（`source: admin`）
+
+密钥只存在于服务端 `data/ai_config.json`。浏览器拿到的配置里 `apiKey` 恒为空，仅附 `hasApiKey` 与 `maskedKey`。
+
+| 接口 | 作用 |
+|:---|:---|
+| `POST /api/admin/login` | 管理员口令校验，签发 `HttpOnly; SameSite=Lax` 会话 Cookie |
+| `PUT /api/admin/ai-config` | 原子写入模型配置；留空的密钥沿用旧值 |
+| `POST /api/ai/chat` | 只接收 `profileId`、`prompt`、`systemInstruction`，服务端查表注入密钥转发 |
+| `POST /api/ai/models` | 服务端代拉远端模型列表 |
+
+口令以 SHA-256 存储并用常量时间比对，单 IP 5 分钟内最多 10 次尝试。`/api/ai/chat` 只能转发到已登记的 `profileId`，不接受任意地址，避免被当作开放代理。
 
 ```bash
 # .env（已被 gitignore，勿提交真实密钥）
-API_KEY=your-key
+IQS_ADMIN_PASSWORD=your-admin-password
 AI_ACTIVE_PROFILE=deepseek_public
 ```
 
-| 项 | 说明 |
-|:---|:---|
-| 密钥来源 | **`.env` / Vite `process.env.API_KEY` 优先**，其次才是运行时 `window.APP_CONFIG` |
-| 模型档案 | `public/config.json`：外部 `deepseek-v4-flash`、内网 `qwen3.5-9b`，**同一** `max_tokens: 8192` |
-| 仓库占位 | `public/config.js` 的 `API_KEY` 必须留空；Docker 由 entrypoint 注入 |
-| Flow 提示 | 已注入 `render_flow` 专家逻辑 + 语法 + 官方示例 + 禁止 Mermaid 红线 |
+### 个人本地模型（`source: client_cookie`）
 
-**不要把 API Key 写进 `public/config.js`、不要提交 `.env`。**
+Ollama、LM Studio 等跑在 `127.0.0.1` 的服务由浏览器直接连接，配置留在本机 Cookie 与 `localStorage`，不经过服务端落盘。这是为了保留本地模型能力，同时不把企业密钥下发到前端。
+
+**不要把 API Key 或管理员口令写进 `public/config.js`、`dist/` 或 `window.APP_CONFIG`，不要提交 `.env`。** CI 对构建产物做零密钥扫描。
 
 ---
 
@@ -267,26 +299,32 @@ AI_ACTIVE_PROFILE=deepseek_public
 
 ```text
 LUCY-CHENGJU/
-├── App.tsx / index.tsx              # 应用入口与编排
-├── components/                      # *Diagram + *Editor
+├── App.tsx / index.tsx              # 应用入口；32 个图表/编辑器 React.lazy
+├── components/                      # *Diagram + *Editor + ui/ErrorBoundary
 │   └── flow/                        # IQS-Flow：解析 / 布局 / 路由 / SVG / 编辑器
-├── dsl/                             # kinds 注册表 · Shell · lint
-├── services/aiService.ts            # AI 生成 DSL（.env 优先）
+├── dsl/
+│   ├── parsers.ts                   # 16 类图表纯解析器（零 React 依赖）
+│   ├── kinds.json                   # CORE / RELIEF 注册表
+│   └── cards/                       # 卡片真源：语法 / 示例 / 反例 / 提示词
+├── services/aiService.ts            # 双轨路由：企业池走 /api/ai/*，本地池直连
 ├── public/
 │   ├── brand/                       # IQS + 鹿溪实验室标识
 │   ├── config.json                  # AI profile（endpoint / model，无密钥）
-│   ├── config.js                    # 运行时占位（API_KEY 留空）
+│   ├── config.js                    # 运行时占位（仅 AI_ACTIVE_PROFILE）
 │   └── mcp_tools.json               # 由 sync-tools 同步
-├── mcp-server/                      # MCP 服务
+├── mcp-server/
+│   ├── index.js                     # 单进程双端口：Web :12000 + MCP :12001
+│   ├── api.js                       # 鉴权 / 配置 / 模型代理（开发与生产共用）
+│   └── lib/flow_lint.mjs            # Flow 诊断打包产物
 ├── protocol/                        # governance · DSL_V1 · segments
-├── scripts/assert_flow_*.ts         # Flow 断言
+├── scripts/                         # assert_* 几何门禁 · validate_* · 卡片构建
 ├── docs/
+│   ├── PROJECT_INDEX.md             # 全项目文档总索引
 │   ├── IQS_DSL_V1_MANUAL.md         # DSL 细粒度手册
-│   ├── IQS_FLOW_DSL_SPEC.md         # Flow 规范
-│   ├── USER_MANUAL_*.md             # 分图操作手册
+│   ├── flow/                        # IQS-Flow 专项子索引
 │   └── 软著与发行/
-├── Dockerfile · docker-compose.yml
-└── package.json                     # 3.5.3-ildr · UNLICENSED
+├── Dockerfile · docker-compose.yml · docker-entrypoint.sh
+└── package.json                     # 3.6.3-ildr · UNLICENSED
 ```
 
 ---
@@ -295,9 +333,11 @@ LUCY-CHENGJU/
 
 | 文档 | 说明 |
 |:---|:---|
-| **[项目文档总索引与工程历程](./docs/PROJECT_INDEX.md)** | **全项目文档 MOC**：时间线（2026-02-05 → 09-09，151 commits）+ 分类登记 + 权威层级 |
+| **[项目文档总索引与工程历程](./docs/PROJECT_INDEX.md)** | **全项目文档 MOC**：时间线（2026-02-05 → 10-30）+ 分类登记 + 权威层级 |
+| **[R33 审计与容器加固工程记录](./docs/IQS_AUDIT_AND_CONTAINER_HARDENING_R33.md)** | 双轨密钥隔离、单进程双端口、按需分包、`AUD-195..202` 台账 |
+| **[R34 开发态依赖预构建](./docs/IQS_DEV_DEPS_OPTIMIZER_R34_DESIGN.md)** | Mermaid / VChart 动态导入 504 的根因与 `optimizeDeps.include` 修复 |
 | **[IQS-DSL v1 完整手册](./docs/IQS_DSL_V1_MANUAL.md)** | 14 个 CORE kind 指令表 / Body / 示例 / 反例 |
-| **[卡片真源 `dsl/cards/*`](./dsl/cards/)** | **唯一真源**：55 张卡片（语法/示例/反例/提示词），MCP 与帮助弹窗均由它生成 |
+| **[卡片真源 `dsl/cards/*`](./dsl/cards/)** | **唯一真源**：语法/示例/反例/提示词，MCP 与帮助弹窗均由它生成 |
 | [IQS-DSL 架构 SPEC](./docs/IQS_DSL_V1_SPEC.md) | 分层与权威序 |
 | **[IQS-Flow 规范](docs/flow/spec/IQS_FLOW_DSL_SPEC.md)** | 字典-索引、泳道、BPMN 子集、渲染规格 |
 | [IQS-Flow 文档索引](docs/flow/README.md) | FLOW 专项子索引 |
@@ -307,7 +347,7 @@ LUCY-CHENGJU/
 | [安装部署与发行指南](./docs/软著与发行/04_安装部署与发行指南.md) | 源码 / Docker / 验收 |
 | [协议治理](./protocol/governance.md) | CORE / RELIEF |
 | [意图路由目录](./protocol/intents.md) | `protocol://intents` —— 生成前先读，按意图定位 kind |
-| [分图用户手册](./docs/) | `USER_MANUAL_*.md` |
+| [分图用户手册](./docs/) | `IQS_COMP_MANUAL_*.md` |
 | [CHANGELOG](./CHANGELOG.md) | 版本变更 |
 | [COPYRIGHT](./COPYRIGHT.md) · [NOTICE](./NOTICE.md) | 版权与第三方 |
 
@@ -321,7 +361,7 @@ LUCY-CHENGJU/
 | 发明专利 ×2 | DSL 生成方法 · LLM 自纠正等 | 技术交底另册 |
 
 **著作权人：江西省上饶市烟草专卖局（公司）**  
-开发：信息中心 · 品牌协作标识：鹿溪联合创新实验室  
+开发：信息中心 · 品牌协作标识：鹿溪联合创新实验室
 
 本软件为 **专有软件（Proprietary / UNLICENSED）**。未经书面授权，不得复制、分发或用于约定外用途。  
 第三方开源组件见 [`NOTICE.md`](./NOTICE.md)。

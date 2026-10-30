@@ -42,6 +42,19 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    // R34: Mermaid / VChart 经 React.lazy 动态导入，逃出启动期依赖扫描，
+    // 运行期补发现会触发依赖优化器反复重跑并以 504 返回。此处按源码中的
+    // 原始请求路径显式纳入启动期预构建，使其进入首次提交的元数据。
+    // 仅作用于开发态优化器，不改变下方 manualChunks 的生产分包。
+    optimizeDeps: {
+      include: [
+        'mermaid',
+        'html-to-image',
+        'jspdf',
+        '@visactor/vchart/esm/vchart-all',
+        '@visactor/vchart/esm/theme/builtin',
+      ],
+    },
     build: {
       chunkSizeWarningLimit: 1600,
       rollupOptions: {
