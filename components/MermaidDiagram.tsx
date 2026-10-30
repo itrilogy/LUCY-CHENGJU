@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react';
 import mermaid from 'mermaid';
 import { toPng } from 'html-to-image';
-import jsPDF from 'jspdf';
 import { MermaidChartStyles, DEFAULT_MERMAID_STYLES, BaseDiagramRef } from '../types';
 import { ZoomIn, ZoomOut, RefreshCw, Move } from 'lucide-react';
 import { INITIAL_MERMAID_DSL } from '../constants';
@@ -262,7 +261,7 @@ export const MermaidDiagram = forwardRef<MermaidDiagramRef, Props>(({ data, styl
                 const exportWidth = options?.width || (bBox.width + horizontalPadding * 2);
                 const exportHeight = options?.height || (bBox.height + padding * 2);
 
-                return await toPng(svg, {
+                return await toPng(svg as unknown as HTMLElement, {
                     backgroundColor: transparent ? 'transparent' : backgroundColor,
                     pixelRatio: pixelRatio,
                     width: exportWidth,
@@ -323,7 +322,7 @@ export const MermaidDiagram = forwardRef<MermaidDiagramRef, Props>(({ data, styl
                     styleTag.innerHTML = '';
                 }
 
-                const dataUrl = await toPng(svg, {
+                const dataUrl = await toPng(svg as unknown as HTMLElement, {
                     backgroundColor: transparent ? 'transparent' : (finalStyles.backgroundColor || '#FFFFFF'),
                     pixelRatio: scale,
                     width: bBox.width + horizontalPadding * 2,
@@ -380,7 +379,7 @@ export const MermaidDiagram = forwardRef<MermaidDiagramRef, Props>(({ data, styl
                     styleTag.innerHTML = '';
                 }
 
-                const dataUrl = await toPng(svg, {
+                const dataUrl = await toPng(svg as unknown as HTMLElement, {
                     backgroundColor: transparent ? 'transparent' : (finalStyles.backgroundColor || '#FFFFFF'),
                     pixelRatio: scale,
                     width: bBox.width + horizontalPadding * 2,
@@ -396,6 +395,7 @@ export const MermaidDiagram = forwardRef<MermaidDiagramRef, Props>(({ data, styl
 
                 styleTag.remove();
 
+                const { default: jsPDF } = await import('jspdf');
                 const img = new Image();
                 img.src = dataUrl;
                 img.onload = () => {

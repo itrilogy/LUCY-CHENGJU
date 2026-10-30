@@ -432,7 +432,7 @@ export const RadarDiagram = forwardRef<RadarDiagramRef, RadarDiagramProps>(({ da
                     {showLabels && axes.map((axis, i) => {
                         const angle = startAngle + i * angleStep * direction;
                         const coord = getCoordinates(angle, radius + 25);
-                        let textAnchor = "middle";
+                        let textAnchor: 'start' | 'middle' | 'end' = "middle";
                         if (coord.x > centerX + 10) textAnchor = "start";
                         if (coord.x < centerX - 10) textAnchor = "end";
 

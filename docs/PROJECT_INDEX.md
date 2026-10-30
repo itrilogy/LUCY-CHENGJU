@@ -22,10 +22,10 @@ related:
 |:--|:--|
 | **用途** | 全项目文档的**唯一入口**（MOC）。按「工程历程 × 文档类别」组织，并标注时效与权威层级 |
 | **维护规则** | 新增文档须在此登记；状态变化须同步更新。仅追加，不覆盖历史 |
-| **软件版本** | `V3.6.2-ildr`（`package.json` name = `chengju-iqs`） |
+| **软件版本** | `V3.6.3-ildr`（`package.json` name = `chengju-iqs`） |
 | **出品** | 江西省上饶市烟草专卖局（公司）信息中心 · 鹿溪联合创新实验室（LUXI Lab） |
-| **提交跨度** | **2026-02-05 → 2026-10-28**，162+ 次提交（`git log`） |
-| **本索引生成** | 2026-10-28（R32 客户端浏览器 Cookie 模型解耦与工业 UI 精修） |
+| **提交跨度** | **2026-02-05 → 2026-10-30**，163+ 次提交（`git log`） |
+| **本索引生成** | 2026-10-30（R33 全仓深度审计、双轨密钥隔离、单进程双端口容器加固与按需分包） |
 
 > **FLOW 组件**的文档已在 2026-09-12 单独整理过一次，其子索引为 `docs/flow/README.md`（41 份）。本索引不重复其内部条目，只做**入口指引**。
 
@@ -63,6 +63,7 @@ related:
 | **P7** | `v3.6.0` | **2026-10-28** | **R31：版本发行记录单一真源（SSOT）直读 + 大模型接入管理中心（ENV 密码门禁 / 多协议支持 / 远端模型拉取与热激活）** | `utils/projectIndexParser.ts` · `components/AIModelManagerModal.tsx` · `services/aiService.ts` · `components/DashboardView.tsx` |
 | **P7** | `v3.6.1` | **2026-10-28** | **R32a：客户端浏览器 Cookie 模型配置解耦 + 提供商标识 ID 自定义重命名 + 主页面工业圆角收敛** | `services/aiService.ts` · `components/AIModelManagerModal.tsx` · `components/DashboardView.tsx` · `public/config.json` |
 | **P7** | `v3.6.2` | **2026-10-28** | **R32b：本地模型 13 项服务商预设下拉选择（零模型误导）+ 主题切换开关组件化 + 网格跨度单行排布 + 未配置引导横幅** | `components/AIModelManagerModal.tsx` · `components/DashboardView.tsx` · `services/aiService.ts` |
+| **P7** | `v3.6.3` | **2026-10-30** | **R33：全仓深度审计 + 服务端双轨 AI 密钥隔离与原子持久化 + 单进程双端口非 root 容器化加固 + 16 类图表/编辑器按需懒加载分包**（工程记录见 `docs/IQS_AUDIT_AND_CONTAINER_HARDENING_R33.md`） | `docs/IQS_AUDIT_AND_CONTAINER_HARDENING_R33.md` · 台账 `AUD-195..202` 全部闭环 · `mcp-server/{api,index}.js` · `dsl/parsers.ts` · `components/ui/ErrorBoundary.tsx` · `Dockerfile` · `docker-compose.yml` |
 
 ### 时间线读法（三条主线）
 
@@ -130,6 +131,7 @@ related:
 | `docs/IQS_FISHBONE_LAYOUT_MATH_AUDIT_R29.md` | ~330 | **10-28** | 🟢 | **鱼骨图布局数学评估 + 算法重构实施（R29）**：五条定理（串联紧性 / 成对绑定弱劣界 / 包络低估 / 垂直自洽必要式 / 缩放闭环判据）· 用户五步方案逐条裁定 · 闭式五遍算法**已实现** · 前后实测（4 骨 61.6%→83.1%、长文本 66.8%→95.1%、6 骨按设计 warn）· G1–G7 验收 + 44 断言 · 台账 `AUD-175..183` 全修复 |
 | `docs/IQS_MIGRATION_PLAN_SVG_DE_G6.md` | ~290 | **10-28** | 🟢 | **图表引擎全量 SVG 化与 G6 归零设计规划书**：关联图与 PDPC 剥离 `@antv/g6` 四阶段 WBS 与 Geometry Spec 契约设计 |
 | `docs/IQS_SVG_DE_G6_ENGINEERING_LOG_R30.md` | ~220 | **10-28** | 🟢 | **全仓 G6 归零与关联图/PDPC 原生 SVG 闭式重构工程记录（R30）**：预检与规划勘误 `AUD-188..194` 全部闭环 · 关联图精确边界求交与双向弧线分离 · PDPC 阶段凝聚 K-Rank 分层与正交避障路由 · MCP Tier-1 四大拓扑图直出下沉 · 卸载 `@antv/g6`（移除 92 个子包） |
+| `docs/IQS_AUDIT_AND_CONTAINER_HARDENING_R33.md` | ~110 | **10-30** | 🟢 | **全仓深度代码审计、双轨密钥隔离、单进程双端口容器加固与按需分包工程记录（R33）**：台账 `AUD-195..202` 全部闭环 · `mcp-server/api.js` 零泄漏 AI 代理与 HttpOnly 会话鉴权 · 单进程 `:12000`+`:12001` 非 root 容器架构与渲染快照 GC · `dsl/parsers.ts` 解耦与 32 组件路由级分包 |
 
 ### 3.3 功能手册
 

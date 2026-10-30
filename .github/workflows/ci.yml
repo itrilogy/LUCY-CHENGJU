@@ -22,6 +22,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Install MCP Server deps (lockfile integrity)
+        run: PUPPETEER_SKIP_DOWNLOAD=true npm --prefix mcp-server ci
+
       - name: TypeScript 类型检查
         run: npx tsc --noEmit
 
@@ -45,3 +48,12 @@ jobs:
 
       - name: 构建（validate:dsl + test:flow + build:mcp-lint + vite）
         run: npm run build
+
+      - name: 前端构建产物零密钥泄漏校验
+        run: |
+          ! grep -rn "GEMINI_API_KEY" dist/
+          ! grep -rnE "API_KEY|IQS_ADMIN_PASSWORD" dist/config.js
+
+      - name: 容器镜像构建校验（Multi-stage + Non-root）
+        run: docker build -t smart-qc-studio:ci .
+

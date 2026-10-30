@@ -462,6 +462,7 @@ function parseFishboneDSLCore(content: string): { data: FishboneNode; styles: Re
     rootTextColor: '#ffffff',
     mainColor: '#3b82f6',
     mainTextColor: '#ffffff',
+    background: '#ffffff',
   };
   let title = '鱼骨图分析';
   const nodes: FishboneNode[] = [];

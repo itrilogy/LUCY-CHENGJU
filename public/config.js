@@ -1,6 +1,5 @@
-// Runtime placeholder. Real keys go in gitignored `.env` (Vite / Docker inject).
+// Runtime public configuration (R33 / AUD-197: credentials and server secrets
+// are kept strictly server-side in data/ai_config.json and NEVER injected here).
 window.APP_CONFIG = {
-    API_KEY: "",
-    AI_ACTIVE_PROFILE: "deepseek_public",
-    IQS_ADMIN_PASSWORD: ""
+    AI_ACTIVE_PROFILE: "deepseek_public"
 };

@@ -27,22 +27,23 @@ export interface BaseDiagramRef {
    * 获取图表的内容 DataURL (Base64)
    * @param options 导出选项 (pixelRatio, backgroundColor)
    */
-  getDataURL: (options?: { 
-    pixelRatio?: number; 
+  getDataURL: (options?: {
+    pixelRatio?: number;
     backgroundColor?: string;
+    transparent?: boolean;
     width?: number;
     height?: number;
   }) => Promise<string>;
-  
+
   /**
    * 触发 PNG 下载 (交互模式使用)
    */
   exportPNG: (transparent?: boolean, scale?: number) => void;
-  
+
   /**
    * 触发 PDF 导出 (交互模式使用)
    */
-  exportPDF: (transparent?: boolean) => void;
+  exportPDF?: (transparent?: boolean) => void;
 
   /**
    * 整理布局 (可选，主要用于 G6/SVG 系列)
@@ -128,6 +129,7 @@ export interface FishboneChartStyles {
   rootTextColor?: string;
   mainColor?: string;
   mainTextColor?: string;
+  background?: string;
 }
 
 export const DEFAULT_FISHBONE_STYLES: Required<FishboneChartStyles> = {
@@ -138,7 +140,8 @@ export const DEFAULT_FISHBONE_STYLES: Required<FishboneChartStyles> = {
   rootColor: '#2563eb',
   rootTextColor: '#ffffff',
   mainColor: '#3b82f6',
-  mainTextColor: '#ffffff'
+  mainTextColor: '#ffffff',
+  background: '#ffffff'
 };
 
 export interface RelationNode {
@@ -338,7 +341,7 @@ export interface AffinityChartStyles {
   background?: string;
 }
 
-export const DEFAULT_AFFINITY_STYLES: AffinityChartStyles = {
+export const DEFAULT_AFFINITY_STYLES: Required<AffinityChartStyles> = {
   title: '亲和图分析',
   type: 'Card',
   layout: 'Horizontal',

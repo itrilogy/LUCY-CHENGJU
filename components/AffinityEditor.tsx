@@ -43,83 +43,9 @@ interface AffinityEditorProps {
     onStylesChange: (styles: AffinityChartStyles) => void;
 }
 
-export const parseAffinityDSL = (content: string, baseStyles: AffinityChartStyles = DEFAULT_AFFINITY_STYLES) => {
-    const lines = content.split('\n');
-    const newStyles: any = { ...baseStyles };
-    const items: AffinityItem[] = [];
+import { parseAffinityDSL } from '../dsl/parsers';
 
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) return;
-
-        // Properties
-        if (trimmed.startsWith('Title:')) { newStyles.title = trimmed.replace('Title:', '').trim(); return; }
-        if (trimmed.startsWith('Type:')) { newStyles.type = trimmed.replace('Type:', '').trim(); return; }
-        if (trimmed.startsWith('Layout:')) { newStyles.layout = trimmed.replace('Layout:', '').trim(); return; }
-
-        // Colors - Strict Keys
-        const colorMatch = trimmed.match(/Color\[(TitleBg|TitleText|GroupHeaderBg|GroupHeaderText|ItemBg|ItemText|Line|Border)\]:\s*(#[0-9a-fA-F]+)/i);
-        if (colorMatch) {
-            const keyMap: any = {
-                'TitleBg': 'titleBackgroundColor',
-                'TitleText': 'titleTextColor',
-                'GroupHeaderBg': 'groupHeaderBackgroundColor',
-                'GroupHeaderText': 'groupHeaderTextColor',
-                'ItemBg': 'itemBackgroundColor',
-                'ItemText': 'itemTextColor',
-                'Line': 'lineColor',
-                'Border': 'borderColor'
-            };
-            newStyles[keyMap[colorMatch[1]]] = colorMatch[2];
-            return;
-        }
-
-        // Fonts - Strict Keys
-        const fontMatch = trimmed.match(/Font\[(Title|GroupHeader|Item)\]:\s*(\d+)/i);
-        if (fontMatch) {
-            const keyMap: any = {
-                'Title': 'titleFontSize',
-                'GroupHeader': 'groupHeaderFontSize',
-                'Item': 'itemFontSize'
-            };
-            newStyles[keyMap[fontMatch[1]]] = parseInt(fontMatch[2]);
-            return;
-        }
-
-        // Items: Item: ID, Label, ParentID
-        if (trimmed.startsWith('Item:')) {
-            const parts = trimmed.replace('Item:', '').split(',').map(s => s.trim());
-            if (parts.length >= 2) {
-                items.push({
-                    id: parts[0],
-                    label: parts[1],
-                    parentId: parts[2] || undefined,
-                    children: []
-                });
-            }
-        }
-    });
-
-    // Reconstruct Tree
-    const rootItems: AffinityItem[] = [];
-    const itemMap = new Map<string, AffinityItem>();
-    items.forEach(i => itemMap.set(i.id, i));
-
-    items.forEach(item => {
-        if (item.parentId && itemMap.has(item.parentId)) {
-            const parent = itemMap.get(item.parentId)!;
-            parent.children = parent.children || [];
-            parent.children.push(item);
-        } else {
-            rootItems.push(item);
-        }
-    });
-
-    const realRootNode = items.find(i => i.id === 'root');
-    const finalData = realRootNode && realRootNode.children ? realRootNode.children : rootItems.filter(i => i.id !== 'root');
-
-    return { data: finalData, styles: newStyles };
-};
+export { parseAffinityDSL };
 
 const AffinityEditor: React.FC<AffinityEditorProps> = ({
     data,

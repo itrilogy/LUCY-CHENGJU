@@ -11,15 +11,17 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { getToolLinter, formatLinterError, formatLinterDiag, loadCoreBundle } from "./linters.js";
+import { createIqsApiMiddleware } from "./api.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express from "express";
 import cors from "cors";
 import { networkInterfaces } from 'os';
-import { spawnSync } from "child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BASE_URL = process.env.IQS_BASE_URL || "http://localhost:12000";
-const PROTOCOL_DIR = path.join(__dirname, "../protocol");
+const ROOT_DIR = path.resolve(__dirname, "..");
+const DIST_DIR = path.join(ROOT_DIR, "dist");
+const BASE_URL = process.env.IQS_BASE_URL || `http://localhost:${process.env.WEB_PORT || 12000}`;
+const PROTOCOL_DIR = path.join(ROOT_DIR, "protocol");
 const SEGMENTS_DIR = path.join(PROTOCOL_DIR, "segments");
 
 function getProtocolFile(relPath) {
@@ -132,6 +134,48 @@ let warmPagePromise = null;
 let rasterPagePromise = null;
 let renderQueue = Promise.resolve();
 let isShuttingDown = false;
+const activeHttpServers = [];
+let rendersSinceLastPrune = 0;
+
+/**
+ * R33 / AUD-201：自动清理过期的 MCP 渲染快照（仅匹配 `render_*.png`，绝不触碰 `.gitkeep` 或 `audit_*.png`）
+ */
+function pruneRendersDir() {
+  try {
+    const ttlHours = Math.max(Number(process.env.IQS_RENDER_TTL_HOURS) || 24, 1);
+    const maxFiles = Math.max(Number(process.env.IQS_RENDER_MAX_FILES) || 500, 10);
+    const cutoff = Date.now() - ttlHours * 3600 * 1000;
+
+    if (!fs.existsSync(RENDERS_DIR)) return;
+    const entries = fs.readdirSync(RENDERS_DIR);
+    const candidates = [];
+
+    for (const name of entries) {
+      if (!/^render_.*\.png$/.test(name)) continue;
+      const fullPath = path.join(RENDERS_DIR, name);
+      try {
+        const stat = fs.statSync(fullPath);
+        if (!stat.isFile()) continue;
+        if (stat.mtimeMs < cutoff) {
+          fs.unlinkSync(fullPath);
+        } else {
+          candidates.push({ fullPath, mtimeMs: stat.mtimeMs });
+        }
+      } catch { }
+    }
+
+    if (candidates.length > maxFiles) {
+      candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+      for (const stale of candidates.slice(maxFiles)) {
+        try {
+          fs.unlinkSync(stale.fullPath);
+        } catch { }
+      }
+    }
+  } catch (err) {
+    console.warn(`[MCP GC] Failed to prune renders dir: ${err.message}`);
+  }
+}
 
 async function closeSharedBrowser() {
   if (sharedBrowserPromise) {
@@ -152,8 +196,13 @@ async function closeSharedBrowser() {
 const handleShutdown = async (signal) => {
   if (isShuttingDown) return;
   isShuttingDown = true;
-  console.error(`[MCP] Received ${signal}, gracefully closing browser...`);
-  await closeSharedBrowser();
+  console.error(`[MCP] Received ${signal}, gracefully closing HTTP servers & browser...`);
+  await Promise.all([
+    closeSharedBrowser(),
+    ...activeHttpServers.map(
+      (srv) => new Promise((resolve) => srv.close(() => resolve()))
+    ),
+  ]);
   process.exit(0);
 };
 
@@ -176,9 +225,18 @@ async function getSharedBrowser() {
   }
   sharedBrowserPromise = (async () => {
     const executablePath = await getExecutablePath();
+    // AUD-199: 允许宿主机具备 seccomp/userns 条件时通过 IQS_CHROMIUM_NO_SANDBOX=false 开启完整沙箱
+    const noSandboxEnv = String(process.env.IQS_CHROMIUM_NO_SANDBOX || "").trim().toLowerCase();
+    const useNoSandbox = noSandboxEnv
+      ? noSandboxEnv !== "false" && noSandboxEnv !== "0"
+      : process.platform === "linux";
+    const browserArgs = ["--disable-dev-shm-usage", "--disable-gpu"];
+    if (useNoSandbox) {
+      browserArgs.unshift("--no-sandbox", "--disable-setuid-sandbox");
+    }
     const launchOptions = {
-      headless: "new",
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+      headless: true,
+      args: browserArgs
     };
     if (executablePath) {
       launchOptions.executablePath = executablePath;
@@ -317,6 +375,11 @@ function finalizeRenderOutput(base64Data, saveToFile, baseUrlOverride) {
   const filename = `render_${timestamp}_${hash}.png`;
   const filePath = path.join(RENDERS_DIR, filename);
   fs.writeFileSync(filePath, base64Data, "base64");
+  rendersSinceLastPrune += 1;
+  if (rendersSinceLastPrune >= 20) {
+    rendersSinceLastPrune = 0;
+    setImmediate(pruneRendersDir);
+  }
   const activeBaseUrl = (baseUrlOverride || PUBLIC_URL || `http://${SERVER_IP}:${process.env.PORT || 12001}`).replace(/\/$/, "");
   return { url: `${activeBaseUrl}/renders/${filename}` };
 }
@@ -1025,24 +1088,113 @@ function createServer(context = {}) {
 
 const sseTransports = new Map();
 
+function resolveTrustProxySetting() {
+  const trustProxyEnv = (process.env.IQS_TRUST_PROXY || "").trim();
+  if (trustProxyEnv === "true") return true;
+  if (trustProxyEnv === "false") return false;
+  if (/^\d+$/.test(trustProxyEnv)) return Number(trustProxyEnv);
+  if (trustProxyEnv) return trustProxyEnv;
+  return "loopback, linklocal, uniquelocal";
+}
+
+/**
+ * R33 / AUD-195：单进程内嵌生产级静态 Web + API 服务 (:12000)，彻底取代运行期 `npx vite preview`
+ */
+function startEmbeddedWebServer({ webPort, trustProxy, apiMiddleware, strict }) {
+  const indexHtmlPath = path.join(DIST_DIR, "index.html");
+  if (!fs.existsSync(indexHtmlPath)) {
+    if (strict) {
+      console.error(`[IQS Web] dist/index.html not found at ${indexHtmlPath}. Run 'npm run build' first.`);
+      process.exit(1);
+    }
+    return Promise.resolve(null);
+  }
+
+  const webApp = express();
+  webApp.disable("x-powered-by");
+  webApp.set("trust proxy", trustProxy);
+  webApp.use(apiMiddleware);
+
+  // Vite 带哈希构建产物开启 1 年强缓存；入口 HTML 与 config.js 保持协商验证
+  webApp.use(
+    "/assets",
+    express.static(path.join(DIST_DIR, "assets"), {
+      maxAge: "365d",
+      immutable: true,
+    })
+  );
+  webApp.use(
+    express.static(DIST_DIR, {
+      setHeaders(res, filePath) {
+        if (filePath.endsWith(".html") || filePath.endsWith("config.js") || filePath.endsWith("config.json")) {
+          res.setHeader("Cache-Control", "no-cache");
+        }
+      },
+    })
+  );
+
+  // SPA History Fallback（Express 5 兼容写法：中间件兜底非静态/非 API 的 GET 请求）
+  webApp.use((req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") return next();
+    if (req.path.startsWith("/api/")) return next();
+    res.setHeader("Cache-Control", "no-cache");
+    res.sendFile(indexHtmlPath);
+  });
+
+  return new Promise((resolve, reject) => {
+    const srv = webApp.listen(webPort, "0.0.0.0", () => {
+      activeHttpServers.push(srv);
+      console.error(`IQS Production Web & API Server running on http://0.0.0.0:${webPort}`);
+      resolve(srv);
+    });
+    srv.on("error", (err) => {
+      if (!strict && err && err.code === "EADDRINUSE") {
+        console.error(
+          `[IQS Web] Port ${webPort} already served externally (e.g. Vite dev server), skipping embedded static server.`
+        );
+        resolve(null);
+        return;
+      }
+      reject(err);
+    });
+  });
+}
+
 async function main() {
   const transportType = process.argv.find(arg => arg.startsWith("--transport="))?.split("=")[1] || "stdio";
+  const forceServeWeb =
+    process.argv.includes("--serve-web") ||
+    String(process.env.SERVE_WEB || "").toLowerCase() === "true";
+  const disableServeWeb =
+    process.argv.includes("--no-serve-web") ||
+    String(process.env.SERVE_WEB || "").toLowerCase() === "false";
 
   if (transportType === "sse") {
+    setImmediate(pruneRendersDir);
+    const gcTimer = setInterval(pruneRendersDir, 60 * 60 * 1000);
+    if (typeof gcTimer.unref === "function") gcTimer.unref();
+
+    const trustProxy = resolveTrustProxySetting();
+    const apiMiddleware = createIqsApiMiddleware({ rootDir: ROOT_DIR });
+    const webPort = Number(process.env.WEB_PORT) || 12000;
+
+    if (!disableServeWeb) {
+      await startEmbeddedWebServer({
+        webPort,
+        trustProxy,
+        apiMiddleware,
+        strict: forceServeWeb,
+      });
+    }
+
     const app = express();
-    // AUD-157：默认只信任本机与私网来源（含 Docker 桥接网段）的 X-Forwarded-* 头；
-    // 可用 IQS_TRUST_PROXY 覆盖（Express trust proxy 语法：true / false / 跳数 / 网段列表）。
-    const trustProxyEnv = (process.env.IQS_TRUST_PROXY || "").trim();
-    let trustProxy = "loopback, linklocal, uniquelocal";
-    if (trustProxyEnv === "true") trustProxy = true;
-    else if (trustProxyEnv === "false") trustProxy = false;
-    else if (/^\d+$/.test(trustProxyEnv)) trustProxy = Number(trustProxyEnv);
-    else if (trustProxyEnv) trustProxy = trustProxyEnv;
+    app.disable("x-powered-by");
     app.set("trust proxy", trustProxy);
     app.use(cors());
-    app.use('/renders', express.static(RENDERS_DIR));
+    app.use(apiMiddleware);
+    app.use('/renders', express.static(RENDERS_DIR, { maxAge: "7d", immutable: true }));
 
-    const port = process.env.PORT || 12001;
+    const port = Number(process.env.PORT) || 12001;
     PUBLIC_URL = (process.env.IQS_SERVER_PUBLIC_URL || `http://${SERVER_IP}:${port}`).replace(/\/$/, "");
 
     app.get("/sse", async (req, res) => {
@@ -1073,10 +1225,12 @@ async function main() {
       await transport.handlePostMessage(req, res);
     });
 
-    app.listen(port, () => {
+    const mcpHttpServer = app.listen(port, "0.0.0.0", () => {
+      activeHttpServers.push(mcpHttpServer);
       console.error(`IQS Expert Chart MCP Server (SSE) running on port ${port}`);
       console.error(`- Public URL: ${PUBLIC_URL}`);
       console.error(`- SSE endpoint: ${PUBLIC_URL}/sse`);
+      console.error(`- Health check: http://127.0.0.1:${port}/healthz`);
     });
   } else {
     const transport = new StdioServerTransport();

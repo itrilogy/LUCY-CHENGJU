@@ -28,54 +28,9 @@ interface Props {
     onUpdate: (data: number[], styles: HistogramChartStyles) => void;
 }
 
-export const parseHistogramDSL = (content: string, baseStyles: HistogramChartStyles = DEFAULT_HISTOGRAM_STYLES) => {
-    const lines = content.split('\n');
-    const newData: number[] = [];
-    const newStyles: HistogramChartStyles = { ...baseStyles };
+import { parseHistogramDSL } from '../dsl/parsers';
 
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        // IQS-DSL v1: // canonical; # legacy comment outside TreeBody
-        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) return;
-
-        const titleMatch = trimmed.match(/^Title:\s*(.+)/);
-        if (titleMatch) { newStyles.title = titleMatch[1].trim(); return; }
-
-        const colorMatch = trimmed.match(/Color\[(Bar|Curve|USL|LSL|Target)\]:\s*(#[0-9a-fA-F]+)/i);
-        if (colorMatch) {
-            const key = colorMatch[1].toLowerCase() + 'Color';
-            (newStyles as any)[key] = colorMatch[2];
-            return;
-        }
-
-        const uslMatch = trimmed.match(/^USL:\s*([\d\.-]+)/);
-        if (uslMatch) { newStyles.usl = parseFloat(uslMatch[1]); return; }
-        const lslMatch = trimmed.match(/^LSL:\s*([\d\.-]+)/);
-        if (lslMatch) { newStyles.lsl = parseFloat(lslMatch[1]); return; }
-        const targetMatch = trimmed.match(/^Target:\s*([\d\.-]+)/);
-        if (targetMatch) { newStyles.target = parseFloat(targetMatch[1]); return; }
-
-        const binsMatch = trimmed.match(/^Bins:\s*(auto|\d+)/i);
-        if (binsMatch) {
-            newStyles.bins = binsMatch[1].toLowerCase() === 'auto' ? 'auto' : parseInt(binsMatch[1]);
-            return;
-        }
-
-        const curveMatch = trimmed.match(/^ShowCurve:\s*(true|false)/i);
-        if (curveMatch) { newStyles.showCurve = curveMatch[1].toLowerCase() === 'true'; return; }
-
-        const showValuesMatch = trimmed.match(/^ShowValues:\s*(true|false)/i);
-        if (showValuesMatch) { newStyles.showValues = showValuesMatch[1].toLowerCase() === 'true'; return; }
-
-        const dataMatch = trimmed.match(/^-\s*([\d\.-]+)/);
-        if (dataMatch) {
-            const v = parseFloat(dataMatch[1]);
-            if (!isNaN(v)) newData.push(v);
-        }
-    });
-
-    return { data: newData, styles: newStyles };
-};
+export { parseHistogramDSL };
 
 export const HistogramEditor: React.FC<Props> = ({ data, styles, onUpdate }) => {
     const [activeTab, setActiveTab] = useState<'manual' | 'dsl' | 'ai'>('manual');

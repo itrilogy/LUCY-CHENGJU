@@ -33,97 +33,9 @@ interface ControlEditorProps {
     onDslChange: (dsl: string) => void;
 }
 
-// 独立的 DSL 解析函数
-export function parseControlDSL(dsl: string): { series: ControlSeries[]; styles: Partial<ControlChartStyles> } {
-    const lines = dsl.split('\n').map(l => l.trimEnd());
-    const styles: Partial<ControlChartStyles> = {};
-    const series: ControlSeries[] = [];
+import { parseControlDSL } from '../dsl/parsers';
 
-    let currentSeries: ControlSeries | null = null;
-    let isDataBlock = false;
-
-    for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || (trimmed.startsWith('//') && !isDataBlock)) continue;
-
-        // Header configs
-        if (trimmed.startsWith('Title:')) {
-            styles.title = trimmed.substring(6).trim();
-            continue;
-        }
-        if (trimmed.startsWith('Type:')) {
-            styles.type = trimmed.substring(5).trim() as ControlChartType;
-            continue;
-        }
-        if (trimmed.startsWith('Size:')) {
-            styles.subgroupSize = parseInt(trimmed.substring(5).trim());
-            continue;
-        }
-        if (trimmed.startsWith('Rules:')) {
-            styles.rules = trimmed.substring(6).split(',').map(r => r.trim() as ControlRule);
-            continue;
-        }
-        if (trimmed.startsWith('UCL:')) {
-            styles.ucl = parseFloat(trimmed.substring(4).trim());
-            continue;
-        }
-        if (trimmed.startsWith('LCL:')) {
-            styles.lcl = parseFloat(trimmed.substring(4).trim());
-            continue;
-        }
-        if (trimmed.startsWith('CL:')) {
-            styles.cl = parseFloat(trimmed.substring(3).trim());
-            continue;
-        }
-        if (trimmed.startsWith('Decimals:')) {
-            styles.decimals = parseInt(trimmed.substring(9).trim());
-            continue;
-        }
-        if (trimmed.startsWith('ShowValues:')) {
-            styles.showValues = trimmed.substring(11).trim().toLowerCase() === 'true';
-            continue;
-        }
-
-        // Colors
-        const colorMatch = trimmed.match(/^Color\[(\w+)\]:\s*(#[0-9A-Fa-f]{6})/);
-        if (colorMatch) {
-            const [, key, val] = colorMatch;
-            if (key === 'Line') styles.lineColor = val;
-            if (key === 'UCL') styles.uclColor = val;
-            if (key === 'CL') styles.clColor = val;
-            if (key === 'Point') styles.pointColor = val;
-            continue;
-        }
-
-        // Series Block
-        if (trimmed.startsWith('[series]:')) {
-            isDataBlock = true;
-            currentSeries = {
-                name: trimmed.substring(9).trim(),
-                data: []
-            };
-            continue;
-        }
-        if (trimmed === '[/series]') {
-            if (currentSeries) series.push(currentSeries);
-            currentSeries = null;
-            isDataBlock = false;
-            continue;
-        }
-
-        if (isDataBlock && currentSeries) {
-            const values = trimmed.split(/[,;\s]+/).map(v => parseFloat(v));
-            values.forEach(val => {
-                if (!isNaN(val)) {
-                    currentSeries!.data.push(val);
-                }
-            });
-            continue;
-        }
-    }
-
-    return { series, styles };
-}
+export { parseControlDSL };
 
 const ControlChartEditor: React.FC<ControlEditorProps> = ({ dsl, onDslChange }) => {
     const [activeTab, setActiveTab] = useState<'manual' | 'dsl' | 'ai'>('manual');

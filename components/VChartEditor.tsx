@@ -20,87 +20,9 @@ interface VChartEditorProps {
     onStylesChange: (styles: VChartChartStyles) => void;
 }
 
-export const parseVChartDSL = (content: string, baseStyles: VChartChartStyles = DEFAULT_VCHART_STYLES) => {
-    const lines = content.split('\n');
-    let title = baseStyles.title;
-    let colorPalette = baseStyles.colorPalette;
-    let titleFontSize = baseStyles.titleFontSize;
-    let showTitle = baseStyles.showTitle;
-    let showLabel = baseStyles.showLabel;
-    let animation = baseStyles.animation;
-    let animationMode = baseStyles.animationMode;
-    let specStr = '';
-    let inSpec = false;
+import { parseVChartDSL } from '../dsl/parsers';
 
-    lines.forEach(line => {
-        let trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('//')) return;
-
-        // 自动剔除 Markdown 代码块标记，防止解析崩溃
-        if (trimmed.startsWith('```')) {
-            trimmed = trimmed.replace(/`{3,}(dsl|json|vchart)?/i, '').trim();
-            if (!trimmed) return;
-        }
-
-        const upperTrimmed = trimmed.toUpperCase();
-        
-        // 检查是否遇到新标签，如果是，则结束当前 Spec 解析状态
-        const isNewTag = ['TITLE:', 'COLORPALETTE:', 'FONT[TITLE]:', 'SHOWTITLE:', 'SHOWLABEL:', 'ANIMATION:', 'ANIMATIONMODE:', 'SPEC:'].some(tag => upperTrimmed.startsWith(tag));
-        if (isNewTag && upperTrimmed.indexOf('SPEC:') === -1) {
-            inSpec = false;
-        }
-
-        if (upperTrimmed.startsWith('TITLE:')) {
-            title = trimmed.substring(6).trim();
-        } else if (upperTrimmed.startsWith('COLORPALETTE:')) {
-            colorPalette = trimmed.substring(13).trim();
-        } else if (upperTrimmed.startsWith('FONT[TITLE]:')) {
-            titleFontSize = parseInt(trimmed.split(':')[1]) || titleFontSize;
-        } else if (upperTrimmed.startsWith('SHOWTITLE:')) {
-            showTitle = trimmed.substring(10).trim().toLowerCase() !== 'false';
-        } else if (upperTrimmed.startsWith('SHOWLABEL:')) {
-            showLabel = trimmed.substring(10).trim().toLowerCase() !== 'false';
-        } else if (upperTrimmed.startsWith('ANIMATION:')) {
-            animation = trimmed.substring(10).trim().toLowerCase() === 'true';
-        } else if (upperTrimmed.startsWith('ANIMATIONMODE:')) {
-            animationMode = trimmed.substring(14).trim() as VChartAnimationMode;
-        } else if (upperTrimmed.startsWith('SPEC:')) {
-            inSpec = true;
-            const colonIndex = trimmed.indexOf(':');
-            specStr = trimmed.substring(colonIndex + 1).trim();
-        } else if (inSpec) {
-            specStr += ' ' + trimmed;
-        }
-    });
-
-    // 清理 specStr 尾部的 Markdown 结束符
-    specStr = specStr.replace(/`{3,}.*$/g, '').trim();
-
-    let spec = {};
-    let parseError = '';
-    try {
-        if (specStr) {
-            spec = JSON.parse(specStr.trim());
-        }
-    } catch (e: any) {
-        console.warn('VChart Spec JSON Parse Error:', e);
-        parseError = e.message;
-    }
-
-    return {
-        data: { title, spec, error: parseError },
-        styles: { 
-            ...baseStyles, 
-            title, 
-            colorPalette, 
-            titleFontSize, 
-            showTitle,
-            showLabel,
-            animation,
-            animationMode
-        }
-    };
-};
+export { parseVChartDSL };
 
 
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     X,
     Lock,
@@ -27,7 +27,10 @@ import {
     resetAIConfigState,
     renameAIProfileId,
     fetchProviderModels,
-    verifyAdminPassword,
+    fetchAdminSession,
+    loginAdminSession,
+    logoutAdminSession,
+    AdminSessionExpiredError,
     resolveProtocolEndpoints,
     loadClientCookieConfig,
     saveClientCookieConfig,
@@ -45,7 +48,7 @@ import { Switch } from './ui/Switch';
 interface AIModelManagerModalProps {
     open: boolean;
     /**
-     * - `'admin'`：管理端全局配置模式（从版权弹窗「模型」按钮进入，需 ENV 管理密码鉴权，可配置多服务商或指定使用客户端 Cookie 模型）
+     * - `'admin'`：管理端全局配置模式（从版权弹窗「模型」按钮进入，需服务端 IQS_ADMIN_PASSWORD 鉴权，持久化至服务端 data/ai_config.json）
      * - `'client'`：本地客户端配置模式（从主页面顶栏「本地模型」按钮进入，免管理密码，配置直接写入当前浏览器 `document.cookie`）
      */
     mode?: 'admin' | 'client';
@@ -164,8 +167,6 @@ const CLIENT_QUICK_PRESETS: Array<{
     },
 ];
 
-const SESSION_AUTH_KEY = 'iqs_admin_unlocked_v1';
-
 export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
     open,
     mode = 'admin',
@@ -175,16 +176,15 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
 }) => {
     const isClientMode = mode === 'client';
 
-    const [unlocked, setUnlocked] = useState<boolean>(() => {
-        if (typeof window === 'undefined' || !window.sessionStorage) return false;
-        return window.sessionStorage.getItem(SESSION_AUTH_KEY) === 'true';
-    });
+    const [unlocked, setUnlocked] = useState<boolean>(false);
+    const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
     const [passwordInput, setPasswordInput] = useState('');
     const [authError, setAuthError] = useState<string | null>(null);
 
     // Admin Mode State
     const [configState, setConfigState] = useState<AIConfigState>({
         active_profile: 'deepseek_public',
+        hasEnvApiKey: false,
         profiles: {},
     });
     const [selectedKey, setSelectedKey] = useState<string>('deepseek_public');
@@ -201,6 +201,35 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
     const [confirmReset, setConfirmReset] = useState(false);
     const [confirmDeleteKey, setConfirmDeleteKey] = useState<string | null>(null);
 
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pendingStateRef = useRef<AIConfigState | null>(null);
+
+    const handleAdminError = (err: unknown) => {
+        if (err instanceof AdminSessionExpiredError) {
+            setUnlocked(false);
+            setAuthError(err.message);
+            return;
+        }
+        const msg = err instanceof Error ? err.message : String(err || '保存配置失败');
+        setStatusBanner({ type: 'err', text: msg });
+    };
+
+    const flushPendingAdminSave = async () => {
+        if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = null;
+        }
+        const pending = pendingStateRef.current;
+        if (!pending) return;
+        pendingStateRef.current = null;
+        try {
+            const synced = await saveAIConfigState(pending);
+            setConfigState(synced);
+        } catch (err) {
+            handleAdminError(err);
+        }
+    };
+
     useEffect(() => {
         if (!open) return;
         setAuthError(null);
@@ -211,43 +240,115 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
         setClientConfig(loadClientCookieConfig());
         setCookieConfigured(hasConfiguredClientCookie());
 
+        if (!isClientMode) {
+            fetchAdminSession().then(sess => {
+                setUnlocked(sess.unlocked);
+            });
+        }
+
         loadAIConfigState().then(state => {
             setConfigState(state);
             const initKey = state.active_profile || Object.keys(state.profiles)[0] || '';
             setSelectedKey(initKey);
             setEditableId(initKey);
         });
-    }, [open, mode]);
+
+        return () => {
+            if (saveTimerRef.current) {
+                clearTimeout(saveTimerRef.current);
+                saveTimerRef.current = null;
+            }
+        };
+    }, [open, mode, isClientMode]);
 
     if (!open) return null;
 
-    const handleUnlock = (e: React.FormEvent) => {
+    const handleCloseModal = async () => {
+        await flushPendingAdminSave();
+        onClose();
+    };
+
+    const handleUnlock = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (verifyAdminPassword(passwordInput)) {
-            setUnlocked(true);
-            setAuthError(null);
-            setPasswordInput('');
-            if (typeof window !== 'undefined' && window.sessionStorage) {
-                window.sessionStorage.setItem(SESSION_AUTH_KEY, 'true');
+        if (isAuthenticating) return;
+        setIsAuthenticating(true);
+        setAuthError(null);
+        try {
+            const res = await loginAdminSession(passwordInput);
+            if (res.ok) {
+                setUnlocked(true);
+                setPasswordInput('');
+                const latest = await loadAIConfigState();
+                setConfigState(latest);
+            } else {
+                setAuthError(res.error || '管理密码校验未通过，请核对服务端环境变量 IQS_ADMIN_PASSWORD 配置。');
             }
-        } else {
-            setAuthError('管理密码校验未通过，请核对环境变量 IQS_ADMIN_PASSWORD 配置。');
+        } finally {
+            setIsAuthenticating(false);
         }
     };
 
-    const handleLock = () => {
+    const handleLock = async () => {
+        await flushPendingAdminSave();
+        await logoutAdminSession();
         setUnlocked(false);
-        if (typeof window !== 'undefined' && window.sessionStorage) {
-            window.sessionStorage.removeItem(SESSION_AUTH_KEY);
-        }
     };
 
-    /* ────────────────────── Admin 模式操作逻辑 ────────────────────── */
+    /* ────────────────────── Admin 模式操作逻辑（服务端持久化） ────────────────────── */
 
     const currentAdminProfile: AIProfile | undefined = configState.profiles[selectedKey];
     const isBuiltinClientSlot = selectedKey === CLIENT_COOKIE_PROFILE_ID;
 
-    const updateAdminProfile = (patch: Partial<AIProfile>) => {
+    const persistAdminState = (nextState: AIConfigState, immediate = false, successMsg?: string) => {
+        setConfigState(nextState);
+        if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = null;
+        }
+        if (immediate) {
+            pendingStateRef.current = null;
+            saveAIConfigState(nextState)
+                .then(synced => {
+                    setConfigState(synced);
+                    if (successMsg) setStatusBanner({ type: 'ok', text: successMsg });
+                })
+                .catch(handleAdminError);
+        } else {
+            pendingStateRef.current = nextState;
+            saveTimerRef.current = setTimeout(() => {
+                saveTimerRef.current = null;
+                const toSave = pendingStateRef.current;
+                pendingStateRef.current = null;
+                if (!toSave) return;
+                saveAIConfigState(toSave)
+                    .then(synced => {
+                        // 合并脱敏元数据，同时避免打断用户正在输入的未提交文本
+                        setConfigState(prev => {
+                            const mergedProfiles: Record<string, AIProfile> = { ...prev.profiles };
+                            for (const [id, sProf] of Object.entries(synced.profiles)) {
+                                if (mergedProfiles[id]) {
+                                    mergedProfiles[id] = {
+                                        ...mergedProfiles[id],
+                                        hasApiKey: sProf.hasApiKey,
+                                        maskedKey: sProf.maskedKey,
+                                        clearApiKey: undefined,
+                                        previousId: undefined,
+                                    };
+                                }
+                            }
+                            return {
+                                ...prev,
+                                hasEnvApiKey: synced.hasEnvApiKey,
+                                profiles: mergedProfiles,
+                            };
+                        });
+                    })
+                    .catch(handleAdminError);
+            }, 450);
+        }
+    };
+
+    const updateAdminProfile = (patch: Partial<AIProfile>, immediate = false, successMsg?: string) => {
         if (!selectedKey || !configState.profiles[selectedKey]) return;
         const nextProfiles = {
             ...configState.profiles,
@@ -260,8 +361,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
             ...configState,
             profiles: nextProfiles,
         };
-        setConfigState(nextState);
-        saveAIConfigState(nextState);
+        persistAdminState(nextState, immediate, successMsg);
     };
 
     const handleCommitRenameId = () => {
@@ -272,12 +372,14 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
             setEditableId(selectedKey);
             return;
         }
-        setConfigState(res.nextState);
+        const oldKey = selectedKey;
         setSelectedKey(res.newId);
         setEditableId(res.newId);
-        if (res.newId !== selectedKey) {
-            setStatusBanner({ type: 'ok', text: `已将提供商标识 ID 从「${selectedKey}」更新为「${res.newId}」。` });
-        }
+        persistAdminState(
+            res.nextState,
+            true,
+            res.newId !== oldKey ? `已将提供商标识 ID 从「${oldKey}」更新为「${res.newId}」。` : undefined
+        );
     };
 
     const handleActivateProfile = (key: string) => {
@@ -286,20 +388,12 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
             ...configState,
             active_profile: key,
         };
-        setConfigState(nextState);
-        saveAIConfigState(nextState);
         const p = configState.profiles[key];
-        if (key === CLIENT_COOKIE_PROFILE_ID) {
-            setStatusBanner({
-                type: 'ok',
-                text: '已将系统默认策略切换为「使用本地客户端模型」，用户将在各自浏览器中配置个人模型。',
-            });
-        } else {
-            setStatusBanner({
-                type: 'ok',
-                text: `已激活提供商「${p.name}」（当前模型：${p.model || '未指定'}）`,
-            });
-        }
+        const msg =
+            key === CLIENT_COOKIE_PROFILE_ID
+                ? '已将系统默认策略切换为「使用本地客户端模型」，用户将在各自浏览器中配置个人模型。'
+                : `已激活提供商「${p.name}」（当前模型：${p.model || '未指定'}）`;
+        persistAdminState(nextState, true, msg);
     };
 
     const handleAddProvider = () => {
@@ -325,11 +419,13 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                 [newKey]: newProfile,
             },
         };
-        setConfigState(nextState);
         setSelectedKey(newKey);
         setEditableId(newKey);
-        saveAIConfigState(nextState);
-        setStatusBanner({ type: 'ok', text: `已新增提供商「${newProfile.name}」，可自定义其 ID、接入地址并拉取模型。` });
+        persistAdminState(
+            nextState,
+            true,
+            `已新增提供商「${newProfile.name}」，可自定义其 ID、接入地址并拉取模型。`
+        );
     };
 
     const handleDeleteProvider = (key: string) => {
@@ -351,17 +447,16 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
         const nextActive =
             configState.active_profile === key ? remainingKeys[0] : configState.active_profile;
         const nextState: AIConfigState = {
+            ...configState,
             active_profile: nextActive,
             profiles: nextProfiles,
         };
-        setConfigState(nextState);
         if (selectedKey === key) {
             setSelectedKey(nextActive);
             setEditableId(nextActive);
         }
-        saveAIConfigState(nextState);
         setConfirmDeleteKey(null);
-        setStatusBanner({ type: 'ok', text: `已删除提供商「${removedName}」` });
+        persistAdminState(nextState, true, `已删除提供商「${removedName}」`);
     };
 
     /* ────────────────────── Client Cookie 模式操作逻辑 ────────────────────── */
@@ -383,7 +478,6 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
         setSelectedPresetId(presetId);
         const found = CLIENT_QUICK_PRESETS.find(p => p.id === presetId);
         if (!found) return;
-        // 仅填入服务商标识、名称、协议和接入地址，清空模型名与历史模型列表以避免误导用户
         updateClientCookie(
             {
                 enabled: true,
@@ -422,40 +516,54 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
         setIsFetchingModels(true);
         setStatusBanner(null);
         try {
-            const models = await fetchProviderModels(activeTargetProfile, isClientMode);
+            if (!isClientMode) {
+                await flushPendingAdminSave();
+            }
+            const models = await fetchProviderModels(
+                activeTargetProfile,
+                isClientMode,
+                isClientMode ? undefined : selectedKey
+            );
             const nextModel =
                 activeTargetProfile.model && models.includes(activeTargetProfile.model)
                     ? activeTargetProfile.model
                     : models[0];
 
+            const msg = `成功获取 ${models.length} 个可用模型，已自动选中「${nextModel}」，您可在下拉框或标签中切换。`;
             if (isClientMode) {
                 updateClientCookie({ models, model: nextModel }, true);
+                setStatusBanner({ type: 'ok', text: msg });
             } else {
-                updateAdminProfile({ models, model: nextModel });
+                updateAdminProfile({ models, model: nextModel }, true, msg);
             }
-            setStatusBanner({
-                type: 'ok',
-                text: `成功获取 ${models.length} 个可用模型，已自动选中「${nextModel}」，您可在下拉框或标签中切换。`,
-            });
         } catch (err: any) {
-            setStatusBanner({
-                type: 'err',
-                text:
-                    err?.message ||
-                    '拉取模型列表失败，请检查接入地址、协议类型、API Key 或本地服务是否已开启跨域访问。',
-            });
+            if (err instanceof AdminSessionExpiredError) {
+                handleAdminError(err);
+            } else {
+                setStatusBanner({
+                    type: 'err',
+                    text:
+                        err?.message ||
+                        '拉取模型列表失败，请检查接入地址、协议类型、API Key 或本地服务是否已开启跨域访问。',
+                });
+            }
         } finally {
             setIsFetchingModels(false);
         }
     };
 
     const handleResetAdminDefaults = async () => {
-        const fresh = await resetAIConfigState();
-        setConfigState(fresh);
-        setSelectedKey(fresh.active_profile);
-        setEditableId(fresh.active_profile);
-        setConfirmReset(false);
-        setStatusBanner({ type: 'ok', text: '已恢复系统默认大模型配置方案（config.json）。' });
+        try {
+            const fresh = await resetAIConfigState();
+            setConfigState(fresh);
+            setSelectedKey(fresh.active_profile);
+            setEditableId(fresh.active_profile);
+            setConfirmReset(false);
+            setStatusBanner({ type: 'ok', text: '已恢复系统默认大模型配置方案（config.json）。' });
+        } catch (err) {
+            setConfirmReset(false);
+            handleAdminError(err);
+        }
     };
 
     const resolvedEndpoints = activeTargetProfile
@@ -474,211 +582,235 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
         prof: AIProfile | ClientCookieLLMConfig,
         onPatch: (patch: Partial<AIProfile & ClientCookieLLMConfig>) => void,
         isClientForm: boolean
-    ) => (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* 提供商唯一标识 ID（可编辑与可管理） */}
-            <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
-                    <Hash size={13} className="text-primary" />
-                    <span>提供商标识 ID (可编辑)</span>
-                </label>
-                {isClientForm ? (
-                    <input
-                        type="text"
-                        value={prof.id || 'local_client'}
-                        onChange={e => onPatch({ id: e.target.value.replace(/[^a-zA-Z0-9_-]/g, '') })}
-                        placeholder="例如：local_lmstudio / my_deepseek"
-                        className="iqs-input h-11 font-mono"
-                    />
-                ) : (
-                    <div className="flex items-center gap-2">
+    ) => {
+        const adminProf = !isClientForm ? (prof as AIProfile) : null;
+        const keyPlaceholder = isClientForm
+            ? 'sk-... （本地 LM Studio / Ollama 可留空）'
+            : adminProf?.hasApiKey
+            ? `已保存专属密钥 (${adminProf.maskedKey || '****'}) · 输入新值即可覆盖`
+            : configState.hasEnvApiKey
+            ? '留空默认使用服务端环境变量 API_KEY（已就绪）'
+            : 'sk-... （留空则默认读取服务端环境变量 API_KEY）';
+
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* 提供商唯一标识 ID（可编辑与可管理） */}
+                <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
+                        <Hash size={13} className="text-primary" />
+                        <span>提供商标识 ID (可编辑)</span>
+                    </label>
+                    {isClientForm ? (
                         <input
                             type="text"
-                            value={editableId}
-                            onChange={e => setEditableId(e.target.value)}
-                            onKeyDown={e => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    handleCommitRenameId();
+                            value={prof.id || 'local_client'}
+                            onChange={e => onPatch({ id: e.target.value.replace(/[^a-zA-Z0-9_-]/g, '') })}
+                            placeholder="例如：local_lmstudio / my_deepseek"
+                            className="iqs-input h-11 font-mono"
+                        />
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                value={editableId}
+                                onChange={e => setEditableId(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleCommitRenameId();
+                                    }
+                                }}
+                                placeholder="字母/数字/下划线，如 deepseek_prod"
+                                className="iqs-input h-11 flex-1 font-mono"
+                            />
+                            <button
+                                type="button"
+                                onClick={handleCommitRenameId}
+                                disabled={editableId.trim() === selectedKey}
+                                className="h-11 px-3.5 rounded-md border border-primary/40 bg-primary/10 text-primary text-xs font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-primary hover:text-white transition-all shrink-0 cursor-pointer disabled:opacity-40"
+                                title="应用并保存新 ID"
+                            >
+                                <Check size={14} />
+                                <span>应用 ID</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* 提供商名称 */}
+                <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
+                        <Server size={13} className="text-primary" />
+                        <span>提供商名称</span>
+                    </label>
+                    <input
+                        type="text"
+                        value={prof.name}
+                        onChange={e => onPatch({ name: e.target.value })}
+                        placeholder="例如：DeepSeek 官方 / 本地 LM Studio / 阿里云百炼"
+                        className="iqs-input h-11"
+                    />
+                </div>
+
+                {/* 协议类型 */}
+                <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
+                        <Layers size={13} className="text-primary" />
+                        <span>接口协议类型</span>
+                    </label>
+                    <select
+                        value={prof.protocol || 'openai'}
+                        onChange={e => onPatch({ protocol: e.target.value as AIProtocolType })}
+                        className="iqs-input h-11"
+                    >
+                        {PROTOCOL_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* API Key */}
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                        <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
+                            <Key size={13} className="text-primary" />
+                            <span>API 密钥 (API Key)</span>
+                        </label>
+                        {!isClientForm && adminProf?.hasApiKey && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    updateAdminProfile(
+                                        { apiKey: '', clearApiKey: true, hasApiKey: false, maskedKey: '' },
+                                        true,
+                                        '已清除该提供商的专属密钥，将回退使用服务端环境变量 API_KEY。'
+                                    )
                                 }
-                            }}
-                            placeholder="字母/数字/下划线，如 deepseek_prod"
+                                className="text-[11px] font-bold text-[var(--text-danger)] hover:underline cursor-pointer"
+                            >
+                                清除专属密钥
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type={showApiKey ? 'text' : 'password'}
+                            value={prof.apiKey || ''}
+                            onChange={e => onPatch({ apiKey: e.target.value, clearApiKey: false })}
+                            placeholder={keyPlaceholder}
                             className="iqs-input h-11 flex-1 font-mono"
                         />
                         <button
                             type="button"
-                            onClick={handleCommitRenameId}
-                            disabled={editableId.trim() === selectedKey}
-                            className="h-11 px-3.5 rounded-md border border-primary/40 bg-primary/10 text-primary text-xs font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-primary hover:text-white transition-all shrink-0 cursor-pointer disabled:opacity-40"
-                            title="应用并保存新 ID"
+                            onClick={() => setShowApiKey(v => !v)}
+                            className="h-11 w-11 aspect-square rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-muted)] hover:text-primary flex items-center justify-center transition-all cursor-pointer"
+                            title={showApiKey ? '隐藏密钥' : '显示密钥'}
                         >
-                            <Check size={14} />
-                            <span>应用 ID</span>
+                            {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                     </div>
-                )}
-            </div>
-
-            {/* 提供商名称 */}
-            <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
-                    <Server size={13} className="text-primary" />
-                    <span>提供商名称</span>
-                </label>
-                <input
-                    type="text"
-                    value={prof.name}
-                    onChange={e => onPatch({ name: e.target.value })}
-                    placeholder="例如：DeepSeek 官方 / 本地 LM Studio / 阿里云百炼"
-                    className="iqs-input h-11"
-                />
-            </div>
-
-            {/* 协议类型 */}
-            <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
-                    <Layers size={13} className="text-primary" />
-                    <span>接口协议类型</span>
-                </label>
-                <select
-                    value={prof.protocol || 'openai'}
-                    onChange={e => onPatch({ protocol: e.target.value as AIProtocolType })}
-                    className="iqs-input h-11"
-                >
-                    {PROTOCOL_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                        </option>
-                    ))}
-                </select>
-            </div>
-
-            {/* API Key */}
-            <div className="space-y-2">
-                <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
-                    <Key size={13} className="text-primary" />
-                    <span>API 密钥 (API Key)</span>
-                </label>
-                <div className="flex items-center gap-2">
-                    <input
-                        type={showApiKey ? 'text' : 'password'}
-                        value={prof.apiKey || ''}
-                        onChange={e => onPatch({ apiKey: e.target.value })}
-                        placeholder={
-                            isClientForm
-                                ? 'sk-... （本地 LM Studio / Ollama 可留空）'
-                                : 'sk-... （留空则默认读取系统环境变量 API_KEY）'
-                        }
-                        className="iqs-input h-11 flex-1 font-mono"
-                    />
-                    <button
-                        type="button"
-                        onClick={() => setShowApiKey(v => !v)}
-                        className="h-11 w-11 aspect-square rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] text-[var(--text-muted)] hover:text-primary flex items-center justify-center transition-all cursor-pointer"
-                        title={showApiKey ? '隐藏密钥' : '显示密钥'}
-                    >
-                        {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
                 </div>
-            </div>
 
-            {/* 接入地址 */}
-            <div className="space-y-2 md:col-span-2">
-                <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
-                    <Globe size={13} className="text-primary" />
-                    <span>接入地址 (Endpoint / Base URL)</span>
-                </label>
-                <input
-                    type="text"
-                    value={prof.endpoint}
-                    onChange={e => onPatch({ endpoint: e.target.value })}
-                    placeholder="请选择上方预设或输入地址，如 https://api.deepseek.com/v1"
-                    className="iqs-input h-11 font-mono"
-                />
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[var(--text-muted)]">
-                    <span>对话端点：{resolvedEndpoints.chatUrl || '—'}</span>
-                    <span>模型拉取端点：{resolvedEndpoints.modelsUrl || '—'}</span>
-                </div>
-            </div>
-
-            {/* 模型拉取与选择 */}
-            <div className="space-y-2 md:col-span-2">
-                <div className="flex items-center justify-between">
+                {/* 接入地址 */}
+                <div className="space-y-2 md:col-span-2">
                     <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
-                        <Cpu size={13} className="text-primary" />
-                        <span>模型名称与远端拉取</span>
+                        <Globe size={13} className="text-primary" />
+                        <span>接入地址 (Endpoint / Base URL)</span>
                     </label>
-                    <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                        已获取模型列表：{(prof.models || []).length} 个
-                    </span>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <input
                         type="text"
-                        value={prof.model}
-                        onChange={e => onPatch({ model: e.target.value })}
-                        placeholder="请点击右侧「拉取模型」自动获取，或手动输入模型名"
-                        className="iqs-input h-11 flex-1 font-mono"
+                        value={prof.endpoint}
+                        onChange={e => onPatch({ endpoint: e.target.value })}
+                        placeholder="请选择上方预设或输入地址，如 https://api.deepseek.com/v1"
+                        className="iqs-input h-11 font-mono"
                     />
-
-                    {(prof.models || []).length > 0 && (
-                        <select
-                            value={(prof.models || []).includes(prof.model) ? prof.model : ''}
-                            onChange={e => {
-                                if (e.target.value) {
-                                    onPatch({ model: e.target.value });
-                                }
-                            }}
-                            className="iqs-input h-11 sm:w-56 font-mono"
-                            title="从已拉取的模型列表中选择"
-                        >
-                            <option value="" disabled>
-                                — 选择已获取模型 ({prof.models?.length}) —
-                            </option>
-                            {(prof.models || []).map(m => (
-                                <option key={m} value={m}>
-                                    {m}
-                                </option>
-                            ))}
-                        </select>
-                    )}
-
-                    <button
-                        type="button"
-                        onClick={handleFetchModels}
-                        disabled={isFetchingModels || !prof.endpoint.trim()}
-                        className="h-11 px-4 rounded-md border border-primary/40 bg-primary/10 text-primary text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-all shrink-0 cursor-pointer disabled:opacity-50"
-                    >
-                        <RefreshCw size={15} className={isFetchingModels ? 'animate-spin' : ''} />
-                        <span>{isFetchingModels ? '拉取中...' : '拉取模型'}</span>
-                    </button>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[var(--text-muted)]">
+                        <span>对话端点：{resolvedEndpoints.chatUrl || '—'}</span>
+                        <span>模型拉取端点：{resolvedEndpoints.modelsUrl || '—'}</span>
+                    </div>
                 </div>
 
-                {(prof.models || []).length > 0 && (
-                    <div className="pt-2 flex flex-wrap gap-1.5 max-h-28 overflow-y-auto custom-scrollbar">
-                        {(prof.models || []).map(m => {
-                            const active = m === prof.model;
-                            return (
-                                <button
-                                    key={m}
-                                    type="button"
-                                    onClick={() => onPatch({ model: m })}
-                                    className={`px-2.5 py-1 rounded text-[11px] font-mono border transition-all cursor-pointer ${
-                                        active
-                                            ? 'bg-primary text-white border-primary font-bold'
-                                            : 'bg-[var(--input-bg)] text-[var(--text-muted)] border-[var(--input-border)] hover:border-primary/50'
-                                    }`}
-                                >
-                                    {m}
-                                </button>
-                            );
-                        })}
+                {/* 模型拉取与选择 */}
+                <div className="space-y-2 md:col-span-2">
+                    <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-[var(--text-muted)]">
+                            <Cpu size={13} className="text-primary" />
+                            <span>模型名称与远端拉取</span>
+                        </label>
+                        <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                            已获取模型列表：{(prof.models || []).length} 个
+                        </span>
                     </div>
-                )}
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <input
+                            type="text"
+                            value={prof.model}
+                            onChange={e => onPatch({ model: e.target.value })}
+                            placeholder="请点击右侧「拉取模型」自动获取，或手动输入模型名"
+                            className="iqs-input h-11 flex-1 font-mono"
+                        />
+
+                        {(prof.models || []).length > 0 && (
+                            <select
+                                value={(prof.models || []).includes(prof.model) ? prof.model : ''}
+                                onChange={e => {
+                                    if (e.target.value) {
+                                        onPatch({ model: e.target.value });
+                                    }
+                                }}
+                                className="iqs-input h-11 sm:w-56 font-mono"
+                                title="从已拉取的模型列表中选择"
+                            >
+                                <option value="" disabled>
+                                    — 选择已获取模型 ({prof.models?.length}) —
+                                </option>
+                                {(prof.models || []).map(m => (
+                                    <option key={m} value={m}>
+                                        {m}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={handleFetchModels}
+                            disabled={isFetchingModels || !prof.endpoint.trim()}
+                            className="h-11 px-4 rounded-md border border-primary/40 bg-primary/10 text-primary text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-all shrink-0 cursor-pointer disabled:opacity-50"
+                        >
+                            <RefreshCw size={15} className={isFetchingModels ? 'animate-spin' : ''} />
+                            <span>{isFetchingModels ? '拉取中...' : '拉取模型'}</span>
+                        </button>
+                    </div>
+
+                    {(prof.models || []).length > 0 && (
+                        <div className="pt-2 flex flex-wrap gap-1.5 max-h-28 overflow-y-auto custom-scrollbar">
+                            {(prof.models || []).map(m => {
+                                const active = m === prof.model;
+                                return (
+                                    <button
+                                        key={m}
+                                        type="button"
+                                        onClick={() => onPatch({ model: m })}
+                                        className={`px-2.5 py-1 rounded text-[11px] font-mono border transition-all cursor-pointer ${
+                                            active
+                                                ? 'bg-primary text-white border-primary font-bold'
+                                                : 'bg-[var(--input-bg)] text-[var(--text-muted)] border-[var(--input-border)] hover:border-primary/50'
+                                        }`}
+                                    >
+                                        {m}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <div className="fixed inset-0 z-[950] flex items-center justify-center p-8 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
@@ -716,7 +848,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                             <p className={`text-[12px] font-medium mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                                 {isClientMode
                                     ? '配置您自己的大模型或本地模型服务，仅保存在当前浏览器中，不占用公共服务配额'
-                                    : '管理全局模型服务商、自定义标识 ID，或切换为由用户各自配置本地模型'}
+                                    : '管理全局模型服务商（服务端安全持久化，密钥零前端暴露），或切换为由用户各自配置本地模型'}
                             </p>
                         </div>
                     </div>
@@ -737,7 +869,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                             </button>
                         )}
                         <button
-                            onClick={onClose}
+                            onClick={handleCloseModal}
                             className={`p-2.5 rounded-lg transition-all cursor-pointer ${
                                 isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'
                             }`}
@@ -846,7 +978,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                         </div>
                     </div>
                 ) : !unlocked ? (
-                    /* Body 分支 2：Admin 模式未解锁 → ENV 管理密码门禁 */
+                    /* Body 分支 2：Admin 模式未解锁 → 服务端会话密码门禁 */
                     <form onSubmit={handleUnlock} className="p-12 flex-1 flex flex-col items-center justify-center max-w-md mx-auto w-full space-y-6">
                         <div className="w-16 h-16 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary">
                             <Lock size={28} />
@@ -856,7 +988,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                                 管理员安全鉴权
                             </h3>
                             <p className={`text-[12px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                大模型接入与密钥管理受环境变量 <code className="font-mono text-primary">IQS_ADMIN_PASSWORD</code> 保护，请输入管理密码解锁配置中心。
+                                大模型接入与密钥管理受服务端环境变量 <code className="font-mono text-primary">IQS_ADMIN_PASSWORD</code> 保护，验证通过后签发 HttpOnly 安全会话。
                             </p>
                         </div>
 
@@ -875,9 +1007,9 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                                     <span>{authError}</span>
                                 </div>
                             )}
-                            <button type="submit" className="iqs-btn-primary h-11">
+                            <button type="submit" disabled={isAuthenticating} className="iqs-btn-primary h-11">
                                 <ShieldCheck size={16} />
-                                <span>验证并进入大模型管理</span>
+                                <span>{isAuthenticating ? '正在验证会话...' : '验证并进入大模型管理'}</span>
                             </button>
                         </div>
                     </form>
@@ -1008,7 +1140,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                                             <p className="text-[11px] text-[var(--text-muted)] mt-1">
                                                 {isBuiltinClientSlot
                                                     ? '激活此项后，系统将不再调用内部公共大模型，而是使用每位用户在本地浏览器中配置的个人模型。'
-                                                    : '支持直接修改提供商 ID、接入地址、协议类型与模型；点击右侧「设为当前激活」即可全局生效。'}
+                                                    : '支持直接修改提供商 ID、接入地址、协议类型与模型；所有更改自动安全同步至服务端。'}
                                             </p>
                                         </div>
 
@@ -1122,7 +1254,7 @@ export const AIModelManagerModal: React.FC<AIModelManagerModalProps> = ({
                     </p>
                     <button
                         type="button"
-                        onClick={onClose}
+                        onClick={handleCloseModal}
                         className={`px-8 py-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-lg cursor-pointer ${
                             isDark ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-slate-900 text-white hover:bg-slate-800'
                         }`}

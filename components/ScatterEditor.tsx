@@ -34,54 +34,9 @@ interface ScatterEditorProps {
     onStylesChange: (styles: ScatterChartStyles) => void;
 }
 
-export const parseScatterDSL = (content: string, baseStyles: ScatterChartStyles = DEFAULT_SCATTER_STYLES) => {
-    const lines = content.split('\n');
-    const newStyles: ScatterChartStyles = { ...baseStyles };
-    const newPoints: ScatterPoint[] = [];
+import { parseScatterDSL } from '../dsl/parsers';
 
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        // IQS-DSL v1: // canonical comment; # legacy comment (non-Tree kinds)
-        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) return;
-
-        // Computed Properties
-        if (trimmed.includes(':') && !trimmed.startsWith('-')) {
-            const [key, ...vals] = trimmed.split(':');
-            const val = vals.join(':').trim();
-
-            switch (key.trim()) {
-                case 'Title': newStyles.title = val; break;
-                case 'XAxis': newStyles.xAxisLabel = val; break;
-                case 'YAxis': newStyles.yAxisLabel = val; break;
-                case 'ZAxis': newStyles.zAxisLabel = val; break;
-                case 'Color[Point]': newStyles.pointColor = val; break;
-                case 'Color[Trend]': newStyles.trendColor = val; break;
-                case 'ShowTrend': newStyles.showTrend = val.toLowerCase() === 'true'; break;
-                case '3D':
-                case 'Show3D': newStyles.is3D = val.toLowerCase() === 'true'; break;
-                case 'Size[Base]': newStyles.baseSize = parseFloat(val); break;
-                case 'Opacity': newStyles.opacity = parseFloat(val); break;
-                case 'ShowValues': newStyles.showValues = val.toLowerCase() === 'true'; break;
-            }
-            return;
-        }
-
-        // Data Points
-        if (trimmed.startsWith('-')) {
-            const parts = trimmed.substring(1).split(',').map(s => parseFloat(s.trim()));
-            if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-                newPoints.push({
-                    id: genId('pt'),
-                    x: parts[0],
-                    y: parts[1],
-                    z: parts[2]
-                });
-            }
-        }
-    });
-
-    return { data: newPoints, styles: newStyles };
-};
+export { parseScatterDSL };
 
 const ScatterEditor: React.FC<ScatterEditorProps> = ({ data, styles, onDataChange, onStylesChange }) => {
     const [dsl, setDsl] = useState(INITIAL_SCATTER_DSL);

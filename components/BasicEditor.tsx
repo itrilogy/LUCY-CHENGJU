@@ -37,74 +37,9 @@ interface BasicEditorProps {
     onStylesChange: (styles: BasicChartStyles) => void;
 }
 
-export const parseBasicDSL = (content: string, baseStyles: BasicChartStyles = DEFAULT_BASIC_STYLES) => {
-    const lines = content.split('\n');
-    const newStyles: BasicChartStyles = { ...baseStyles };
-    const newDatasets: BasicChartDataset[] = [];
-    let titleFromDSL = '';
+import { parseBasicDSL } from '../dsl/parsers';
 
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) return;
-
-        if (trimmed.includes(':')) {
-            const [keyPart, ...valParts] = trimmed.split(':');
-            const key = keyPart.trim();
-            const val = valParts.join(':').trim();
-
-            if (key === 'Title') {
-                titleFromDSL = val;
-                newStyles.title = val;
-            } else if (key === 'Type') {
-                newStyles.type = val.toLowerCase() as any;
-            } else if (key === 'View') {
-                newStyles.view = val.toLowerCase() as any;
-            } else if (key === 'Stacked') {
-                newStyles.stacked = val.toLowerCase() === 'true';
-            } else if (key === 'Smooth') {
-                newStyles.smooth = val.toLowerCase() === 'true';
-            } else if (key === 'ShowValues') {
-                newStyles.showValues = val.toLowerCase() === 'true';
-            } else if (key === 'ShowLegend') {
-                newStyles.showLegend = val.toLowerCase() !== 'false';
-            } else if (key === 'Grid' || key === 'ShowGrid') {
-                newStyles.grid = val.toLowerCase() !== 'false';
-            } else if (key.startsWith('Color[')) {
-                const subKey = key.match(/Color\[(.*?)\]/)?.[1];
-                if (subKey === 'Title') newStyles.titleColor = val;
-                if (subKey === 'Bg') newStyles.backgroundColor = val;
-            } else if (key.startsWith('Font[')) {
-                const subKey = key.match(/Font\[(.*?)\]/)?.[1];
-                if (subKey === 'Title') newStyles.titleFontSize = parseInt(val);
-                if (subKey === 'Base') newStyles.baseFontSize = parseInt(val);
-            } else if (key === 'Axis') {
-                // Axis: Label, X/Y/Y2...
-                // We mainly use AxisMatch in Dataset, but we can store these labels if needed.
-                // For this implementation, we mostly rely on Dataset name and match.
-            } else if (key === 'Dataset') {
-                // Dataset: Name, [Values], Color, AxisMatch
-                const parts = val.split(/,(?![^\[]*\])/).map(s => s.trim());
-                if (parts.length >= 2) {
-                    const name = parts[0];
-                    const valuesStr = parts[1].replace(/[\[\]]/g, '');
-                    const values = valuesStr.split(',').map(v => {
-                        const num = parseFloat(v.trim());
-                        return isNaN(num) ? v.trim() : num;
-                    });
-                    const color = parts[2] && parts[2] !== 'null' ? parts[2] : undefined;
-                    const axisMatch = (parts[3] || 'Y').toUpperCase() as any;
-
-                    newDatasets.push({ name, values, color, axisMatch });
-                }
-            }
-        }
-    });
-
-    return {
-        data: { title: titleFromDSL || baseStyles.title || '图表', type: newStyles.type || 'bar', datasets: newDatasets },
-        styles: newStyles
-    };
-};
+export { parseBasicDSL };
 
 const BasicEditor: React.FC<BasicEditorProps> = ({ data, styles, onDataChange, onStylesChange }) => {
     const [dsl, setDsl] = useState(INITIAL_BASIC_DSL);

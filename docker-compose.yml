@@ -5,28 +5,66 @@ services:
       dockerfile: Dockerfile
     image: smart-qc-studio:latest
     container_name: smart-qc-studio
+    init: true
+    shm_size: "512mb"
+    security_opt:
+      - no-new-privileges:true
     ports:
-      - "12000:12000"
-      - "12001:12001"
+      - "${WEB_PORT:-12000}:12000"
+      - "${PORT:-12001}:12001"
     env_file:
       - .env
     environment:
-      - API_KEY=${API_KEY}
+      - API_KEY=${API_KEY:-}
       - AI_ACTIVE_PROFILE=${AI_ACTIVE_PROFILE:-deepseek_public}
+      - IQS_ADMIN_PASSWORD=${IQS_ADMIN_PASSWORD:-luxi2026}
       - IQS_BASE_URL=http://localhost:12000
       - WEB_PORT=12000
       - PORT=12001
+      - SERVE_WEB=true
+      - IQS_DATA_DIR=/app/data
+      - IQS_RENDER_TTL_HOURS=${IQS_RENDER_TTL_HOURS:-24}
+      - IQS_RENDER_MAX_FILES=${IQS_RENDER_MAX_FILES:-500}
+      - IQS_CHROMIUM_NO_SANDBOX=${IQS_CHROMIUM_NO_SANDBOX:-true}
       - IQS_SERVER_PUBLIC_URL=${IQS_SERVER_PUBLIC_URL:-}
       - IQS_TRUST_PROXY=${IQS_TRUST_PROXY:-}
     volumes:
-      # 渲染图片持久化：容器重建后已返回给客户端的图片链接仍可访问
+      # 渲染图片持久化（自动按 TTL 与数量上限执行 GC）
       - iqs-renders:/app/mcp-server/renders
+      # 管理端大模型配置持久化（data/ai_config.json）
+      - iqs-data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "Promise.all([fetch('http://127.0.0.1:12000/healthz'),fetch('http://127.0.0.1:12001/healthz')]).then(rs=>process.exit(rs.every(r=>r.ok)?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
     restart: unless-stopped
     networks:
       - qc-network
 
 volumes:
   iqs-renders:
+  iqs-data:
 
 networks:
   qc-network:

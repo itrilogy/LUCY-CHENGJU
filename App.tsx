@@ -1,11 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { Suspense, lazy, useState, useRef } from 'react';
 import { QCToolType } from './types';
 import {
   TOOL_CONFIGS,
   INITIAL_FISHBONE_DSL,
   INITIAL_PARETO_DSL,
   INITIAL_PARETO_DATA,
-  INITIAL_CONTROL_DATA,
   INITIAL_HISTOGRAM_DSL,
   INITIAL_SCATTER_DATA,
   INITIAL_SCATTER_DSL,
@@ -24,7 +23,9 @@ import {
   INITIAL_RADAR_DATA,
   INITIAL_RADAR_DSL,
   INITIAL_MERMAID_DSL,
-  INITIAL_VCHART_DSL
+  INITIAL_VCHART_DSL,
+  INITIAL_FLOW_DSL,
+  INITIAL_FLOW_DATA
 } from './constants';
 import {
   DEFAULT_PARETO_STYLES,
@@ -33,7 +34,15 @@ import {
   DEFAULT_SCATTER_STYLES,
   DEFAULT_AFFINITY_STYLES,
   DEFAULT_RELATION_STYLES,
-  DEFAULT_MATRIX_STYLES,
+  DEFAULT_MATRIX_PLOT_STYLES,
+  DEFAULT_PDPC_STYLES,
+  DEFAULT_ARROW_STYLES,
+  DEFAULT_BASIC_STYLES,
+  DEFAULT_RADAR_STYLES,
+  DEFAULT_MERMAID_STYLES,
+  DEFAULT_VCHART_STYLES,
+  DEFAULT_FLOW_STYLES,
+  DEFAULT_CONTROL_STYLES,
   ScatterChartStyles,
   AffinityChartStyles,
   RelationNode,
@@ -43,69 +52,109 @@ import {
   MatrixChartStyles,
   MatrixPlotData,
   MatrixPlotStyles,
-  DEFAULT_MATRIX_PLOT_STYLES,
   PDPCData,
   PDPCChartStyles,
-  DEFAULT_PDPC_STYLES,
   ArrowData,
   ArrowChartStyles,
-  DEFAULT_ARROW_STYLES,
   FishboneNode,
   ParetoItem,
   ScatterPoint,
   AffinityItem,
   BasicChartData,
   BasicChartStyles,
-  DEFAULT_BASIC_STYLES,
   RadarData,
   RadarChartStyles,
-  DEFAULT_RADAR_STYLES,
   MermaidChartStyles,
-  DEFAULT_MERMAID_STYLES,
   VChartData,
-  VChartChartStyles,
-  DEFAULT_VCHART_STYLES
+  VChartChartStyles
 } from './types';
+import type { FlowData, FlowChartStyles } from './types';
 import { Workspace } from './components/layout/Workspace';
 import { DashboardView } from './components/DashboardView';
-import FishboneDiagram, { FishboneDiagramRef } from './components/FishboneDiagram';
-import { ParetoDiagram, ParetoDiagramRef } from './components/ParetoDiagram';
-import { HistogramDiagram } from './components/HistogramDiagram';
-import { ScatterDiagram } from './components/ScatterDiagram';
-import { AffinityDiagram } from './components/AffinityDiagram';
-import { ParetoEditor, parseParetoDSL } from './components/ParetoEditor';
-import { HistogramEditor, parseHistogramDSL } from './components/HistogramEditor';
-import FishboneEditor, { parseFishboneDSL } from './components/FishboneEditor';
-import ScatterEditor, { parseScatterDSL } from './components/ScatterEditor';
-import AffinityEditor, { parseAffinityDSL } from './components/AffinityEditor';
-import RelationEditor, { parseRelationDSL } from './components/RelationEditor';
-import RelationDiagram from './components/RelationDiagram';
-import ControlChartEditor, { parseControlDSL } from './components/ControlChartEditor';
-import ControlChart from './components/ControlChart';
-import MatrixEditor, { parseMatrixDSL, updateMatrixDSL } from './components/MatrixEditor';
-import { MatrixDiagram } from './components/MatrixDiagram';
-import MatrixPlotEditor, { parseMatrixPlotDSL } from './components/MatrixPlotEditor';
-import { MatrixPlotDiagram } from './components/MatrixPlotDiagram';
-import PDPCEditor, { parsePDPCDSL } from './components/PDPCEditor';
-import PDPCDiagram from './components/PDPCDiagram';
-import { ArrowDiagram } from './components/ArrowDiagram';
-import { ArrowDiagramEditor, parseArrowDSL } from './components/ArrowDiagramEditor';
-import BasicEditor, { parseBasicDSL } from './components/BasicEditor';
-import BasicDiagram from './components/BasicDiagram';
-import FlowEditor from './components/flow/FlowEditor';
-import FlowDiagram from './components/flow/FlowDiagram';
-import { parseFlowDSL } from './components/flow/FlowParser';
-import { INITIAL_FLOW_DSL, INITIAL_FLOW_DATA } from './constants';
-import type { FlowData, FlowChartStyles } from './types';
-import { DEFAULT_FLOW_STYLES } from './types';
-import RadarEditor, { parseRadarDSL } from './components/RadarEditor';
-import RadarDiagram from './components/RadarDiagram';
-import { MermaidDiagram, MermaidDiagramRef } from './components/MermaidDiagram';
-import MermaidEditor from './components/MermaidEditor';
-import VChartEditor, { parseVChartDSL } from './components/VChartEditor';
-import VChartDiagram from './components/VChartDiagram';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import {
+  parseFishboneDSL,
+  parseParetoDSL,
+  parseHistogramDSL,
+  parseScatterDSL,
+  parseAffinityDSL,
+  parseRelationDSL,
+  parseControlDSL,
+  parseMatrixDSL,
+  updateMatrixDSL,
+  parseMatrixPlotDSL,
+  parsePDPCDSL,
+  parseArrowDSL,
+  parseBasicDSL,
+  parseFlowDSL,
+  parseRadarDSL,
+  parseVChartDSL
+} from './dsl/parsers';
 
-import { Zap, Settings, Globe, LayoutGrid, Download, FileText, Image, Cpu, Loader2, LineChart, BarChart3, X, Sliders } from 'lucide-react';
+import { LayoutGrid, Download, FileText, Image, Cpu, Loader2, X, Sliders } from 'lucide-react';
+
+// --- R33 / AUD-200: Route-level Code Splitting for 16 Diagrams + 16 Editors ---
+const FishboneDiagram = lazy(() => import('./components/FishboneDiagram'));
+const ParetoDiagram = lazy(() => import('./components/ParetoDiagram').then(m => ({ default: m.ParetoDiagram })));
+const HistogramDiagram = lazy(() => import('./components/HistogramDiagram').then(m => ({ default: m.HistogramDiagram })));
+const ScatterDiagram = lazy(() => import('./components/ScatterDiagram').then(m => ({ default: m.ScatterDiagram })));
+const AffinityDiagram = lazy(() => import('./components/AffinityDiagram').then(m => ({ default: m.AffinityDiagram })));
+const RelationDiagram = lazy(() => import('./components/RelationDiagram'));
+const ControlChart = lazy(() => import('./components/ControlChart'));
+const MatrixDiagram = lazy(() => import('./components/MatrixDiagram').then(m => ({ default: m.MatrixDiagram })));
+const MatrixPlotDiagram = lazy(() => import('./components/MatrixPlotDiagram').then(m => ({ default: m.MatrixPlotDiagram })));
+const PDPCDiagram = lazy(() => import('./components/PDPCDiagram'));
+const ArrowDiagram = lazy(() => import('./components/ArrowDiagram').then(m => ({ default: m.ArrowDiagram })));
+const BasicDiagram = lazy(() => import('./components/BasicDiagram'));
+const FlowDiagram = lazy(() => import('./components/flow/FlowDiagram'));
+const RadarDiagram = lazy(() => import('./components/RadarDiagram'));
+const MermaidDiagram = lazy(() => import('./components/MermaidDiagram').then(m => ({ default: m.MermaidDiagram })));
+const VChartDiagram = lazy(() => import('./components/VChartDiagram'));
+
+const ParetoEditor = lazy(() => import('./components/ParetoEditor').then(m => ({ default: m.ParetoEditor })));
+const HistogramEditor = lazy(() => import('./components/HistogramEditor').then(m => ({ default: m.HistogramEditor })));
+const FishboneEditor = lazy(() => import('./components/FishboneEditor'));
+const ScatterEditor = lazy(() => import('./components/ScatterEditor'));
+const AffinityEditor = lazy(() => import('./components/AffinityEditor'));
+const RelationEditor = lazy(() => import('./components/RelationEditor'));
+const ControlChartEditor = lazy(() => import('./components/ControlChartEditor'));
+const MatrixEditor = lazy(() => import('./components/MatrixEditor'));
+const MatrixPlotEditor = lazy(() => import('./components/MatrixPlotEditor'));
+const PDPCEditor = lazy(() => import('./components/PDPCEditor'));
+const ArrowDiagramEditor = lazy(() => import('./components/ArrowDiagramEditor').then(m => ({ default: m.ArrowDiagramEditor })));
+const BasicEditor = lazy(() => import('./components/BasicEditor'));
+const FlowEditor = lazy(() => import('./components/flow/FlowEditor'));
+const RadarEditor = lazy(() => import('./components/RadarEditor'));
+const MermaidEditor = lazy(() => import('./components/MermaidEditor'));
+const VChartEditor = lazy(() => import('./components/VChartEditor'));
+
+const HEADLESS_TYPE_MAP: Record<string, QCToolType> = {
+  fishbone: QCToolType.FISHBONE,
+  pareto: QCToolType.PARETO,
+  control: QCToolType.CONTROL,
+  spc: QCToolType.CONTROL,
+  affinity: QCToolType.AFFINITY,
+  histogram: QCToolType.HISTOGRAM,
+  scatter: QCToolType.SCATTER,
+  relation: QCToolType.RELATION,
+  matrix: QCToolType.MATRIX,
+  matrix_plot: QCToolType.MATRIX_PLOT,
+  matrixplot: QCToolType.MATRIX_PLOT,
+  pdpc: QCToolType.PDPC,
+  arrow: QCToolType.ARROW,
+  basic: QCToolType.BASIC,
+  radar: QCToolType.RADAR,
+  flow: QCToolType.FLOW,
+  mermaid: QCToolType.MERMAID,
+  vchart: QCToolType.VCHART
+};
+
+const ModuleLoadingFallback: React.FC<{ label?: string }> = ({ label = '正在按需加载引擎模块...' }) => (
+  <div className="w-full h-full min-h-[200px] flex flex-col items-center justify-center gap-3 text-[var(--text-muted)]">
+    <Loader2 size={20} className="animate-spin text-primary" />
+    <span className="text-[11px] font-black tracking-widest uppercase">{label}</span>
+  </div>
+);
 
 // --- Unified DSL Initializers (100% delegating to canonical Editor parsers) ---
 
@@ -159,7 +208,7 @@ const parseInitialRelation = (customDsl?: string) => {
     return { nodes, links, styles };
   } catch (e) {
     console.error('Relation Init Error:', e);
-    return { nodes: INITIAL_RELATION_DATA.nodes, links: INITIAL_RELATION_DATA.links, styles: DEFAULT_RELATION_STYLES };
+    return { nodes: INITIAL_RELATION_DATA.nodes as RelationNode[], links: INITIAL_RELATION_DATA.links, styles: DEFAULT_RELATION_STYLES };
   }
 };
 
@@ -208,30 +257,10 @@ const App: React.FC = () => {
   const { isHeadless, headlessType, headlessDsl } = React.useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     const typeStr = params.get('type')?.toLowerCase() || '';
-    const TYPE_MAP: Record<string, QCToolType> = {
-      fishbone: QCToolType.FISHBONE,
-      pareto: QCToolType.PARETO,
-      control: QCToolType.CONTROL,
-      spc: QCToolType.CONTROL,
-      affinity: QCToolType.AFFINITY,
-      histogram: QCToolType.HISTOGRAM,
-      scatter: QCToolType.SCATTER,
-      relation: QCToolType.RELATION,
-      matrix: QCToolType.MATRIX,
-      matrix_plot: QCToolType.MATRIX_PLOT,
-      matrixplot: QCToolType.MATRIX_PLOT,
-      pdpc: QCToolType.PDPC,
-      arrow: QCToolType.ARROW,
-      basic: QCToolType.BASIC,
-      radar: QCToolType.RADAR,
-      flow: QCToolType.FLOW,
-      mermaid: QCToolType.MERMAID,
-      vchart: QCToolType.VCHART
-    };
 
     return {
       isHeadless: params.get('mode') === 'headless',
-      headlessType: TYPE_MAP[typeStr] || QCToolType.FLOW,
+      headlessType: HEADLESS_TYPE_MAP[typeStr] || QCToolType.FLOW,
       headlessDsl: params.get('dsl')
     };
   }, []);
@@ -314,7 +343,7 @@ const App: React.FC = () => {
   const [pdpcDsl, setPdpcDsl] = useState<string>(() => (isHeadless && headlessType === QCToolType.PDPC && headlessDsl) ? headlessDsl : INITIAL_PDPC_DSL);
   const [pdpcData, setPdpcData] = useState<PDPCData>(() => {
     const dsl = (isHeadless && headlessType === QCToolType.PDPC && headlessDsl) ? headlessDsl : INITIAL_PDPC_DSL;
-    try { return parsePDPCDSL(dsl).data; } catch { return INITIAL_PDPC_DATA; }
+    try { return parsePDPCDSL(dsl).data; } catch { return INITIAL_PDPC_DATA as PDPCData; }
   });
   const [pdpcStyles, setPdpcStyles] = useState<PDPCChartStyles>(() => {
     const dsl = (isHeadless && headlessType === QCToolType.PDPC && headlessDsl) ? headlessDsl : INITIAL_PDPC_DSL;
@@ -389,10 +418,18 @@ const App: React.FC = () => {
   }, [theme]);
 
   // Derived Control Chart Data
-  const { series: controlSeries, styles: controlStyles } = React.useMemo(() => parseControlDSL(controlDsl), [controlDsl]);
+  const { series: controlSeries, styles: controlStyles } = React.useMemo(() => {
+    const parsed = parseControlDSL(controlDsl);
+    return {
+      series: parsed.series,
+      styles: { ...DEFAULT_CONTROL_STYLES, ...parsed.styles }
+    };
+  }, [controlDsl]);
 
   // 引用图表组件的方法 (如导出)
   const diagramRef = useRef<any>(null);
+  const selectedToolRef = useRef<QCToolType>(selectedTool);
+  selectedToolRef.current = selectedTool;
 
   // 移除部分冗余的内部解析函数...
 
@@ -429,27 +466,12 @@ const App: React.FC = () => {
   // --- ILDR Headless Bridge (Warm-Page IPC + URL Fallback) ---
   const applyHeadlessPayload = React.useCallback((typeRaw: string, dsl: string) => {
     const t = String(typeRaw || '').toLowerCase();
-    const TYPE_MAP: Record<string, QCToolType> = {
-      fishbone: QCToolType.FISHBONE,
-      pareto: QCToolType.PARETO,
-      control: QCToolType.CONTROL,
-      spc: QCToolType.CONTROL,
-      affinity: QCToolType.AFFINITY,
-      histogram: QCToolType.HISTOGRAM,
-      scatter: QCToolType.SCATTER,
-      relation: QCToolType.RELATION,
-      matrix: QCToolType.MATRIX,
-      matrix_plot: QCToolType.MATRIX_PLOT,
-      matrixplot: QCToolType.MATRIX_PLOT,
-      pdpc: QCToolType.PDPC,
-      arrow: QCToolType.ARROW,
-      basic: QCToolType.BASIC,
-      radar: QCToolType.RADAR,
-      flow: QCToolType.FLOW,
-      mermaid: QCToolType.MERMAID,
-      vchart: QCToolType.VCHART
-    };
-    const tool = TYPE_MAP[t] || QCToolType.FLOW;
+    const tool = HEADLESS_TYPE_MAP[t] || QCToolType.FLOW;
+    if (selectedToolRef.current !== tool) {
+      // AUD-200: 切换至不同懒加载图表分包前主动清空旧句柄，确保轮询等待新分包挂载完毕
+      diagramRef.current = null;
+    }
+    selectedToolRef.current = tool;
     setSelectedTool(tool);
     switch (tool) {
       case QCToolType.FISHBONE: {
@@ -562,10 +584,20 @@ const App: React.FC = () => {
 
   React.useEffect(() => {
     if (isHeadless) {
+      let cancelled = false;
+      const waitForDiagramMount = async (timeoutMs = 5000) => {
+        const deadline = Date.now() + timeoutMs;
+        while (!diagramRef.current && !cancelled && Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, 25));
+        }
+        return Boolean(diagramRef.current);
+      };
+
       // 1. Expose the capture function
       (window as any).captureIQSChart = async (options?: { pixelRatio?: number; backgroundColor?: string; width?: number; height?: number }) => {
-        if (!diagramRef.current) {
-          console.error('[IQS Bridge] No diagramRef found');
+        const mounted = await waitForDiagramMount(5000);
+        if (!mounted || !diagramRef.current) {
+          console.error('[IQS Bridge] No diagramRef found after lazy chunk wait');
           return '';
         }
         try {
@@ -591,6 +623,8 @@ const App: React.FC = () => {
         backgroundColor?: string;
       }) => {
         const tool = applyHeadlessPayload(payload.type, payload.dsl);
+        // AUD-200: Wait for React.lazy diagram chunk download + Suspense commit + ref binding
+        await waitForDiagramMount(5000);
         // Wait two animation frames for React state commit + DOM layout
         await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
         // Fast SVG/Canvas tools need minimal settle; Mermaid/VChart async layout gets 220ms settle
@@ -617,13 +651,17 @@ const App: React.FC = () => {
         });
       };
 
-      // 3. Signal readiness after initial mount
-      const timer = setTimeout(() => {
-        (window as any).IQS_READY = true;
-      }, 150);
+      // 3. Signal readiness after initial lazy diagram chunk mounts & settles
+      (async () => {
+        await waitForDiagramMount(5000);
+        await new Promise(r => setTimeout(r, 150));
+        if (!cancelled) {
+          (window as any).IQS_READY = true;
+        }
+      })();
 
       return () => {
-        clearTimeout(timer);
+        cancelled = true;
         delete (window as any).captureIQSChart;
         delete (window as any).renderIQSChart;
         delete (window as any).IQS_READY;
@@ -634,27 +672,31 @@ const App: React.FC = () => {
   if (isHeadless) {
     return (
       <div className="w-full h-full min-h-screen bg-white">
-        {(() => {
-          switch (selectedTool) {
-            case QCToolType.FISHBONE: return <FishboneDiagram ref={diagramRef} data={fishboneData} styles={fishboneStyles} />;
-            case QCToolType.PARETO: return <ParetoDiagram ref={diagramRef} data={paretoData} styles={paretoStyles} showLine={showParetoLine} />;
-            case QCToolType.CONTROL: return <ControlChart ref={diagramRef} series={controlSeries} styles={controlStyles} />;
-            case QCToolType.HISTOGRAM: return <HistogramDiagram ref={diagramRef} data={histogramData} styles={histogramStyles} />;
-            case QCToolType.SCATTER: return <ScatterDiagram ref={diagramRef} data={scatterData} styles={scatterStyles} />;
-            case QCToolType.AFFINITY: return <AffinityDiagram ref={diagramRef} data={affinityData} styles={affinityStyles} />;
-            case QCToolType.RELATION: return <RelationDiagram ref={diagramRef} nodes={relationNodes} links={relationLinks} styles={relationStyles} />;
-            case QCToolType.MATRIX: return matrixData ? <MatrixDiagram ref={diagramRef} data={matrixData} styles={matrixStyles} onCellClick={handleMatrixCellClick} /> : null;
-            case QCToolType.MATRIX_PLOT: return matrixPlotData ? <MatrixPlotDiagram ref={diagramRef} data={matrixPlotData} styles={matrixPlotStyles} /> : null;
-            case QCToolType.PDPC: return <PDPCDiagram ref={diagramRef} data={pdpcData} styles={pdpcStyles} onStylesChange={setPdpcStyles} />;
-            case QCToolType.ARROW: return arrowData ? <ArrowDiagram ref={diagramRef} data={arrowData} styles={arrowStyles} /> : null;
-            case QCToolType.BASIC: return <BasicDiagram ref={diagramRef} data={basicData} styles={basicStyles} />;
-            case QCToolType.FLOW: return <FlowDiagram ref={diagramRef as any} data={flowData} styles={flowStyles} />;
-            case QCToolType.RADAR: return <RadarDiagram ref={diagramRef} data={radarData} styles={radarStyles} />;
-            case QCToolType.MERMAID: return <MermaidDiagram ref={diagramRef} data={mermaidData} styles={mermaidStyles} />;
-            case QCToolType.VCHART: return <VChartDiagram ref={diagramRef} data={vchartData} styles={vchartStyles} theme={theme} />;
-            default: return <div className="p-20 text-slate-400 font-black uppercase tracking-widest">Unknown Chart Type</div>;
-          }
-        })()}
+        <ErrorBoundary resetKey={selectedTool} fallbackTitle="Headless 渲染组件异常">
+          <Suspense fallback={<div className="w-full h-screen bg-white" />}>
+            {(() => {
+              switch (selectedTool) {
+                case QCToolType.FISHBONE: return <FishboneDiagram ref={diagramRef} data={fishboneData} styles={fishboneStyles} />;
+                case QCToolType.PARETO: return <ParetoDiagram ref={diagramRef} data={paretoData} styles={paretoStyles} showLine={showParetoLine} />;
+                case QCToolType.CONTROL: return <ControlChart ref={diagramRef} series={controlSeries} styles={controlStyles} />;
+                case QCToolType.HISTOGRAM: return <HistogramDiagram ref={diagramRef} data={histogramData} styles={histogramStyles} />;
+                case QCToolType.SCATTER: return <ScatterDiagram ref={diagramRef} data={scatterData} styles={scatterStyles} />;
+                case QCToolType.AFFINITY: return <AffinityDiagram ref={diagramRef} data={affinityData} styles={affinityStyles} />;
+                case QCToolType.RELATION: return <RelationDiagram ref={diagramRef} nodes={relationNodes} links={relationLinks} styles={relationStyles} />;
+                case QCToolType.MATRIX: return matrixData ? <MatrixDiagram ref={diagramRef} data={matrixData} styles={matrixStyles} onCellClick={handleMatrixCellClick} /> : null;
+                case QCToolType.MATRIX_PLOT: return matrixPlotData ? <MatrixPlotDiagram ref={diagramRef} data={matrixPlotData} styles={matrixPlotStyles} /> : null;
+                case QCToolType.PDPC: return <PDPCDiagram ref={diagramRef} data={pdpcData} styles={pdpcStyles} onStylesChange={setPdpcStyles} />;
+                case QCToolType.ARROW: return arrowData ? <ArrowDiagram ref={diagramRef} data={arrowData} styles={arrowStyles} /> : null;
+                case QCToolType.BASIC: return <BasicDiagram ref={diagramRef} data={basicData} styles={basicStyles} />;
+                case QCToolType.FLOW: return <FlowDiagram ref={diagramRef as any} data={flowData} styles={flowStyles} />;
+                case QCToolType.RADAR: return <RadarDiagram ref={diagramRef} data={radarData} styles={radarStyles} />;
+                case QCToolType.MERMAID: return <MermaidDiagram ref={diagramRef} data={mermaidData} styles={mermaidStyles} />;
+                case QCToolType.VCHART: return <VChartDiagram ref={diagramRef} data={vchartData} styles={vchartStyles} theme={theme} />;
+                default: return <div className="p-20 text-slate-400 font-black uppercase tracking-widest">Unknown Chart Type</div>;
+              }
+            })()}
+          </Suspense>
+        </ErrorBoundary>
       </div>
     );
   }
@@ -688,130 +730,134 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-hidden">
-              {selectedTool === QCToolType.PARETO ? (
-                <ParetoEditor
-                  data={paretoData}
-                  styles={paretoStyles}
-                  showLine={showParetoLine}
-                  onShowLineChange={setShowParetoLine}
-                  onUpdate={(d, s) => { setParetoData(d); setParetoStyles(s); }}
-                />
-              ) : selectedTool === QCToolType.CONTROL ? (
-                <ControlChartEditor
-                  dsl={controlDsl}
-                  onDslChange={setControlDsl}
-                />
-              ) : selectedTool === QCToolType.FISHBONE ? (
-                <FishboneEditor
-                  data={fishboneData}
-                  styles={fishboneStyles}
-                  onDataChange={setFishboneData}
-                  onStylesChange={setFishboneStyles}
-                />
-              ) : selectedTool === QCToolType.HISTOGRAM ? (
-                <HistogramEditor
-                  data={histogramData}
-                  styles={histogramStyles}
-                  onUpdate={(d, s) => {
-                    setHistogramData(d);
-                    setHistogramStyles(s);
-                  }}
-                />
-              ) : selectedTool === QCToolType.SCATTER ? (
-                <ScatterEditor
-                  data={scatterData}
-                  styles={scatterStyles}
-                  onDataChange={setScatterData}
-                  onStylesChange={setScatterStyles}
-                />
-              ) : selectedTool === QCToolType.AFFINITY ? (
-                <AffinityEditor
-                  data={affinityData}
-                  styles={affinityStyles}
-                  onDataChange={setAffinityData}
-                  onStylesChange={setAffinityStyles}
-                />
-              ) : selectedTool === QCToolType.RELATION ? (
-                <RelationEditor
-                  nodes={relationNodes}
-                  links={relationLinks}
-                  styles={relationStyles}
-                  onDataChange={(n, l) => { setRelationNodes(n); setRelationLinks(l); }}
-                  onStylesChange={setRelationStyles}
-                />
-              ) : selectedTool === QCToolType.MATRIX ? (
-                matrixData ? (
-                  <MatrixEditor
-                    data={matrixData}
-                    styles={matrixStyles}
-                    dsl={matrixDsl}
-                    onDataChange={setMatrixData}
-                    onStylesChange={setMatrixStyles}
-                    onDslChange={setMatrixDsl}
-                  />
-                ) : <div className="text-slate-500 p-8">Initializing Matrix...</div>
-              ) : selectedTool === QCToolType.MATRIX_PLOT ? (
-                matrixPlotData ? (
-                  <MatrixPlotEditor
-                    data={matrixPlotData}
-                    styles={matrixPlotStyles}
-                    onDataChange={setMatrixPlotData}
-                    onStylesChange={setMatrixPlotStyles}
-                  />
-                ) : <div className="text-slate-500 p-8">Initializing Matrix Plot...</div>
-              ) : selectedTool === QCToolType.PDPC ? (
-                <PDPCEditor
-                  data={pdpcData}
-                  styles={pdpcStyles}
-                  onDataChange={setPdpcData}
-                  onStylesChange={setPdpcStyles}
-                />
-              ) : selectedTool === QCToolType.ARROW ? (
-                arrowData ? (
-                  <ArrowDiagramEditor
-                    data={arrowData}
-                    styles={arrowStyles}
-                    onDataChange={setArrowData}
-                    onStylesChange={setArrowStyles}
-                  />
-                ) : <div className="text-slate-500 p-8">Initializing Arrow Diagram...</div>
-              ) : selectedTool === QCToolType.BASIC ? (
-                <BasicEditor
-                  data={basicData}
-                  styles={basicStyles}
-                  onDataChange={setBasicData}
-                  onStylesChange={setBasicStyles}
-                />
-              ) : selectedTool === QCToolType.FLOW ? (
-                <FlowEditor
-                  data={flowData}
-                  styles={flowStyles}
-                  onDataChange={setFlowData}
-                  onStylesChange={setFlowStyles}
-                />
-              ) : selectedTool === QCToolType.RADAR ? (
-                <RadarEditor
-                  data={radarData}
-                  styles={radarStyles}
-                  onDataChange={setRadarData}
-                  onStylesChange={setRadarStyles}
-                />
-              ) : selectedTool === QCToolType.MERMAID ? (
-                <MermaidEditor
-                  data={mermaidData}
-                  styles={mermaidStyles}
-                  onDataChange={setMermaidData}
-                  onStylesChange={setMermaidStyles}
-                />
-              ) : selectedTool === QCToolType.VCHART ? (
-                <VChartEditor
-                  data={vchartData}
-                  styles={vchartStyles}
-                  theme={theme}
-                  onDataChange={setVchartData}
-                  onStylesChange={setVchartStyles}
-                />
-              ) : null}
+              <ErrorBoundary resetKey={selectedTool} fallbackTitle="编辑器模块加载失败">
+                <Suspense fallback={<ModuleLoadingFallback label="正在加载编辑器..." />}>
+                  {selectedTool === QCToolType.PARETO ? (
+                    <ParetoEditor
+                      data={paretoData}
+                      styles={paretoStyles}
+                      showLine={showParetoLine}
+                      onShowLineChange={setShowParetoLine}
+                      onUpdate={(d, s) => { setParetoData(d); setParetoStyles(s); }}
+                    />
+                  ) : selectedTool === QCToolType.CONTROL ? (
+                    <ControlChartEditor
+                      dsl={controlDsl}
+                      onDslChange={setControlDsl}
+                    />
+                  ) : selectedTool === QCToolType.FISHBONE ? (
+                    <FishboneEditor
+                      data={fishboneData}
+                      styles={fishboneStyles}
+                      onDataChange={setFishboneData}
+                      onStylesChange={setFishboneStyles}
+                    />
+                  ) : selectedTool === QCToolType.HISTOGRAM ? (
+                    <HistogramEditor
+                      data={histogramData}
+                      styles={histogramStyles}
+                      onUpdate={(d, s) => {
+                        setHistogramData(d);
+                        setHistogramStyles(s);
+                      }}
+                    />
+                  ) : selectedTool === QCToolType.SCATTER ? (
+                    <ScatterEditor
+                      data={scatterData}
+                      styles={scatterStyles}
+                      onDataChange={setScatterData}
+                      onStylesChange={setScatterStyles}
+                    />
+                  ) : selectedTool === QCToolType.AFFINITY ? (
+                    <AffinityEditor
+                      data={affinityData}
+                      styles={affinityStyles}
+                      onDataChange={setAffinityData}
+                      onStylesChange={setAffinityStyles}
+                    />
+                  ) : selectedTool === QCToolType.RELATION ? (
+                    <RelationEditor
+                      nodes={relationNodes}
+                      links={relationLinks}
+                      styles={relationStyles}
+                      onDataChange={(n, l) => { setRelationNodes(n); setRelationLinks(l); }}
+                      onStylesChange={setRelationStyles}
+                    />
+                  ) : selectedTool === QCToolType.MATRIX ? (
+                    matrixData ? (
+                      <MatrixEditor
+                        data={matrixData}
+                        styles={matrixStyles}
+                        dsl={matrixDsl}
+                        onDataChange={setMatrixData}
+                        onStylesChange={setMatrixStyles}
+                        onDslChange={setMatrixDsl}
+                      />
+                    ) : <div className="text-slate-500 p-8">Initializing Matrix...</div>
+                  ) : selectedTool === QCToolType.MATRIX_PLOT ? (
+                    matrixPlotData ? (
+                      <MatrixPlotEditor
+                        data={matrixPlotData}
+                        styles={matrixPlotStyles}
+                        onDataChange={setMatrixPlotData}
+                        onStylesChange={setMatrixPlotStyles}
+                      />
+                    ) : <div className="text-slate-500 p-8">Initializing Matrix Plot...</div>
+                  ) : selectedTool === QCToolType.PDPC ? (
+                    <PDPCEditor
+                      data={pdpcData}
+                      styles={pdpcStyles}
+                      onDataChange={setPdpcData}
+                      onStylesChange={setPdpcStyles}
+                    />
+                  ) : selectedTool === QCToolType.ARROW ? (
+                    arrowData ? (
+                      <ArrowDiagramEditor
+                        data={arrowData}
+                        styles={arrowStyles}
+                        onDataChange={setArrowData}
+                        onStylesChange={setArrowStyles}
+                      />
+                    ) : <div className="text-slate-500 p-8">Initializing Arrow Diagram...</div>
+                  ) : selectedTool === QCToolType.BASIC ? (
+                    <BasicEditor
+                      data={basicData}
+                      styles={basicStyles}
+                      onDataChange={setBasicData}
+                      onStylesChange={setBasicStyles}
+                    />
+                  ) : selectedTool === QCToolType.FLOW ? (
+                    <FlowEditor
+                      data={flowData}
+                      styles={flowStyles}
+                      onDataChange={setFlowData}
+                      onStylesChange={setFlowStyles}
+                    />
+                  ) : selectedTool === QCToolType.RADAR ? (
+                    <RadarEditor
+                      data={radarData}
+                      styles={radarStyles}
+                      onDataChange={setRadarData}
+                      onStylesChange={setRadarStyles}
+                    />
+                  ) : selectedTool === QCToolType.MERMAID ? (
+                    <MermaidEditor
+                      data={mermaidData}
+                      styles={mermaidStyles}
+                      onDataChange={setMermaidData}
+                      onStylesChange={setMermaidStyles}
+                    />
+                  ) : selectedTool === QCToolType.VCHART ? (
+                    <VChartEditor
+                      data={vchartData}
+                      styles={vchartStyles}
+                      theme={theme}
+                      onDataChange={setVchartData}
+                      onStylesChange={setVchartStyles}
+                    />
+                  ) : null}
+                </Suspense>
+              </ErrorBoundary>
             </div>
 
           </div>
@@ -868,54 +914,58 @@ const App: React.FC = () => {
             </header>
 
             <div className="flex-1 relative min-h-0 bg-[var(--card-bg)] transition-colors">
-              {(() => {
-                switch (selectedTool) {
-                  case QCToolType.FISHBONE: return <FishboneDiagram ref={diagramRef} data={fishboneData} styles={fishboneStyles} />;
-                  case QCToolType.PARETO: return (
-                    <ParetoDiagram
-                      ref={diagramRef}
-                      data={paretoData}
-                      styles={paretoStyles}
-                      showLine={showParetoLine}
-                    />
-                  );
-                  case QCToolType.CONTROL: return <ControlChart ref={diagramRef} series={controlSeries} styles={controlStyles} />;
-                  case QCToolType.HISTOGRAM:
-                    return <HistogramDiagram ref={diagramRef} data={histogramData} styles={histogramStyles} />;
-                  case QCToolType.SCATTER:
-                    return <ScatterDiagram ref={diagramRef} data={scatterData} styles={scatterStyles} />;
-                  case QCToolType.AFFINITY:
-                    return <AffinityDiagram ref={diagramRef} data={affinityData} styles={affinityStyles} />;
-                  case QCToolType.RELATION:
-                    return <RelationDiagram ref={diagramRef} nodes={relationNodes} links={relationLinks} styles={relationStyles} />;
-                  case QCToolType.MATRIX:
-                    return matrixData ? <MatrixDiagram ref={diagramRef} data={matrixData} styles={matrixStyles} onCellClick={handleMatrixCellClick} /> : null;
-                  case QCToolType.MATRIX_PLOT:
-                    return matrixPlotData ? <MatrixPlotDiagram ref={diagramRef} data={matrixPlotData} styles={matrixPlotStyles} /> : null;
-                  case QCToolType.PDPC:
-                    return <PDPCDiagram ref={diagramRef} data={pdpcData} styles={pdpcStyles} onStylesChange={setPdpcStyles} />;
-                  case QCToolType.ARROW:
-                    return arrowData ? <ArrowDiagram ref={diagramRef} data={arrowData} styles={arrowStyles} /> : null;
-                  case QCToolType.BASIC:
-                    return <BasicDiagram ref={diagramRef} data={basicData} styles={basicStyles} />;
-                  case QCToolType.FLOW:
-                    return <FlowDiagram ref={diagramRef as any} data={flowData} styles={flowStyles} />;
-                  case QCToolType.RADAR:
-                    return <RadarDiagram ref={diagramRef} data={radarData} styles={radarStyles} />;
-                  case QCToolType.MERMAID:
-                    return <MermaidDiagram ref={diagramRef} data={mermaidData} styles={mermaidStyles} />;
-                  case QCToolType.VCHART:
-                    return <VChartDiagram ref={diagramRef} data={vchartData} styles={vchartStyles} theme={theme} />;
+              <ErrorBoundary resetKey={selectedTool} fallbackTitle="图表引擎渲染异常">
+                <Suspense fallback={<ModuleLoadingFallback label="正在加载图表渲染引擎..." />}>
+                  {(() => {
+                    switch (selectedTool) {
+                      case QCToolType.FISHBONE: return <FishboneDiagram ref={diagramRef} data={fishboneData} styles={fishboneStyles} />;
+                      case QCToolType.PARETO: return (
+                        <ParetoDiagram
+                          ref={diagramRef}
+                          data={paretoData}
+                          styles={paretoStyles}
+                          showLine={showParetoLine}
+                        />
+                      );
+                      case QCToolType.CONTROL: return <ControlChart ref={diagramRef} series={controlSeries} styles={controlStyles} />;
+                      case QCToolType.HISTOGRAM:
+                        return <HistogramDiagram ref={diagramRef} data={histogramData} styles={histogramStyles} />;
+                      case QCToolType.SCATTER:
+                        return <ScatterDiagram ref={diagramRef} data={scatterData} styles={scatterStyles} />;
+                      case QCToolType.AFFINITY:
+                        return <AffinityDiagram ref={diagramRef} data={affinityData} styles={affinityStyles} />;
+                      case QCToolType.RELATION:
+                        return <RelationDiagram ref={diagramRef} nodes={relationNodes} links={relationLinks} styles={relationStyles} />;
+                      case QCToolType.MATRIX:
+                        return matrixData ? <MatrixDiagram ref={diagramRef} data={matrixData} styles={matrixStyles} onCellClick={handleMatrixCellClick} /> : null;
+                      case QCToolType.MATRIX_PLOT:
+                        return matrixPlotData ? <MatrixPlotDiagram ref={diagramRef} data={matrixPlotData} styles={matrixPlotStyles} /> : null;
+                      case QCToolType.PDPC:
+                        return <PDPCDiagram ref={diagramRef} data={pdpcData} styles={pdpcStyles} onStylesChange={setPdpcStyles} />;
+                      case QCToolType.ARROW:
+                        return arrowData ? <ArrowDiagram ref={diagramRef} data={arrowData} styles={arrowStyles} /> : null;
+                      case QCToolType.BASIC:
+                        return <BasicDiagram ref={diagramRef} data={basicData} styles={basicStyles} />;
+                      case QCToolType.FLOW:
+                        return <FlowDiagram ref={diagramRef as any} data={flowData} styles={flowStyles} />;
+                      case QCToolType.RADAR:
+                        return <RadarDiagram ref={diagramRef} data={radarData} styles={radarStyles} />;
+                      case QCToolType.MERMAID:
+                        return <MermaidDiagram ref={diagramRef} data={mermaidData} styles={mermaidStyles} />;
+                      case QCToolType.VCHART:
+                        return <VChartDiagram ref={diagramRef} data={vchartData} styles={vchartStyles} theme={theme} />;
 
-                  default: return (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-[var(--bg-page)]">
-                      <Cpu className="w-32 h-32 text-[var(--border-light)] mb-8" />
-                      <p className="text-3xl font-black text-[var(--border-light)] uppercase tracking-[0.4em]">Unit Offline</p>
-                      <p className="text-[11px] text-[var(--text-muted)] mt-4 font-black uppercase tracking-[0.2em]">Logic injection required from terminal</p>
-                    </div>
-                  );
-                }
-              })()}
+                      default: return (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-[var(--bg-page)]">
+                          <Cpu className="w-32 h-32 text-[var(--border-light)] mb-8" />
+                          <p className="text-3xl font-black text-[var(--border-light)] uppercase tracking-[0.4em]">Unit Offline</p>
+                          <p className="text-[11px] text-[var(--text-muted)] mt-4 font-black uppercase tracking-[0.2em]">Logic injection required from terminal</p>
+                        </div>
+                      );
+                    }
+                  })()}
+                </Suspense>
+              </ErrorBoundary>
             </div>
 
             <footer className="h-20 border-t border-[var(--border-light)] px-12 flex items-center justify-between shrink-0 bg-[var(--header-bg)] backdrop-blur-xl transition-colors">

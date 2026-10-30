@@ -34,72 +34,9 @@ interface FishboneEditorProps {
     onStylesChange: (styles: FishboneChartStyles) => void;
 }
 
-export const parseFishboneDSL = (content: string, baseStyles: FishboneChartStyles = DEFAULT_FISHBONE_STYLES) => {
-    const lines = content.split('\n');
-    const newStyles: FishboneChartStyles = { ...baseStyles };
-    let title = '鱼骨图分析';
-    const nodes: FishboneNode[] = [];
-    const stack: { node: FishboneNode, level: number }[] = [];
+import { parseFishboneDSL } from '../dsl/parsers';
 
-    lines.forEach((line) => {
-        const trimmed = line.trim();
-        // IQS-DSL v1: // comments; # headers are Tree structure (do not skip)
-        if (!trimmed || trimmed.startsWith('//')) return;
-
-        // Parse Colors
-        const colorMatch = trimmed.match(/Color\[(Root|RootText|Main|MainText|Bone|Line|Text|End)\]:\s*(#[0-9a-fA-F]+)/i);
-        if (colorMatch) {
-            let key = colorMatch[1].toLowerCase();
-            if (key === 'root') key = 'rootColor';
-            if (key === 'roottext') key = 'rootTextColor';
-            if (key === 'main') key = 'mainColor';
-            if (key === 'maintext') key = 'mainTextColor';
-            if (key === 'bone') key = 'boneLine';
-            if (key === 'line') key = 'caseLine';
-            if (key === 'text') key = 'caseColor';
-            (newStyles as any)[key] = colorMatch[2];
-            return;
-        }
-
-        // Parse Title
-        if (trimmed.startsWith('Title:')) {
-            title = trimmed.replace('Title:', '').trim();
-            return;
-        }
-
-        // Parse Hierarchy
-        const headerMatch = trimmed.match(/^(#+)\s+(.+)$/);
-        if (headerMatch) {
-            const level = headerMatch[1].length;
-            const label = headerMatch[2].trim();
-            const newNode: FishboneNode = {
-                id: genId('node'),
-                label: label,
-                type: level === 1 ? 'main' : 'sub',
-                children: []
-            };
-
-            if (level === 1) {
-                nodes.push(newNode);
-                stack.length = 0;
-                stack.push({ node: newNode, level });
-            } else {
-                while (stack.length > 0 && stack[stack.length - 1].level >= level) {
-                    stack.pop();
-                }
-                if (stack.length > 0) {
-                    const parent = stack[stack.length - 1].node;
-                    if (!parent.children) parent.children = [];
-                    parent.children.push(newNode);
-                    stack.push({ node: newNode, level });
-                }
-            }
-        }
-    });
-
-    const root: FishboneNode = { id: 'root', label: title, type: 'root', children: nodes };
-    return { data: root, styles: newStyles };
-};
+export { parseFishboneDSL };
 
 /* ────────────────────────────────────────────────────────────────────────────
    层级树编辑（R-UI-11）

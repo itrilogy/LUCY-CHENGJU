@@ -1,44 +1,24 @@
 #!/bin/sh
-# Generate config.js from environment variables in the dist folder for production injection
-echo "Generating dist/config.js with runtime environment variables..."
-cat <<EOF > /app/dist/config.js
-window.APP_CONFIG = {
-  API_KEY: "${API_KEY:-}",
-  AI_ACTIVE_PROFILE: "${AI_ACTIVE_PROFILE:-deepseek_public}",
-  IQS_ADMIN_PASSWORD: "${IQS_ADMIN_PASSWORD:-luxi2026}"
-};
-EOF
+set -eu
 
 WEB_PORT="${WEB_PORT:-12000}"
 MCP_PORT="${PORT:-12001}"
+export WEB_PORT
 export PORT="$MCP_PORT"
+export SERVE_WEB="${SERVE_WEB:-true}"
+export IQS_DATA_DIR="${IQS_DATA_DIR:-/app/data}"
 export IQS_BASE_URL="${IQS_BASE_URL:-http://localhost:${WEB_PORT}}"
 export IQS_SERVER_PUBLIC_URL="${IQS_SERVER_PUBLIC_URL:-}"
 export IQS_TRUST_PROXY="${IQS_TRUST_PROXY:-}"
 
-# Start the Frontend (Vite preview for production build)
-echo "Starting Frontend on port ${WEB_PORT}..."
-npx vite preview --port "$WEB_PORT" --host 0.0.0.0 --strictPort &
-WEB_PID=$!
-
-# Wait for Frontend HTTP endpoint to be ready (max 15s)
-echo "Waiting for Frontend to initialize on http://127.0.0.1:${WEB_PORT}..."
-READY=0
-for i in $(seq 1 30); do
-  if node -e "fetch('http://127.0.0.1:${WEB_PORT}').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))" 2>/dev/null; then
-    READY=1
-    break
-  fi
-  sleep 0.5
-done
-
-if [ "$READY" -eq 1 ]; then
-  echo "Frontend is ready."
-else
-  echo "Warning: Frontend readiness probe timed out after 15s, continuing..."
+# R33 / AUD-197：仅注入非敏感公开元数据（API_KEY 与 IQS_ADMIN_PASSWORD 严禁写入前端静态目录）
+if [ -d "/app/dist" ] && [ -w "/app/dist" ]; then
+  cat <<EOF > /app/dist/config.js
+window.APP_CONFIG = {
+  AI_ACTIVE_PROFILE: "${AI_ACTIVE_PROFILE:-deepseek_public}"
+};
+EOF
 fi
 
-# Start the MCP Server in SSE mode
-echo "Starting MCP Server (SSE) on port ${MCP_PORT}..."
-cd mcp-server
-exec npm run start:sse
+echo "[IQS Entrypoint] Starting unified single-process Web (:${WEB_PORT}) + MCP SSE (:${MCP_PORT}) server..."
+exec node /app/mcp-server/index.js --transport=sse --serve-web

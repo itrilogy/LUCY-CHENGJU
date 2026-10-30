@@ -1,10 +1,16 @@
 node_modules
+mcp-server/node_modules
 dist
+dist-ssr
 build
+data
 .git
+.github
+.claude
 .reasonix
 .env
-.env.local
+.env.*
+!.env.example
 .DS_Store
 *.log
 *.bak
@@ -15,4 +21,6 @@ lerna-debug.log*
 .vscode
 .idea
 mcp-server/renders
+mcp-server/lib
 output
+coverage

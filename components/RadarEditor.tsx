@@ -21,66 +21,9 @@ interface RadarEditorProps {
     onStylesChange: (styles: RadarChartStyles) => void;
 }
 
-export const parseRadarDSL = (content: string, baseStyles: RadarChartStyles = DEFAULT_RADAR_STYLES) => {
-    const lines = content.split('\n');
-    const newStyles: RadarChartStyles = { ...baseStyles };
-    const axes: any[] = [];
-    const series: any[] = [];
-    let title = baseStyles.title;
+import { parseRadarDSL } from '../dsl/parsers';
 
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) return;
-
-        if (trimmed.includes(':')) {
-            const [keyPart, ...valParts] = trimmed.split(':');
-            const key = keyPart.trim();
-            const val = valParts.join(':').trim();
-
-            if (key === 'Title') {
-                title = val;
-            } else if (key === 'StartAngle') {
-                newStyles.startAngle = parseFloat(val);
-            } else if (key === 'Clockwise') {
-                newStyles.clockwise = val.toLowerCase() === 'true';
-            } else if (key === 'Closed') {
-                newStyles.isClosed = val.toLowerCase() === 'true';
-            } else if (key === 'Standardize') {
-                newStyles.standardize = val.toLowerCase() === 'true';
-            } else if (key === 'ShowAreaScore') {
-                newStyles.showAreaScore = val.toLowerCase() === 'true';
-            } else if (key === 'ShowSimilarity') {
-                newStyles.showSimilarity = val.toLowerCase() === 'true';
-            } else if (key === 'ShowValues') {
-                newStyles.showValues = val.toLowerCase() === 'true';
-            } else if (key === 'Axis') {
-                const parts = val.split(',').map(s => s.trim());
-                if (parts.length >= 2) {
-                    axes.push({
-                        name: parts[0],
-                        max: parseFloat(parts[1]),
-                        min: parts[2] ? parseFloat(parts[2]) : 0
-                    });
-                }
-            } else if (key === 'Series') {
-                const parts = val.split(/,(?![^\[]*\])/).map(s => s.trim());
-                if (parts.length >= 2) {
-                    const name = parts[0];
-                    const valuesStr = parts[1].replace(/[\[\]]/g, '');
-                    const values = valuesStr.split(',').map(v => parseFloat(v.trim()));
-                    const color = parts[2] && parts[2] !== 'null' ? parts[2] : undefined;
-                    const opacity = parts[3] ? parseFloat(parts[3]) : undefined;
-                    series.push({ name, values, color, fillOpacity: opacity });
-                }
-            }
-        }
-    });
-
-    return {
-        data: { title, axes, series },
-        styles: { ...newStyles, title }
-    };
-};
+export { parseRadarDSL };
 
 const RadarEditor: React.FC<RadarEditorProps> = ({ data, styles, onDataChange, onStylesChange }) => {
     const [dsl, setDsl] = useState(INITIAL_RADAR_DSL);

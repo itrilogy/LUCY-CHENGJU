@@ -32,50 +32,9 @@ interface Props {
     onShowLineChange: (val: boolean) => void;
 }
 
-export const parseParetoDSL = (content: string, baseStyles: ParetoChartStyles = DEFAULT_PARETO_STYLES) => {
-    const lines = content.split('\n');
-    const newItems: ParetoItem[] = [];
-    const newStyles: ParetoChartStyles = { ...baseStyles };
+import { parseParetoDSL } from '../dsl/parsers';
 
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        // IQS-DSL v1 comments
-        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) return;
-
-        const titleMatch = trimmed.match(/^Title:\s*(.+)/);
-        if (titleMatch) { newStyles.title = titleMatch[1]; return; }
-
-        const decimalMatch = trimmed.match(/^Decimals:\s*(\d+)/);
-        if (decimalMatch) { newStyles.decimals = parseInt(decimalMatch[1]); return; }
-
-        const showValuesMatch = trimmed.match(/^ShowValues:\s*(true|false)/i);
-        if (showValuesMatch) { newStyles.showValues = showValuesMatch[1].toLowerCase() === 'true'; return; }
-
-        const colorMatch = trimmed.match(/Color\[(Bar|Line|MarkLine|Title)\]:\s*(#[0-9a-fA-F]+)/);
-        if (colorMatch) {
-            const key = colorMatch[1].charAt(0).toLowerCase() + colorMatch[1].slice(1) + 'Color';
-            (newStyles as any)[key] = colorMatch[2];
-            return;
-        }
-
-        const fontMatch = trimmed.match(/Font\[(Title|Base|Bar|Line)\]:\s*(\d+)/);
-        if (fontMatch) {
-            const key = fontMatch[1].charAt(0).toLowerCase() + fontMatch[1].slice(1) + 'FontSize';
-            (newStyles as any)[key] = parseInt(fontMatch[2]);
-            return;
-        }
-
-        const itemMatch = trimmed.match(/^-\s*(.+):\s*([\d.]+)/);
-        if (itemMatch) {
-            const val = parseFloat(itemMatch[2]);
-            if (!isNaN(val)) {
-                newItems.push({ id: genId('item'), name: itemMatch[1].trim(), value: val });
-            }
-        }
-    });
-
-    return { items: newItems, styles: newStyles };
-};
+export { parseParetoDSL };
 
 export const ParetoEditor: React.FC<Props> = ({
     data, styles, onUpdate, showLine, onShowLineChange

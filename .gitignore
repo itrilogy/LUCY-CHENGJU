@@ -37,3 +37,6 @@ mcp-server/lib/
 
 # 卡片生成器产物（S0 试点：仅用于差异对比，不入库）
 build/
+
+# 服务端运行期持久化配置目录（含加密/脱敏前的 ai_config.json，严禁入库）
+data/

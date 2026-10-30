@@ -11,8 +11,16 @@ export interface AIProfile {
     protocol?: AIProtocolType;
     /** 接入地址（支持根地址如 https://api.openai.com/v1 或完整路径 /v1/chat/completions） */
     endpoint: string;
-    /** 专属 API Key（可选；留空时回退使用 ENV 全局 API_KEY） */
+    /** 专属 API Key（管理端仅用于提交新密钥更新，服务端回传时始终脱敏为空字符串） */
     apiKey?: string;
+    /** 服务端是否已为该提供商持久化了专属密钥（R33 脱敏元数据） */
+    hasApiKey?: boolean;
+    /** 服务端专属密钥掩码预览，如 sk-****9a2b（R33 脱敏元数据） */
+    maskedKey?: string;
+    /** 重命名 ID 时携带原 ID 以便服务端继承原专属密钥 */
+    previousId?: string;
+    /** 显式清除服务端已保存的专属密钥 */
+    clearApiKey?: boolean;
     /** 当前选中的模型名称 */
     model: string;
     /** 已拉取或缓存的可用模型列表 */
@@ -23,6 +31,7 @@ export interface AIProfile {
 
 export interface AIConfigState {
     active_profile: string;
+    hasEnvApiKey?: boolean;
     profiles: Record<string, AIProfile>;
 }
 
@@ -43,10 +52,18 @@ export interface ClientCookieLLMConfig {
     models?: string[];
 }
 
+export class AdminSessionExpiredError extends Error {
+    statusCode = 401;
+    constructor(message = "管理员会话未解锁或已过期，请重新验证管理密码。") {
+        super(message);
+        this.name = "AdminSessionExpiredError";
+    }
+}
+
 export const CLIENT_COOKIE_PROFILE_ID = "client_cookie";
 const CLIENT_COOKIE_NAME = "iqs_client_llm_v1";
 const CLIENT_MODELS_CACHE_KEY = "iqs_client_llm_models_v1";
-const STORAGE_KEY = "iqs_ai_providers_v1";
+const LEGACY_STORAGE_KEY = "iqs_ai_providers_v1";
 export const AI_CONFIG_CHANGED_EVENT = "iqs:ai-config-changed";
 
 export type AICompletionMeta = {
@@ -67,36 +84,71 @@ interface ChartSpec {
 let cachedSpec: ChartSpec | null = null;
 
 /**
- * Runtime configuration interface
+ * Runtime public configuration interface（R33: 不再包含任何敏感密钥或管理密码）
  */
 declare global {
     interface Window {
         APP_CONFIG?: {
-            API_KEY?: string;
             AI_ACTIVE_PROFILE?: string;
-            IQS_ADMIN_PASSWORD?: string;
         };
     }
 }
 
-/**
- * 获取管理密码（优先读取 ENV / window.APP_CONFIG，默认回退为 'luxi2026'）
- */
-export function getAdminPassword(): string {
-    const candidates = [
-        typeof window !== "undefined" ? window.APP_CONFIG?.IQS_ADMIN_PASSWORD : undefined,
-        process.env.IQS_ADMIN_PASSWORD,
-    ];
-    for (const c of candidates) {
-        if (typeof c === "string" && c.trim().length > 0) {
-            return c.trim();
-        }
-    }
-    return "luxi2026";
+// R33 安全清理：自动擦除历史版本可能遗留在浏览器 localStorage 中的全局明文配置缓存
+if (typeof window !== "undefined" && window.localStorage) {
+    try {
+        window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch { }
 }
 
-export function verifyAdminPassword(input: string): boolean {
-    return String(input ?? "").trim() === getAdminPassword();
+/* ────────────────────── 服务端管理员会话鉴权（R33 / AUD-198） ────────────────────── */
+
+export async function fetchAdminSession(): Promise<{ unlocked: boolean; hasEnvApiKey: boolean }> {
+    try {
+        const res = await fetch("/api/admin/session", {
+            method: "GET",
+            credentials: "same-origin",
+            cache: "no-store",
+        });
+        if (!res.ok) return { unlocked: false, hasEnvApiKey: false };
+        const data = await res.json();
+        return {
+            unlocked: Boolean(data?.unlocked),
+            hasEnvApiKey: Boolean(data?.hasEnvApiKey),
+        };
+    } catch {
+        return { unlocked: false, hasEnvApiKey: false };
+    }
+}
+
+export async function loginAdminSession(password: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+        const res = await fetch("/api/admin/login", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.ok) {
+            return {
+                ok: false,
+                error: data?.error || "管理密码校验未通过，请核对服务端环境变量 IQS_ADMIN_PASSWORD 配置。",
+            };
+        }
+        return { ok: true };
+    } catch {
+        return { ok: false, error: "无法连接服务端鉴权接口 (/api/admin/login)，请检查后端服务状态。" };
+    }
+}
+
+export async function logoutAdminSession(): Promise<void> {
+    try {
+        await fetch("/api/admin/logout", {
+            method: "POST",
+            credentials: "same-origin",
+        });
+    } catch { }
 }
 
 /* ────────────────────── 客户端 Cookie 模型配置读写与管理 ────────────────────── */
@@ -169,7 +221,6 @@ export function hasConfiguredClientCookie(): boolean {
 export function saveClientCookieConfig(config: ClientCookieLLMConfig): void {
     if (typeof document === "undefined") return;
 
-    // 仅将核心连接配置写入 Cookie（约 250 Bytes，规避 4KB 上限）
     const cookiePayload = {
         enabled: Boolean(config.enabled),
         id: String(config.id || "local_client").trim(),
@@ -212,7 +263,7 @@ export function clearClientCookieConfig(): ClientCookieLLMConfig {
     return fresh;
 }
 
-/* ────────────────────── 管理端全局配置读写与 ID 重命名 ────────────────────── */
+/* ────────────────────── 管理端全局配置读写与 ID 重命名（服务端持久化） ────────────────────── */
 
 const BUILTIN_CLIENT_PROFILE: AIProfile = {
     id: CLIENT_COOKIE_PROFILE_ID,
@@ -224,15 +275,14 @@ const BUILTIN_CLIENT_PROFILE: AIProfile = {
     max_tokens: 8192,
 };
 
-async function getChartSpec(): Promise<ChartSpec> {
+async function getFallbackChartSpec(): Promise<ChartSpec> {
     if (cachedSpec) return cachedSpec;
     try {
         const res = await fetch("/config.json");
         if (!res.ok) throw new Error("Failed to load config.json");
         cachedSpec = await res.json();
         return cachedSpec!;
-    } catch (e) {
-        console.error("Config Load Error:", e);
+    } catch {
         return {
             ai_config: {
                 active_profile: "deepseek_public",
@@ -252,27 +302,43 @@ async function getChartSpec(): Promise<ChartSpec> {
     }
 }
 
-function readStoredConfig(): AIConfigState | null {
-    if (typeof window === "undefined" || !window.localStorage) return null;
-    try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object" && parsed.profiles && typeof parsed.profiles === "object") {
-            return parsed as AIConfigState;
-        }
-    } catch (e) {
-        console.warn("[AI Config] Failed to parse localStorage config:", e);
-    }
-    return null;
-}
-
 /**
- * 获取合并后的完整大模型配置状态（确保始终包含 `client_cookie` 客户端模型选项）
+ * 从服务端读取脱敏后的全局大模型配置状态（离线纯静态场景回退至 /config.json）
  */
 export async function loadAIConfigState(): Promise<AIConfigState> {
-    const spec = await getChartSpec();
-    const stored = readStoredConfig();
+    try {
+        const res = await fetch("/api/ai/config", {
+            method: "GET",
+            credentials: "same-origin",
+            cache: "no-store",
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data && typeof data === "object" && data.profiles) {
+                const profiles: Record<string, AIProfile> = {};
+                for (const [k, v] of Object.entries(data.profiles as Record<string, AIProfile>)) {
+                    profiles[k] = {
+                        protocol: "openai",
+                        max_tokens: 8192,
+                        ...v,
+                        id: k,
+                    };
+                }
+                if (!profiles[CLIENT_COOKIE_PROFILE_ID]) {
+                    profiles[CLIENT_COOKIE_PROFILE_ID] = { ...BUILTIN_CLIENT_PROFILE };
+                }
+                return {
+                    active_profile: data.active_profile || Object.keys(profiles)[0] || "deepseek_public",
+                    hasEnvApiKey: Boolean(data.hasEnvApiKey),
+                    profiles,
+                };
+            }
+        }
+    } catch {
+        // Fallback to static /config.json when running without API middleware
+    }
+
+    const spec = await getFallbackChartSpec();
     const envActive =
         (typeof window !== "undefined" ? window.APP_CONFIG?.AI_ACTIVE_PROFILE : undefined) ||
         process.env.AI_ACTIVE_PROFILE;
@@ -284,58 +350,58 @@ export async function loadAIConfigState(): Promise<AIConfigState> {
             max_tokens: 8192,
             ...v,
             id: k,
+            apiKey: "",
         };
     }
     if (!mergedProfiles[CLIENT_COOKIE_PROFILE_ID]) {
         mergedProfiles[CLIENT_COOKIE_PROFILE_ID] = { ...BUILTIN_CLIENT_PROFILE };
     }
 
-    if (stored && stored.profiles) {
-        const userProfiles: Record<string, AIProfile> = {};
-        for (const [k, v] of Object.entries(stored.profiles)) {
-            userProfiles[k] = {
-                protocol: "openai",
-                max_tokens: 8192,
-                ...v,
-                id: k,
-            };
-        }
-        // 确保「本地客户端模型 (Browser Cookie)」选项始终存在于管理列表中
-        if (!userProfiles[CLIENT_COOKIE_PROFILE_ID]) {
-            userProfiles[CLIENT_COOKIE_PROFILE_ID] = { ...BUILTIN_CLIENT_PROFILE };
-        }
-        const activeKey =
-            stored.active_profile && userProfiles[stored.active_profile]
-                ? stored.active_profile
-                : Object.keys(userProfiles)[0] || spec.ai_config.active_profile;
-        return {
-            active_profile: activeKey,
-            profiles: userProfiles,
-        };
-    }
-
     const defaultActive =
-        envActive && mergedProfiles[envActive]
-            ? envActive
-            : spec.ai_config.active_profile;
+        envActive && mergedProfiles[envActive] ? envActive : spec.ai_config.active_profile;
 
     return {
         active_profile: defaultActive,
+        hasEnvApiKey: false,
         profiles: mergedProfiles,
     };
 }
 
 /**
- * 保存大模型配置状态并广播全局变更事件
+ * 将管理端全局大模型配置持久化保存至服务端 `data/ai_config.json`，并广播变更事件
  */
-export function saveAIConfigState(state: AIConfigState): void {
-    if (typeof window === "undefined" || !window.localStorage) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    window.dispatchEvent(new CustomEvent(AI_CONFIG_CHANGED_EVENT, { detail: state }));
+export async function saveAIConfigState(state: AIConfigState): Promise<AIConfigState> {
+    const res = await fetch("/api/admin/ai-config", {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            active_profile: state.active_profile,
+            profiles: state.profiles,
+        }),
+    });
+
+    if (res.status === 401) {
+        throw new AdminSessionExpiredError();
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(data?.error || `保存全局配置失败 (HTTP ${res.status})`);
+    }
+
+    const sanitized: AIConfigState = {
+        active_profile: data.active_profile,
+        hasEnvApiKey: Boolean(data.hasEnvApiKey),
+        profiles: data.profiles || state.profiles,
+    };
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(AI_CONFIG_CHANGED_EVENT, { detail: sanitized }));
+    }
+    return sanitized;
 }
 
 /**
- * 重命名提供商 ID（保持字典顺序与 active_profile 引用同步，校验格式与唯一性）
+ * 重命名提供商 ID（保持字典顺序、active_profile 引用及服务端专属密钥继承）
  */
 export function renameAIProfileId(
     state: AIConfigState,
@@ -362,28 +428,40 @@ export function renameAIProfileId(
     const nextProfiles: Record<string, AIProfile> = {};
     for (const [k, v] of Object.entries(state.profiles)) {
         if (k === oldId) {
-            nextProfiles[newId] = { ...v, id: newId };
+            nextProfiles[newId] = { ...v, id: newId, previousId: v.previousId || oldId };
         } else {
             nextProfiles[k] = v;
         }
     }
 
     const nextState: AIConfigState = {
+        ...state,
         active_profile: state.active_profile === oldId ? newId : state.active_profile,
         profiles: nextProfiles,
     };
-    saveAIConfigState(nextState);
     return { ok: true, nextState, newId };
 }
 
 /**
- * 重置大模型配置为默认 config.json 状态
+ * 重置服务端大模型配置为默认 public/config.json 状态
  */
 export async function resetAIConfigState(): Promise<AIConfigState> {
-    if (typeof window !== "undefined" && window.localStorage) {
-        window.localStorage.removeItem(STORAGE_KEY);
+    const res = await fetch("/api/admin/ai-config/reset", {
+        method: "POST",
+        credentials: "same-origin",
+    });
+    if (res.status === 401) {
+        throw new AdminSessionExpiredError();
     }
-    const fresh = await loadAIConfigState();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(data?.error || `重置默认配置失败 (HTTP ${res.status})`);
+    }
+    const fresh: AIConfigState = {
+        active_profile: data.active_profile,
+        hasEnvApiKey: Boolean(data.hasEnvApiKey),
+        profiles: data.profiles || {},
+    };
     if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(AI_CONFIG_CHANGED_EVENT, { detail: fresh }));
     }
@@ -404,7 +482,7 @@ export async function resolveEffectiveAIProfile(): Promise<{
     if (configState.active_profile === CLIENT_COOKIE_PROFILE_ID) {
         if (!hasConfiguredClientCookie()) {
             throw new Error(
-                "当前系统已设置为「使用本地客户端模型」，请先点击主页面右上角的「本地模型配置」按钮配置您的浏览器模型接入参数（写入 Cookie）。"
+                "当前系统已设置为「使用本地客户端模型」，请先点击主页面右上角的「本地模型」按钮配置您的浏览器模型接入参数（写入 Cookie）。"
             );
         }
         return {
@@ -439,32 +517,18 @@ export async function resolveEffectiveAIProfile(): Promise<{
         };
     }
 
-    // 情况 3：走管理端当前激活的服务商配置
+    // 情况 3：走管理端当前激活的服务商配置（通过后端 /api/ai/chat 代理调用）
     const activeProfile = configState.profiles[configState.active_profile];
     if (!activeProfile) {
         throw new Error(`未找到激活的大模型配置方案: ${configState.active_profile}`);
     }
     return {
         source: "admin",
-        profile: activeProfile,
+        profile: {
+            ...activeProfile,
+            id: activeProfile.id || configState.active_profile,
+        },
     };
-}
-
-/**
- * 解析当前生效的 API Key
- */
-function resolveApiKey(profile: AIProfile, source: "admin" | "client_cookie" = "admin"): string {
-    if (source === "client_cookie") {
-        // 客户端 Cookie 模式严格使用客户端自己填写的 Key，不混用服务端内部 Key
-        return String(profile.apiKey || "").trim();
-    }
-    const candidates = [
-        profile.apiKey,
-        process.env.API_KEY,
-        typeof window !== "undefined" ? window.APP_CONFIG?.API_KEY : undefined,
-    ];
-    const found = candidates.find(k => typeof k === "string" && k.trim().length > 0);
-    return found ? found.trim() : "";
 }
 
 /**
@@ -533,14 +597,43 @@ export function resolveProtocolEndpoints(
 }
 
 /**
- * 从远端提供商拉取可用模型列表
+ * 从远端提供商拉取可用模型列表（AUD-196 双轨路由：
+ * - Client Cookie 模式：浏览器直连，确保 127.0.0.1 LM Studio / Ollama 可达；
+ * - Admin 管理模式：走后端 `/api/ai/models` 代理，复用服务端存储密钥/ENV 密钥且免跨域限制）
  */
 export async function fetchProviderModels(
-    profile: Pick<AIProfile, "endpoint" | "protocol" | "apiKey" | "model">,
-    isClientMode = false
+    profile: Pick<AIProfile, "id" | "endpoint" | "protocol" | "apiKey" | "model">,
+    isClientMode = false,
+    profileId?: string
 ): Promise<string[]> {
+    if (!isClientMode) {
+        const res = await fetch("/api/ai/models", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                profileId: profileId || profile.id || "",
+                endpoint: profile.endpoint,
+                protocol: profile.protocol || "openai",
+                model: profile.model || "",
+                apiKey: profile.apiKey || "",
+            }),
+        });
+        if (res.status === 401) {
+            throw new AdminSessionExpiredError();
+        }
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(payload?.error || `拉取模型失败 (HTTP ${res.status})`);
+        }
+        if (!Array.isArray(payload?.models) || payload.models.length === 0) {
+            throw new Error("接口返回成功，但未解析到任何模型 ID，请检查端点或手动输入模型名");
+        }
+        return payload.models;
+    }
+
     const protocol = profile.protocol || "openai";
-    const apiKey = resolveApiKey(profile as AIProfile, isClientMode ? "client_cookie" : "admin");
+    const apiKey = String(profile.apiKey || "").trim();
     const { modelsUrl } = resolveProtocolEndpoints(profile.endpoint, protocol, profile.model);
     if (!modelsUrl) {
         throw new Error("请先填写有效的接入地址 (Endpoint)");
@@ -679,11 +772,44 @@ ${getConstraint5()}`;
     return prompt;
 }
 
-async function callAI(systemPrompt: string, userPrompt: string, maxTokens?: number) {
+/**
+ * 调用大模型完成推理（R33 / AUD-196 双轨制架构）：
+ * - 当 `source === "admin"` 时，统一经由后端 `/api/ai/chat` 代理转发，服务端自动注入密钥，客户端零密钥残留；
+ * - 当 `source === "client_cookie"` 时，保持浏览器直连（支持用户本机 `127.0.0.1` LM Studio / Ollama）。
+ */
+async function callAI(systemPrompt: string, userPrompt: string, maxTokens?: number): Promise<string> {
     const { source, profile } = await resolveEffectiveAIProfile();
 
+    if (source === "admin") {
+        const res = await fetch("/api/ai/chat", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                profileId: profile.id,
+                systemPrompt,
+                userPrompt,
+                maxTokens,
+            }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data?.error || `AI 代理请求失败 (HTTP ${res.status})`);
+        }
+        const text = String(data?.text ?? "");
+        lastAICompletion = {
+            finishReason: data?.finishReason ?? null,
+            chars: Number(data?.chars ?? text.length),
+            usage: data?.usage,
+        };
+        if (lastAICompletion.finishReason === "length") {
+            console.warn("[AI] finish_reason=length，输出被本次请求上限截断", lastAICompletion);
+        }
+        return text;
+    }
+
     const protocol: AIProtocolType = profile.protocol || "openai";
-    const apiKey = resolveApiKey(profile, source);
+    const apiKey = String(profile.apiKey || "").trim();
     const { chatUrl } = resolveProtocolEndpoints(profile.endpoint, protocol, profile.model);
     const cap = profile.max_tokens ?? maxTokens ?? 8192;
 
@@ -804,7 +930,7 @@ export const generateLogicDSL = async (prompt: string, toolType: QCToolType, sub
         const tools = await getMCPTools();
 
         const parentType = toolType === QCToolType.VCHART ? 'vchart' :
-                           toolType === QCToolType.MERMAID ? 'mermaid' : 
+                           toolType === QCToolType.MERMAID ? 'mermaid' :
                            'iqs_native';
 
         let finalSubType = subType || QC_TOOL_TO_KIND[toolType];
@@ -876,7 +1002,7 @@ export const getAIStatus = async (): Promise<string> => {
         const profile = state.profiles[state.active_profile];
         if (!profile) return "未激活服务";
         return profile.model ? `${profile.name} · ${profile.model}` : profile.name;
-    } catch (e) {
+    } catch {
         return "未激活服务";
     }
 };
